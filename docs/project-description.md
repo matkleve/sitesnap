@@ -89,7 +89,28 @@ Geocoding behavior and boundary contract are defined in `architecture.md` and re
 
 ---
 
-## 7. Performance and Scalability Requirements
+## 7. MVP Contract
+
+MVP release is explicitly scoped to:
+
+- Use cases UC1-UC4 in `use-cases.md`.
+- The MVP feature groups in `features.md` section 1.
+- Core invariants I1-I5 in this document.
+
+MVP release explicitly excludes:
+
+- UC5 (right-click marker creation), which is post-MVP/experimental.
+- All items listed in section 9 (Non-Goals).
+
+Any change that adds scope beyond this contract must:
+
+- Be documented in `features.md` and `use-cases.md`.
+- Be checked against invariants I1-I5.
+- Add or update a decision in `decisions.md` if invariants/data shape/dependencies are affected.
+
+---
+
+## 8. Performance and Scalability Requirements
 
 Target support:
 
@@ -106,7 +127,7 @@ See `database-schema.md` for indexing strategy.
 
 ---
 
-## 8. Non-Goals (MVP)
+## 9. Non-Goals (MVP)
 
 Out of scope for the first version:
 
@@ -116,10 +137,12 @@ Out of scope for the first version:
 - Before/after overlays
 - Heatmaps and analytics
 - Offline mode
+- Directional relevance
+- Right-click map actions (upload/create marker here)
 
 ---
 
-## 9. Technical Stack (High Level)
+## 10. Technical Stack (High Level)
 
 - **Frontend:** Angular SPA
 - **Backend / BaaS:** Supabase (Auth, PostgreSQL, Storage)
@@ -128,7 +151,7 @@ Out of scope for the first version:
 
 ---
 
-## 10. Success Criteria
+## 11. Success Criteria
 
 GeoSite is successful for MVP when:
 

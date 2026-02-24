@@ -1,258 +1,230 @@
 # GeoSite Project Milestones
 
-Purpose: execution-ready project milestone plan that is human-friendly and AI-readable.
+Purpose: project milestone plan for GeoSite that is human-friendly and AI-readable.
 
-How to use this file
-- Treat each milestone as a release gate, not just a topic list.
-- Do milestones in order unless a dependency note says parallel work is safe.
-- For every completed TODO, add the date and owner next to the checkbox.
-- If a milestone changes invariants, schema shape, or dependencies, update `docs/decisions.md`.
+## Planning Model
+This plan intentionally uses two resolution layers.
+
+- Phase A (`M1`-`M7`) is deterministic: concrete, testable, implementation-blocking.
+- Phase B (`M8`-`M10`) is directional: outcome-oriented, adaptive, and less over-specified.
+
+This keeps the core rigid where correctness matters and flexible where discovery is expected.
+
+## Usage Instructions
+- Execute milestones in order unless a milestone explicitly allows parallelization.
+- Every completed TODO should include owner initials and date.
+- If a change impacts invariants, schema shape, or dependencies, update `docs/decisions.md`.
 - Keep terminology aligned with `docs/glossary.md`.
 
-Global project constraints
-- Security enforcement is database-first (RLS), never frontend-only.
-- EXIF coordinates are immutable; corrections are additive.
-- Map queries must be viewport-bounded and server-side filtered.
-- MVP scope is intentionally narrow; avoid adding non-goals before M8.
+## Global Constraints
+- Authorization is enforced by PostgreSQL RLS, never by frontend checks alone.
+- EXIF coordinates are immutable; corrected coordinates are additive.
+- Map retrieval remains viewport-bounded and server-filtered.
+- MVP scope remains narrow until explicit expansion.
 
-Definition of done (applies to all milestones)
-- Scope, behavior, and constraints documented.
-- Implementation path is testable from docs.
-- Acceptance criteria are objectively pass/fail.
-- Open risks and follow-ups are captured.
+## Milestone Index
+| ID | Name | Type | Depends On |
+|---|---|---|---|
+| M1 | Product Baseline and Scope Lock | Deterministic | None |
+| M2 | Identity, Lifecycle, and Role Integrity | Deterministic | M1 |
+| M3 | Schema Finalization for MVP | Deterministic | M2 |
+| M4 | Security Boundaries and RLS Policy Spec | Deterministic | M3 |
+| M5 | Map and Geocoding Behavior Contract | Deterministic | M1, M3 |
+| M6 | Ingestion and Marker Correction Pipeline | Deterministic | M3, M4 |
+| M7 | Filter and Retrieval Semantics | Deterministic | M5, M6 |
+| M8 | Performance Validation and Load Characterization | Directional | M7 |
+| M9 | Evolution Readiness and Scope Expansion Guardrails | Directional | M1-M8 |
+| M10 | Release Readiness and Ongoing Governance | Directional | M4, M8, M9 |
 
-## Milestone 1: Product Baseline and Scope Lock
+---
+
+## M1: Product Baseline and Scope Lock
 Goal
-- Freeze MVP contract so engineering decisions stay consistent.
+- Freeze MVP contract so product and engineering decisions remain consistent.
 
-Dependencies
-- None.
-
-Instructions
-- Reconcile contradictions across `docs/project-description.md`, `docs/features.md`, and `docs/use-cases.md`.
-- Ensure every MVP feature maps to at least one use case.
-- Ensure non-goals are explicit and consistent.
+Files
+- `docs/project-description.md`
+- `docs/features.md`
+- `docs/use-cases.md`
 
 TODOs
-- [ ] Build a feature-to-use-case mapping table in `docs/features.md`.
-- [ ] Add a short "MVP contract" section in `docs/project-description.md`.
-- [ ] Confirm all references to non-goals match `docs/project-description.md`.
-- [ ] Add unresolved scope questions at the end of `docs/features.md`.
+- [x] Add feature-to-use-case mapping table in `docs/features.md`. (AI, 2026-02-24)
+- [x] Add "MVP Contract" section in `docs/project-description.md`. (AI, 2026-02-24)
+- [x] Normalize non-goals wording across product docs. (AI, 2026-02-24)
 
 Acceptance criteria
-- No conflicts between MVP feature list and use-case list.
-- At least one use case exists for every MVP feature group.
-- Non-goals are consistent across all product docs.
+- No contradictions between MVP features and use-case coverage.
+- Every MVP feature group maps to at least one use case.
 
-## Milestone 2: Identity, Lifecycle, and Role Integrity
+## M2: Identity, Lifecycle, and Role Integrity
 Goal
 - Make user creation, role assignment, and deletion behavior unambiguous and safe.
 
-Dependencies
-- Milestone 1.
-
-Instructions
-- Tighten lifecycle invariants in `docs/user-lifecycle.md`.
-- Align lifecycle notes with schema constraints in `docs/database-schema.md`.
-- Validate role edge-case rules in `docs/security-boundaries.md`.
+Files
+- `docs/user-lifecycle.md`
+- `docs/database-schema.md`
+- `docs/security-boundaries.md`
+- `docs/setup-guide.md`
 
 TODOs
-- [ ] Document trigger behavior for profile + default role creation.
-- [ ] Add explicit edge case: prevent user with zero roles.
-- [ ] Add explicit edge case: prevent last admin removal.
-- [ ] Add lifecycle test checklist to `docs/setup-guide.md`.
+- [ ] Document registration trigger behavior for profile + default role.
+- [ ] Document prevention of zero-role users.
+- [ ] Document prevention of removing the last admin.
+- [ ] Add lifecycle verification checklist to setup guide.
 
 Acceptance criteria
-- User lifecycle invariants are explicit and testable.
-- Role assignment/revocation safety rules are documented end-to-end.
-- Deletion behavior has no orphan-data ambiguity.
+- Lifecycle invariants are explicit and testable.
+- Edge cases (zero-role user, last admin) are covered end-to-end.
 
-## Milestone 3: Schema Finalization for MVP
+## M3: Schema Finalization for MVP
 Goal
-- Lock schema details needed for all MVP behaviors.
+- Finalize schema contract so MVP implementation is unblockable.
 
-Dependencies
-- Milestone 2.
-
-Instructions
-- Finalize required columns and constraints in `docs/database-schema.md`.
-- Add missing uniqueness/foreign key assumptions.
-- Clarify effective coordinate logic and temporal fallback in one canonical place.
+Files
+- `docs/database-schema.md`
 
 TODOs
-- [ ] Confirm all required MVP tables are listed and scoped.
-- [ ] Add explicit nullability and FK behavior notes for critical columns.
-- [ ] Document effective coordinate precedence (corrected > EXIF).
-- [ ] Add schema-level guardrails section (recommended constraints/checks).
+- [ ] Confirm all MVP tables and critical relations are listed.
+- [ ] Document nullability and FK delete behavior for key columns.
+- [ ] Document coordinate precedence (`corrected` then `EXIF`).
+- [ ] Add recommended guardrails/check constraints.
 
 Acceptance criteria
-- No schema ambiguity blocks implementation.
-- All core invariants I1-I5 are representable in schema and constraints.
-- MVP queries can be derived directly from schema docs.
+- No unresolved schema ambiguity for MVP features.
+- Core invariants I1-I5 are representable in schema constraints.
 
-## Milestone 4: Security Boundaries and RLS Policy Spec
+## M4: Security Boundaries and RLS Policy Spec
 Goal
-- Provide complete policy-level authorization contract before implementation.
+- Provide complete authorization contract before implementation.
 
-Dependencies
-- Milestone 3.
-
-Instructions
-- Expand policy specs by table in `docs/security-boundaries.md`.
-- Keep trust model explicit (backend trusted, frontend untrusted).
-- Add policy validation checklist in `docs/setup-guide.md`.
+Files
+- `docs/security-boundaries.md`
+- `docs/setup-guide.md`
 
 TODOs
-- [ ] Add per-table policy intent for `projects`, `metadata_keys`, `image_metadata`.
-- [ ] Add policy failure examples (expected deny cases).
-- [ ] Add storage policy guidance for signed URL default.
-- [ ] Add RLS verification steps for dev setup.
+- [ ] Add explicit policy intent for `projects`, `metadata_keys`, `image_metadata`.
+- [ ] Add deny-case examples for unauthorized access.
+- [ ] Add storage access policy guidance (signed URL default).
+- [ ] Add step-by-step RLS verification workflow.
 
 Acceptance criteria
 - Every user/project-scoped table has policy guidance.
-- Deny behavior is documented, not just allow behavior.
-- Setup guide includes practical RLS verification steps.
+- Deny behavior is documented, not only allow behavior.
 
-## Milestone 5: Map and Geocoding Behavior Contract
+## M5: Map and Geocoding Behavior Contract
 Goal
-- Make spatial UX behavior deterministic and testable.
+- Define deterministic map and geocoding behavior for consistent UX and testing.
 
-Dependencies
-- Milestone 1, Milestone 3.
-
-Instructions
-- Formalize address search and fallback behavior in `docs/architecture.md` and `docs/decisions.md`.
-- Clarify cluster/result ordering and nearby semantics.
-- Add UI state behavior for loading/no-results/closest-match.
+Files
+- `docs/architecture.md`
+- `docs/decisions.md`
+- `docs/use-cases.md`
 
 TODOs
-- [ ] Add exact geocoding behavior table (exact match, closest match, no match).
-- [ ] Add explicit user notice text requirement for closest-match fallback.
-- [ ] Add cluster click ordering contract (distance asc, timestamp desc).
-- [ ] Add state handling notes for map errors and empty filters.
+- [ ] Add geocoding behavior matrix (exact, closest, no match).
+- [ ] Add mandatory fallback notice requirement.
+- [ ] Add ordering contract (distance asc, timestamp desc).
+- [ ] Add UI state contract for loading/error/empty results.
 
 Acceptance criteria
-- Geocoding and map response behavior is deterministic.
-- Result ordering is explicitly documented and testable.
-- Fallback messaging is mandatory and non-silent.
+- Geocoding behavior is deterministic for all primary states.
+- Ordering and fallback behavior are testable and non-silent.
 
-## Milestone 6: Ingestion and Marker Correction Pipeline
+## M6: Ingestion and Marker Correction Pipeline
 Goal
-- Define reliable upload-to-map data flow with EXIF preservation.
+- Define robust upload flow from file selection through spatial persistence.
 
-Dependencies
-- Milestone 3, Milestone 4.
-
-Instructions
-- Specify upload, EXIF extraction, correction, and save sequence in `docs/features.md` and `docs/use-cases.md`.
-- Document failure branches (missing EXIF, parse errors, upload retries).
-- Ensure ownership and storage policy ties are explicit.
+Files
+- `docs/features.md`
+- `docs/use-cases.md`
+- `docs/database-schema.md`
 
 TODOs
-- [ ] Add end-to-end upload sequence (file -> storage -> metadata -> image row).
-- [ ] Add missing-EXIF behavior and fallback coordinate flow.
-- [ ] Add marker-correction persistence contract and audit note.
-- [ ] Add user-facing error handling expectations.
+- [ ] Add end-to-end sequence: upload -> EXIF parse -> storage -> image row save.
+- [ ] Add missing-EXIF fallback path.
+- [ ] Add marker correction persistence contract.
+- [ ] Add user-visible error and retry expectations.
 
 Acceptance criteria
-- Upload flow includes successful and failure branches.
-- EXIF immutability rule is explicit in all relevant docs.
-- Corrected coordinate behavior is consistent across feature and schema docs.
+- Success and failure branches are both documented.
+- EXIF immutability and corrected-coordinate semantics are consistent across docs.
 
-## Milestone 7: Filter and Retrieval Semantics
+## M7: Filter and Retrieval Semantics
 Goal
-- Fully define filter logic for time/project/metadata/distance and pagination.
+- Lock filter and retrieval behavior for time/project/metadata/distance.
 
-Dependencies
-- Milestone 5, Milestone 6.
-
-Instructions
-- Consolidate filter semantics in `docs/features.md` and `docs/use-cases.md`.
-- Add clear rules for combining filters and ordering results.
-- Tie query behavior to indexing strategy in `docs/database-schema.md`.
+Files
+- `docs/features.md`
+- `docs/use-cases.md`
+- `docs/database-schema.md`
 
 TODOs
-- [ ] Add canonical filter-combination rules (AND/OR behavior).
-- [ ] Add pagination and limit defaults for viewport queries.
-- [ ] Add distance filter reference-point definition and edge cases.
-- [ ] Add index coverage notes for top query patterns.
+- [ ] Define canonical filter-combination rules.
+- [ ] Define pagination defaults and maximum limits.
+- [ ] Define distance reference point and edge-case behavior.
+- [ ] Add index coverage notes for dominant query paths.
 
 Acceptance criteria
-- Filter semantics are implementation-ready.
-- Query behavior is performance-aware and index-backed.
-- No ambiguity remains on ordering, pagination, or filter composition.
+- Filter semantics are implementation-ready and unambiguous.
+- Query behavior aligns with index strategy and pagination guardrails.
 
-## Milestone 8: Performance and Scalability Readiness
+---
+
+## M8: Performance Validation and Load Characterization (Directional)
 Goal
-- Establish measurable performance guardrails for MVP release.
+- Ensure the system remains responsive under realistic MVP usage.
 
-Dependencies
-- Milestone 7.
+What must be true
+- Map interactions feel responsive under representative dataset sizes.
+- No unbounded query path exists in normal workflows.
+- Dominant query paths have validated index coverage.
 
-Instructions
-- Convert current performance statements into measurable targets.
-- Add load profile assumptions (users, images, viewport density).
-- Define observability and fallback expectations.
+Suggested focus areas (not rigid checklist)
+- Characterize typical load profiles (users, images, map density).
+- Run representative retrieval/filter scenarios.
+- Document observed bottlenecks and practical mitigations.
 
-TODOs
-- [ ] Add target response time budgets for common map/filter actions.
-- [ ] Add stress scenarios (dense markers, broad time ranges, metadata-heavy filters).
-- [ ] Add graceful degradation rules (clustering, pagination tightening).
-- [ ] Add performance validation checklist in `docs/setup-guide.md`.
+Success condition
+- Team can explain current performance envelope and known limits with evidence.
 
-Acceptance criteria
-- Performance expectations are numeric, not qualitative.
-- Stress cases and degradation behavior are documented.
-- MVP performance gate is testable before release.
-
-## Milestone 9: Expanded Project Use Cases
+## M9: Evolution Readiness and Scope Expansion Guardrails (Directional)
 Goal
-- Broaden operational coverage beyond baseline personas without breaking MVP focus.
+- Enable safe expansion beyond strict MVP without breaking core invariants.
 
-Dependencies
-- Milestone 1.
+What must be true
+- Scope expansion proposals reference existing invariants and non-goals.
+- Any schema-affecting change includes migration and rollback thinking.
+- New use cases map back to existing security and data boundaries.
 
-Instructions
-- Add new practical use cases in `docs/use-cases.md` tied to current architecture.
-- Keep future-focused flows clearly marked post-MVP.
+Suggested focus areas (not rigid checklist)
+- Add highest-value operational use cases (e.g., supervisor review, metadata stewardship).
+- Document where current architecture supports growth and where it does not.
+- Keep post-MVP features clearly marked as non-blocking.
 
-TODOs
-- [ ] Add UC6: supervisor multi-project site review.
-- [ ] Add UC7: data steward metadata normalization and cleanup workflow.
-- [ ] Add UC8: security audit flow for role and access verification.
-- [ ] Link each new use case to features and security boundaries.
+Success condition
+- New scope can be added deliberately without destabilizing MVP commitments.
 
-Acceptance criteria
-- New use cases are concrete and role-specific.
-- Each new use case has preconditions, flow, postconditions, invariants.
-- MVP vs post-MVP boundaries remain explicit.
-
-## Milestone 10: Release Governance and Change Control
+## M10: Release Readiness and Ongoing Governance (Directional)
 Goal
-- Create a repeatable release process with quality gates.
+- Establish lightweight but reliable release discipline.
 
-Dependencies
-- Milestone 8, Milestone 9.
+What must be true
+- Release readiness includes security verification, functional verification, and performance verification.
+- High-impact changes are traceable to affected docs and decisions.
+- Invariant drift and ADR drift are reviewed on a recurring cadence.
 
-Instructions
-- Define release gates for security, performance, and functional correctness.
-- Standardize how changes are proposed across docs.
-- Require traceability from change -> impacted docs -> acceptance checks.
+Suggested focus areas (not rigid checklist)
+- Keep a minimal release gate checklist.
+- Keep a lightweight change-impact template.
+- Run periodic doc consistency reviews.
 
-TODOs
-- [ ] Add release gate checklist section in `docs/setup-guide.md` or new release doc.
-- [ ] Add "change impact" template for PR/issue descriptions.
-- [ ] Add required docs-to-update list for schema/security changes.
-- [ ] Add recurring review cadence for decisions and invariant drift.
+Success condition
+- Releases are predictable, and governance reduces risk without blocking delivery velocity.
 
-Acceptance criteria
-- Release criteria are explicit and reusable.
-- Change requests include impact traceability.
-- Decision and invariant drift is regularly reviewed.
+---
 
-## AI-friendly formatting conventions for this project plan
-- Use stable headers (`Milestone X: Name`) so tools can parse progress.
-- Keep `Goal`, `Dependencies`, `Instructions`, `TODOs`, `Acceptance criteria` in every milestone.
-- Keep TODO lines as checkbox items for easy extraction.
-- Keep acceptance criteria measurable and unambiguous.
-- Prefer glossary terms exactly as defined in `docs/glossary.md`.
+## AI-Friendly Readability Rules
+- Keep milestone headers stable: `## Mx: Name`.
+- Keep deterministic milestones concrete and checkable.
+- Keep directional milestones outcome-oriented.
+- Keep terminology aligned with `docs/glossary.md`.

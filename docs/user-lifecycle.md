@@ -17,6 +17,20 @@ See also: `glossary.md`, `security-boundaries.md`, `database-schema.md`, and `de
 
 This ensures system consistency without any client-side orchestration.
 
+### Registration Trigger Contract
+
+- Trigger timing: runs immediately after a new row is created in `auth.users`.
+- Trigger responsibilities:
+  - Create exactly one `profiles` row for the new `auth.users.id`.
+  - Assign the default `user` role in `user_roles`.
+- Failure behavior:
+  - If profile creation or role assignment fails, registration transaction must fail.
+  - The system must never leave a user without a profile or without a role.
+- Operational requirement:
+  - `roles` must already contain `user` before registration is allowed.
+- Idempotency requirement:
+  - Trigger logic must avoid duplicate `profiles` / `user_roles` rows if retried.
+
 **Invariants**
 
 - Every `auth.users` row has exactly one `profiles` row.

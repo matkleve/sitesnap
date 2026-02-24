@@ -7,6 +7,13 @@ See `project-description.md` for the high-level vision and `features.md` for the
 
 ---
 
+## MVP Boundary
+
+- In scope for MVP: UC1, UC2, UC3, UC4.
+- Out of scope for MVP: UC5 (post-MVP, experimental).
+
+---
+
 ## UC1 – Technician on Site (View History)
 
 **Goal**  
@@ -191,4 +198,5 @@ Quickly anchor a new upload or marker at an arbitrary point on the map, even if 
 
 - Additional use cases (e.g., exporting data, advanced filtering) can be added here as the product evolves.
 - Any new use case should link back to relevant features and, if needed, trigger new decisions in `decisions.md`.
+
 

@@ -102,12 +102,30 @@ See `architecture.md`, `database-schema.md`, and `security-boundaries.md`.
 
 ---
 
-## 2. Post-MVP / Future Considerations
+### 1.7 MVP Feature-to-Use-Case Mapping
+
+| MVP Feature Group | Feature IDs | Primary Use Cases |
+|---|---|---|
+| Authentication and User Management | 1-3 | UC1, UC2, UC3, UC4 |
+| Image Ingestion | 4-7 | UC3 |
+| Spatial and Temporal Exploration | 8-14 | UC1, UC2 |
+| Project and Metadata | 15-17 | UC2, UC3 |
+| Distance Filtering | 18 | UC1, UC2 |
+| Security and Performance | 19-21 | UC1, UC2, UC3, UC4 |
+
+MVP use cases are UC1-UC4. UC5 is post-MVP and does not gate MVP release.
+
+---
+
+## 2. Non-Goals (MVP) and Post-MVP Considerations
+
+The following items are out of scope for MVP and may be considered post-MVP:
 
 1. Advanced image editing (crop, annotate, measure).
-2. Before/after overlays.
-3. Heatmaps and analytics.
-4. Offline mode.
-5. Richer permission models.
-6. Directional relevance.
-7. Right-click map actions (upload/create marker here).
+2. Public/social sharing.
+3. Complex hierarchical permission models.
+4. Before/after overlays.
+5. Heatmaps and analytics.
+6. Offline mode.
+7. Directional relevance.
+8. Right-click map actions (upload/create marker here).
