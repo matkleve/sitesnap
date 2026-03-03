@@ -2,6 +2,42 @@
 
 Purpose: project milestone plan for GeoSite that is human-friendly and AI-readable.
 
+---
+
+## Ground Rules
+
+Invariants that every implementation session must uphold.
+
+### Architecture
+
+- **AuthService owns all session state.** No component or guard reads `supabase.client.auth` directly.
+- **All Supabase auth calls go through `AuthService`.** Components only call service methods.
+- **Session signal is loaded before first route renders.** `APP_INITIALIZER` calls `AuthService.initialize()`; guards wait for `loading()` to be false via `waitForAuth()`.
+- **All feature routes are lazy-loaded.** No eager imports of page components in `app.routes.ts`.
+- **Errors are returned as `{ error }` objects; services never throw.** Components read `.error` and display where appropriate.
+
+### Angular conventions
+
+- **Standalone components everywhere.** No NgModules introduced.
+- **`FormBuilder.nonNullable.group()`** for all reactive forms — avoids nullable value types.
+- **Signals for local UI state** (`signal<boolean>`, `signal<string | null>`, etc.) — no BehaviorSubject in components.
+- **Imports array is explicit in every standalone component.** Only what the template uses.
+
+### Testing
+
+- **Zero `fakeAsync` / `tick`.** Project uses the zoneless `@angular/build:unit-test` runner (Vitest). Use `async/await` + `fixture.whenStable()` or `vi.waitFor()`.
+- **No real HTTP / Supabase calls in unit tests.** `SupabaseService` is replaced with a fake in every spec.
+- **Router is mocked in components that have no `RouterLink`.** `{ provide: Router, useValue: { navigate: vi.fn() } }` avoids NG04002 from dangling navigations.
+- **One `describe` per class/function; one `it` per behavior.** Follow Arrange–Act–Assert.
+
+### Database
+
+- **Every new table ships with RLS before use.** See `docs/security-boundaries.md §6`.
+- **EXIF coordinates are immutable.** Corrections go into `coordinate_corrections`.
+- **Migrations are sequential and numbered.** Never edit a pushed migration; add a new one.
+
+---
+
 ## Planning Model
 
 This plan intentionally uses two resolution layers.
@@ -326,6 +362,181 @@ Suggested focus areas (not rigid checklist)
 Success condition
 
 - Releases are predictable, and governance reduces risk without blocking delivery velocity.
+
+---
+
+## Implementation Milestone Index
+
+These milestones track actual code delivery. They depend on design milestones M1–M7a being complete.
+
+| ID       | Name                            | Status      | Depends On           |
+| -------- | ------------------------------- | ----------- | -------------------- |
+| M-IMPL1  | Project Bootstrap               | ✅ Done     | M1–M4                |
+| M-IMPL2  | Auth Layer                      | ✅ Done     | M-IMPL1, M2          |
+| M-IMPL3  | Map Shell                       | 🔲 Next     | M-IMPL2, M5          |
+| M-IMPL4  | Photo Ingestion Pipeline        | 🔲 Pending  | M-IMPL3, M6          |
+| M-IMPL5  | Filter + Retrieval UI           | 🔲 Pending  | M-IMPL4, M7, M7a     |
+
+---
+
+## M-IMPL1: Project Bootstrap ✅
+
+Goal
+
+- Live Supabase project wired into Angular; app compiles and builds.
+
+Files
+
+- `apps/web/src/app/core/supabase.service.ts`
+- `apps/web/src/environments/environment.ts`
+- `apps/web/src/environments/environment.development.ts`
+- `apps/web/angular.json` (fileReplacements)
+- `supabase/migrations/` (6 migrations)
+
+TODOs
+
+- [x] Create Supabase project (remote `yvvzbpnoesxlzlbomlkv`). (AI, 2026-03-03)
+- [x] Install `@supabase/supabase-js` in `apps/web`. (AI, 2026-03-03)
+- [x] Create `SupabaseService` with typed `client`. (AI, 2026-03-03)
+- [x] Wire environment files with `fileReplacements` in `angular.json`. (AI, 2026-03-03)
+- [x] Push 6 migrations: extensions, tables, indexes, triggers, RLS, seed. (AI, 2026-03-03)
+- [x] Verify `ng build --configuration development` passes. (AI, 2026-03-04)
+
+Acceptance criteria
+
+- `ng build` exits 0 with no TypeScript errors.
+- `SupabaseService` constructs a live client from environment config.
+- All 6 migrations are applied on remote Supabase.
+
+---
+
+## M-IMPL2: Auth Layer ✅
+
+Goal
+
+- End-to-end authentication: sign-in, register, password reset, session persistence, route guards. All paths covered by tests.
+
+Files
+
+- `apps/web/src/app/core/auth.service.ts`
+- `apps/web/src/app/core/auth.service.spec.ts`
+- `apps/web/src/app/core/auth.guard.ts`
+- `apps/web/src/app/core/auth.guard.spec.ts`
+- `apps/web/src/app/features/auth/login/`
+- `apps/web/src/app/features/auth/register/`
+- `apps/web/src/app/features/auth/reset-password/`
+- `apps/web/src/app/features/auth/update-password/`
+- `apps/web/src/app/app.routes.ts`
+- `apps/web/src/app/app.config.ts`
+
+TODOs
+
+- [x] Create `AuthService` with signals-based session, `APP_INITIALIZER`, and all auth calls. (AI, 2026-03-03)
+- [x] Create `authGuard` and `guestGuard` with loading race-condition fix. (AI, 2026-03-03)
+- [x] Create `LoginComponent`. (AI, 2026-03-03)
+- [x] Create `RegisterComponent`. (AI, 2026-03-03)
+- [x] Create `ResetPasswordComponent`. (AI, 2026-03-03)
+- [x] Create `UpdatePasswordComponent`. (AI, 2026-03-03)
+- [x] Lazy-load all 4 auth components in `app.routes.ts`. (AI, 2026-03-03)
+- [x] Add `APP_INITIALIZER` to `app.config.ts`. (AI, 2026-03-03)
+- [x] Fix TypeScript errors from build (`auth.guard.ts` type + wrong import paths). (AI, 2026-03-04)
+- [x] Write `auth.service.spec.ts` (18 tests). (AI, 2026-03-04)
+- [x] Write `auth.guard.spec.ts` (5 tests). (AI, 2026-03-04)
+- [x] Write component specs for all 4 auth components (31 tests). (AI, 2026-03-04)
+- [x] All 56 tests pass (`ng test --no-watch` exits 0). (AI, 2026-03-04)
+
+Acceptance criteria
+
+- Build is clean: `ng build --configuration development` exits 0.
+- All 56 unit tests pass with no unhandled errors.
+- Session signal populates before first route guard runs.
+- `PASSWORD_RECOVERY` event routes user to `/auth/update-password`.
+
+---
+
+## M-IMPL3: Map Shell 🔲
+
+Goal
+
+- Leaflet map renders at `/`. Authenticated users land on the map; unauthenticated users
+  are redirected to `/auth/login`.
+
+Files
+
+- `apps/web/src/app/features/map/map-shell/map-shell.component.ts` (+ html, scss)
+- `apps/web/src/app/features/map/map-shell/map-shell.component.spec.ts`
+- `apps/web/src/app/app.routes.ts` (add map route)
+
+TODOs
+
+- [ ] Install `leaflet` and `@types/leaflet` in `apps/web`.
+- [ ] Create `MapShellComponent`: initialise Leaflet map in `afterNextRender`, default view to world.
+- [ ] Add `{ path: '', component: MapShellComponent }` under the `authGuard` route group.
+- [ ] Write spec: map container element exists, component creates.
+- [ ] Verify `ng build` and `ng test` still pass.
+
+Acceptance criteria
+
+- Navigating to `/` as an authenticated user renders a Leaflet map.
+- Navigating to `/` as an unauthenticated user redirects to `/auth/login`.
+- Map container element is present in the DOM (`#map` or equivalent).
+
+---
+
+## M-IMPL4: Photo Ingestion Pipeline 🔲
+
+Goal
+
+- User can upload images; EXIF coordinates are extracted and persisted; images appear on the map as markers.
+
+Files (planned)
+
+- `apps/web/src/app/features/upload/` (upload component)
+- `apps/web/src/app/core/upload.service.ts`
+- Supabase Storage bucket `images`
+
+TODOs
+
+- [ ] Create Supabase Storage bucket `images` with signed-URL access.
+- [ ] Install `exifr` for browser-side EXIF parsing.
+- [ ] Create `UploadService`: validate file (25 MB, MIME), parse EXIF, upload to Storage, insert `images` row.
+- [ ] Create `UploadPanelComponent`: drag-and-drop or file picker, progress display, error display.
+- [ ] Show uploaded markers on the map immediately after ingestion.
+- [ ] Write unit tests for `UploadService` (mock Storage + Supabase insert).
+
+Acceptance criteria
+
+- JPEG / PNG / HEIC with GPS EXIF → marker appears on map.
+- Files > 25 MB or wrong MIME are rejected with a user-visible error.
+- Missing EXIF → user is prompted to place marker manually.
+- Storage URL is signed (not public).
+
+---
+
+## M-IMPL5: Filter + Retrieval UI 🔲
+
+Goal
+
+- Users can filter markers by project, date range, and metadata. Map viewport controls what is fetched. Pagination is cursor-based.
+
+Files (planned)
+
+- `apps/web/src/app/features/map/filter-panel/`
+- `apps/web/src/app/core/images.service.ts`
+
+TODOs
+
+- [ ] Create `ImagesService`: viewport-bounded PostGIS query, cursor pagination, abort on viewport change.
+- [ ] Create `FilterPanelComponent`: project, date range, metadata key/value filters.
+- [ ] Wire filter state into viewport query (debounced).
+- [ ] Write tests for `ImagesService` (mock Supabase RPC / select).
+
+Acceptance criteria
+
+- Map shows only markers within current viewport (PostGIS-filtered).
+- Filter combinations use AND semantics.
+- Pagination loads 50 markers per page via cursor.
+- Changing viewport or filters aborts the in-flight request.
 
 ---
 

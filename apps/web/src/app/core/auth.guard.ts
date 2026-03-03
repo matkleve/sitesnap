@@ -13,29 +13,25 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { toObservable } from '@angular/core/rxjs-interop';
-import { filter, map, take } from 'rxjs';
+import { filter, take } from 'rxjs';
 import { AuthService } from './auth.service';
 
 /**
- * Wait for auth to finish loading, then allow or redirect.
- * Used internally by both guards.
+ * Wait for AuthService.loading to flip to false.
+ * Accepts the already-injected AuthService so injection context is not required
+ * inside this helper (only the calling guard needs injection context).
  */
-function waitForAuth(): Promise<{ session: ReturnType<AuthService['session']>; router: Router }> {
-    const auth = inject(AuthService);
-    const router = inject(Router);
-
+function waitForAuth(auth: AuthService): Promise<void> {
+    if (!auth.loading()) {
+        return Promise.resolve();
+    }
     return new Promise((resolve) => {
-        if (!auth.loading()) {
-            resolve({ session: auth.session, router });
-            return;
-        }
-        // loading is true — wait for it to flip to false
         toObservable(auth.loading)
             .pipe(
                 filter((loading) => !loading),
                 take(1),
             )
-            .subscribe(() => resolve({ session: auth.session, router }));
+            .subscribe(() => resolve());
     });
 }
 
@@ -44,9 +40,12 @@ function waitForAuth(): Promise<{ session: ReturnType<AuthService['session']>; r
  * Usage: canActivate: [authGuard]
  */
 export const authGuard: CanActivateFn = async () => {
-    const { session, router } = await waitForAuth();
+    const auth = inject(AuthService);
+    const router = inject(Router);
 
-    if (session()) {
+    await waitForAuth(auth);
+
+    if (auth.session()) {
         return true;
     }
 
@@ -59,9 +58,12 @@ export const authGuard: CanActivateFn = async () => {
  * Usage: canActivate: [guestGuard]
  */
 export const guestGuard: CanActivateFn = async () => {
-    const { session, router } = await waitForAuth();
+    const auth = inject(AuthService);
+    const router = inject(Router);
 
-    if (!session()) {
+    await waitForAuth(auth);
+
+    if (!auth.session()) {
         return true;
     }
 

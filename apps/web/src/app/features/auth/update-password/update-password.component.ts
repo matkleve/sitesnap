@@ -13,7 +13,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { AuthService } from '../../core/auth.service';
+import { AuthService } from '../../../core/auth.service';
 
 function passwordsMatch(control: AbstractControl): ValidationErrors | null {
     const password = control.get('password')?.value;

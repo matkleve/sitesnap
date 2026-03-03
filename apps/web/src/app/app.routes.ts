@@ -56,8 +56,15 @@ export const routes: Routes = [
         path: '',
         canActivate: [authGuard],
         children: [
-            // TODO M-IMPL3: add map/main shell route here
-            { path: '', redirectTo: 'auth/login', pathMatch: 'full' },
+            // M-IMPL3: map shell — the main authenticated view
+            {
+                path: '',
+                loadComponent: () =>
+                    import('./features/map/map-shell/map-shell.component').then(
+                        (m) => m.MapShellComponent,
+                    ),
+                pathMatch: 'full',
+            },
         ],
     },
 
