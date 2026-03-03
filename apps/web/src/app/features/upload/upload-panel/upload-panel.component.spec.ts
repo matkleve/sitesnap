@@ -321,6 +321,36 @@ describe('UploadPanelComponent', () => {
         });
     });
 
+    describe('placementRequested output', () => {
+        it('emits placementRequested when processFile finds no GPS data', async () => {
+            const { component, fakeUploadService, fixture } = await setup();
+            const emittedKeys: string[] = [];
+
+            // Subscribe to the placementRequested output
+            fixture.componentInstance.placementRequested.subscribe((key: string) => {
+                emittedKeys.push(key);
+            });
+
+            // Configure fake to return no coords
+            fakeUploadService.parseExif.mockResolvedValue({});
+            fakeUploadService.validateFile.mockReturnValue({ valid: true });
+
+            // Trigger file enqueue via onFileInputChange
+            const file = new File([new Uint8Array(512)], 'noexif.jpg', { type: 'image/jpeg' });
+            const dataTransfer = { files: [file] } as unknown as DataTransfer;
+            component.onDrop({
+                preventDefault: vi.fn(),
+                stopPropagation: vi.fn(),
+                dataTransfer,
+            } as unknown as DragEvent);
+
+            // Wait for the async processFile pipeline
+            await vi.waitFor(() => {
+                expect(emittedKeys.length).toBe(1);
+            });
+        });
+    });
+
     describe('trackByKey()', () => {
         it('returns the state key', async () => {
             const { component } = await setup();

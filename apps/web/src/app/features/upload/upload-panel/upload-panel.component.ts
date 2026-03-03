@@ -81,6 +81,13 @@ export class UploadPanelComponent {
      */
     readonly imageUploaded = output<ImageUploadedEvent>();
 
+    /**
+     * Emitted when a file has no GPS EXIF data and enters `awaiting_placement`.
+     * The parent (MapShellComponent) should enter placement mode so the next
+     * map click supplies coordinates for this file.
+     */
+    readonly placementRequested = output<string>();
+
     // ── State ──────────────────────────────────────────────────────────────────
 
     readonly fileStates = signal<FileUploadState[]>([]);
@@ -197,6 +204,7 @@ export class UploadPanelComponent {
         if (exifCoords == null) {
             // No GPS data — prompt the user to place manually.
             this.setStatus(key, 'awaiting_placement');
+            this.placementRequested.emit(key);
             this.drainQueue();
             return;
         }
@@ -221,8 +229,8 @@ export class UploadPanelComponent {
                 result.error instanceof Error
                     ? result.error.message
                     : typeof result.error === 'object'
-                      ? (result.error as { message?: string }).message ?? String(result.error)
-                      : String(result.error);
+                        ? (result.error as { message?: string }).message ?? String(result.error)
+                        : String(result.error);
             this.setStatus(key, 'error', { error: msg });
         } else {
             this.setStatus(key, 'complete', {

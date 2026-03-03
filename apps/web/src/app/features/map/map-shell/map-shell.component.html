@@ -23,6 +23,20 @@
     <div #mapContainer class="map-container" aria-label="Site map"></div>
 
     <!-- Upload panel overlay -->
-    <app-upload-panel [visible]="uploadPanelVisible()" (imageUploaded)="onImageUploaded($event)" />
+    <app-upload-panel
+      [visible]="uploadPanelVisible()"
+      (imageUploaded)="onImageUploaded($event)"
+      (placementRequested)="enterPlacementMode($event)"
+    />
+
+    <!-- Placement mode banner -->
+    @if (placementActive()) {
+      <div class="map-placement-banner" role="status">
+        📍 Click the map to place the image
+        <button class="map-placement-banner__cancel" type="button" (click)="cancelPlacement()">
+          Cancel
+        </button>
+      </div>
+    }
   </div>
 </div>

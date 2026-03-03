@@ -46,6 +46,8 @@ export interface ParsedExif {
     coords?: ExifCoords;
     /** Original capture timestamp from EXIF DateTimeOriginal. */
     capturedAt?: Date;
+    /** Camera compass direction in degrees (0–360), from GPSImgDirection. */
+    direction?: number;
 }
 
 /** A successfully completed upload. */
@@ -56,6 +58,8 @@ export interface UploadSuccess {
     storagePath: string;
     /** Persisted coordinates (EXIF or manually supplied). */
     coords?: ExifCoords;
+    /** Camera compass direction in degrees (0–360), if available from EXIF. */
+    direction?: number;
     error: null;
 }
 
@@ -116,7 +120,7 @@ export class UploadService {
         try {
             const [gps, meta] = await Promise.all([
                 exifr.gps(file),
-                exifr.parse(file, ['DateTimeOriginal']),
+                exifr.parse(file, ['DateTimeOriginal', 'GPSImgDirection']),
             ]);
 
             const coords: ExifCoords | undefined =
@@ -124,9 +128,16 @@ export class UploadService {
                     ? { lat: gps.latitude, lng: gps.longitude }
                     : undefined;
 
+            const rawDir = meta?.GPSImgDirection;
+            const direction: number | undefined =
+                typeof rawDir === 'number' && rawDir >= 0 && rawDir <= 360
+                    ? rawDir
+                    : undefined;
+
             return {
                 coords,
                 capturedAt: meta?.DateTimeOriginal ?? undefined,
+                direction,
             };
         } catch {
             // Silently treat parse failures as "no EXIF" — the caller will
@@ -215,7 +226,7 @@ export class UploadService {
         }
 
         // ── 5. Parse EXIF ──────────────────────────────────────────────────────
-        const { coords: exifCoords, capturedAt } = await this.parseExif(file);
+        const { coords: exifCoords, capturedAt, direction } = await this.parseExif(file);
 
         // Determine the persisted lat/lng:
         //  - EXIF GPS takes precedence over manual placement for the EXIF columns.
@@ -235,6 +246,7 @@ export class UploadService {
                 latitude: finalCoords?.lat ?? null,
                 longitude: finalCoords?.lng ?? null,
                 captured_at: capturedAt ?? null,
+                direction: direction ?? null,
             })
             .select('id')
             .single();
@@ -247,6 +259,7 @@ export class UploadService {
             id: imageRow.id as string,
             storagePath,
             coords: finalCoords,
+            direction,
             error: null,
         };
     }

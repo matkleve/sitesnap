@@ -245,6 +245,49 @@ describe('UploadService', () => {
 
             expect(result.coords).toBeUndefined();
         });
+
+        it('returns direction when GPSImgDirection is present', async () => {
+            vi.mocked(exifr.gps).mockResolvedValue({ latitude: 37.7, longitude: -122.4 });
+            vi.mocked(exifr.parse).mockResolvedValue({
+                DateTimeOriginal: new Date('2025-06-01'),
+                GPSImgDirection: 127.5,
+            });
+
+            const { service } = setup();
+            const result = await service.parseExif(makeFile());
+
+            expect(result.direction).toBe(127.5);
+        });
+
+        it('returns undefined direction when GPSImgDirection is absent', async () => {
+            vi.mocked(exifr.gps).mockResolvedValue({ latitude: 37.7, longitude: -122.4 });
+            vi.mocked(exifr.parse).mockResolvedValue({ DateTimeOriginal: new Date('2025-06-01') });
+
+            const { service } = setup();
+            const result = await service.parseExif(makeFile());
+
+            expect(result.direction).toBeUndefined();
+        });
+
+        it('rejects direction outside 0–360 range', async () => {
+            vi.mocked(exifr.gps).mockResolvedValue({ latitude: 37.7, longitude: -122.4 });
+            vi.mocked(exifr.parse).mockResolvedValue({ GPSImgDirection: 400 });
+
+            const { service } = setup();
+            const result = await service.parseExif(makeFile());
+
+            expect(result.direction).toBeUndefined();
+        });
+
+        it('rejects non-numeric direction values', async () => {
+            vi.mocked(exifr.gps).mockResolvedValue({ latitude: 37.7, longitude: -122.4 });
+            vi.mocked(exifr.parse).mockResolvedValue({ GPSImgDirection: 'NNW' });
+
+            const { service } = setup();
+            const result = await service.parseExif(makeFile());
+
+            expect(result.direction).toBeUndefined();
+        });
     });
 
     // ── uploadFile() ───────────────────────────────────────────────────────────
@@ -388,6 +431,44 @@ describe('UploadService', () => {
 
             const insertCall = fakeSupabase._imagesInsertChain.insert.mock.calls[0][0];
             expect(insertCall.captured_at).toBeNull();
+        });
+
+        it('inserts direction when EXIF GPSImgDirection is present', async () => {
+            vi.mocked(exifr.parse).mockResolvedValue({
+                DateTimeOriginal: new Date('2025-01-10'),
+                GPSImgDirection: 245.3,
+            });
+
+            const { service, fakeSupabase } = setup();
+            await service.uploadFile(makeFile());
+
+            const insertCall = fakeSupabase._imagesInsertChain.insert.mock.calls[0][0];
+            expect(insertCall.direction).toBe(245.3);
+        });
+
+        it('inserts null direction when EXIF has no GPSImgDirection', async () => {
+            vi.mocked(exifr.parse).mockResolvedValue({ DateTimeOriginal: new Date('2025-01-10') });
+
+            const { service, fakeSupabase } = setup();
+            await service.uploadFile(makeFile());
+
+            const insertCall = fakeSupabase._imagesInsertChain.insert.mock.calls[0][0];
+            expect(insertCall.direction).toBeNull();
+        });
+
+        it('includes direction in successful upload result', async () => {
+            vi.mocked(exifr.parse).mockResolvedValue({
+                DateTimeOriginal: new Date('2025-01-10'),
+                GPSImgDirection: 90,
+            });
+
+            const { service } = setup();
+            const result = await service.uploadFile(makeFile());
+
+            expect(result.error).toBeNull();
+            if (result.error === null) {
+                expect(result.direction).toBe(90);
+            }
         });
     });
 

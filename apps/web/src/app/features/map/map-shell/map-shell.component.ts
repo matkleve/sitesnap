@@ -59,6 +59,9 @@ export class MapShellComponent implements OnDestroy {
      */
     private pendingPlacementKey: string | null = null;
 
+    /** Whether the map is in placement mode (drives the banner + cursor class). */
+    readonly placementActive = signal(false);
+
     /** Reference to the UploadPanelComponent child. */
     private readonly uploadPanel = viewChild(UploadPanelComponent);
 
@@ -99,6 +102,16 @@ export class MapShellComponent implements OnDestroy {
      */
     enterPlacementMode(key: string): void {
         this.pendingPlacementKey = key;
+        this.placementActive.set(true);
+        // Add crosshair cursor class to the map container
+        this.map?.getContainer().classList.add('map-container--placing');
+    }
+
+    /** Cancels placement mode without placing the image. */
+    cancelPlacement(): void {
+        this.pendingPlacementKey = null;
+        this.placementActive.set(false);
+        this.map?.getContainer().classList.remove('map-container--placing');
     }
 
     // ── Map init ────────────────────────────────────────────────────────────────
@@ -127,6 +140,8 @@ export class MapShellComponent implements OnDestroy {
                 panel.placeFile(this.pendingPlacementKey, coords);
             }
             this.pendingPlacementKey = null;
+            this.placementActive.set(false);
+            this.map?.getContainer().classList.remove('map-container--placing');
         });
     }
 }
