@@ -118,7 +118,14 @@ See relevant historical images for the exact spot the technician is currently st
    - Timestamp.
    - Project.
    - Metadata (e.g., “Material: Beton”).
-7. Technician swipes or clicks through related images around the same spot.
+7. Technician swipes or clicks through related images in the Active Selection tab.
+
+**Alternative Flow: Radius Selection**
+
+3a. Instead of using distance filter presets, the technician long-presses on the map and drags outward to draw a selection circle.
+4a. All images within the circle are fetched and displayed in the Active Selection tab (bottom sheet on mobile).
+5a. Technician reviews thumbnails in the Active Selection tab, taps one to see full detail.
+6a. Technician optionally saves interesting images to a named group ("Save as Group" button) for later reference.
 
 **Postconditions**
 
@@ -152,23 +159,33 @@ Use historical images to estimate work and materials for a new quote.
 3. Clerk selects one or more **projects** relevant to the new quote.
 4. Clerk narrows down the **time range** (e.g., last 2 years).
 5. Clerk optionally filters by **metadata** (e.g., `Material = Beton`) and **max distance**.
-6. Map and/or list view shows matching images:
+6. Map and workspace pane show matching images:
    - Clustered on the map.
-   - With thumbnails and metadata in a side panel or list.
-7. Clerk opens individual images to inspect:
+   - Thumbnails in the Active Selection tab of the workspace.
+7. Clerk creates a named group for this quote ("Save as Group" → "Quote 2026-03 Zürich").
+8. Clerk navigates to other map locations, makes additional selections, and adds relevant images to the group.
+9. Clerk opens individual images from the group tab to inspect:
    - Condition of work.
    - Existing materials.
    - Complexity of site.
-8. Clerk exports or notes relevant findings to incorporate into the quote.
+10. Clerk uses the group for reference when preparing the quote. (Export is a post-MVP feature.)
+
+**Alternative Flow: Radius Selection for Area Review**
+
+6a. Clerk right-click drags on the map to select a circular area around the job site.
+7a. Active Selection populates with all images in the radius.
+8a. Clerk reviews, then saves to a named group.
 
 **Postconditions**
 
 - Clerk has enough visual context to produce a confident, justified quote.
+- Relevant images are organized in a named group for reference.
 
 **Key Invariants**
 
 - Filters are all applied server-side.
 - Only thumbnails are initially loaded for overview; full images only on demand.
+- Filter state and viewport are preserved when switching between workspace tabs and the map.
 
 ---
 
@@ -191,13 +208,17 @@ Upload a new photo from the field and correct its position if EXIF coordinates a
 1. Technician opens the upload screen (from the main UI or, in future, via a context action on the map).
 2. Technician selects one or more images from the device.
 3. For each image:
-   - GeoSite uploads the file to Supabase Storage.
+   - GeoSite validates: file size ≤25MB, accepted type (JPEG, PNG, WebP, HEIC, HEIF), dimensions within bounds.
+   - HEIC/HEIF files are converted to JPEG client-side.
+   - Images >4096px are resized client-side (JPEG 85%).
    - EXIF metadata is parsed for coordinates, timestamp, and direction (if available).
+   - File + thumbnail are uploaded to Supabase Storage (max 3 parallel uploads, individual progress indicators).
 4. GeoSite places a marker for the image on the map using EXIF coordinates.
-5. Technician reviews the marker:
+5. **If EXIF coordinates are missing:** The UI shows "No location found in this photo." The user must manually place a marker (the upload cannot be saved without coordinates).
+6. Technician reviews the marker:
    - If correct, they confirm and save.
    - If slightly off, they drag the marker to the correct place.
-6. On save:
+7. On save:
    - The original EXIF coordinates are stored as immutable reference.
    - The corrected coordinates are stored in dedicated fields.
    - The image record is assigned to a project and optional metadata.

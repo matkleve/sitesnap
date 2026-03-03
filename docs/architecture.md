@@ -124,6 +124,39 @@ Address search behaviour:
 
 The geocoding layer must not introduce provider‑specific concepts into the core schema; it only returns coordinates and basic address metadata.
 
+### Interface Contract
+
+```typescript
+interface GeocodingAdapter {
+  /** Search for address candidates matching the input string. */
+  search(query: string): Promise<GeocodingResult[]>;
+
+  /** Reverse-geocode a coordinate to an address. */
+  reverse(lat: number, lng: number): Promise<GeocodingResult | null>;
+}
+
+interface GeocodingResult {
+  label: string; // Human-readable address string
+  lat: number;
+  lng: number;
+  confidence: "exact" | "closest" | "approximate";
+  boundingBox?: { north: number; south: number; east: number; west: number };
+}
+```
+
+### Rate Limiting and Caching
+
+- All autocomplete calls are **debounced** (300ms after last keystroke) before invoking `search()`.
+- Results are cached in-memory by query string with a 5-minute TTL.
+- The default Nominatim provider enforces a 1 request/second limit. The adapter must queue requests and respect this limit.
+- If geocoding fails or times out (3s), the UI shows an explicit error: "Address search unavailable. Try again or navigate manually." No silent failures.
+
+### Zoom Level on Search
+
+- If the result has a `boundingBox`, the map fits to that bounding box.
+- If not: `confidence: 'exact'` → zoom 17 (street level). `confidence: 'closest'` → zoom 14 (neighborhood). `confidence: 'approximate'` → zoom 12 (city level).
+- Existing filters are preserved after a search-initiated map move.
+
 ---
 
 ## 4. Responsibility Boundaries
@@ -206,6 +239,40 @@ interface ImageInputMetadata {
 
 See `decisions.md` (D10) for rationale.
 
+### Upload Validation
+
+Before entering the ingestion pipeline, all files are validated client-side (for fast UX feedback) and server-side (for security enforcement via Supabase Storage policies).
+
+| Rule                                                                                     | Client-Side                                     | Server-Side                     |
+| ---------------------------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------- |
+| Max file size: 25 MB                                                                     | Reject with message before upload               | Supabase Storage policy rejects |
+| Accepted MIME types: `image/jpeg`, `image/png`, `image/webp`, `image/heic`, `image/heif` | Reject with message                             | Storage policy MIME whitelist   |
+| Max dimensions: 8192×8192 pixels                                                         | Warn but allow (resize client-side if feasible) | Not enforced server-side        |
+| Min dimensions: 100×100 pixels                                                           | Reject (likely not a photo)                     | Not enforced server-side        |
+
+### Upload Concurrency
+
+- Maximum **3 parallel uploads** at a time. Additional files are queued.
+- Each upload shows individual progress (bytes uploaded / total bytes).
+- **Partial failure handling:** If 3 of 10 uploads fail, the 7 successful uploads are committed. Failed uploads are shown with a retry button.
+- **Abort:** The user can cancel the entire batch. Already-committed uploads remain (they are already in storage and the database).
+
+### Image Compression
+
+- Before upload, JPEG/PNG images larger than 4096px on their longest side are resized client-side to 4096px (maintaining aspect ratio) using `OffscreenCanvas` or `<canvas>`.
+- HEIC/HEIF files are converted to JPEG client-side before upload (using a library like `heic2any`) for browser compatibility.
+- Compression quality: JPEG 85%.
+- Original EXIF is parsed **before** compression (compression may strip EXIF).
+
+### Missing EXIF Fallback
+
+When EXIF extraction produces no GPS coordinates:
+
+1. The upload UI shows: "No location found in this photo."
+2. The user **must** manually place a marker on the map to set coordinates. The upload cannot be saved without coordinates (enforces Invariant I2).
+3. Default map center for manual placement: the user's current GPS location (if available) or the current map viewport center.
+4. `exif_latitude` and `exif_longitude` remain `NULL`. `corrected_latitude` and `corrected_longitude` store the user-placed coordinates. `latitude` and `longitude` (effective display coordinates) are set to the user-placed values.
+
 ---
 
 ## 6. Map Rendering Layer
@@ -222,11 +289,23 @@ interface MapAdapter {
   /** Pan or fly the map to a coordinate. */
   setCenter(lat: number, lng: number, zoom?: number): void;
 
+  /** Fit the map to a bounding box. */
+  fitBounds(bounds: LatLngBounds): void;
+
+  /** Get the current viewport bounding box. */
+  getBounds(): LatLngBounds;
+
+  /** Get the current zoom level. */
+  getZoom(): number;
+
   /** Add a marker and return an opaque handle for later reference. */
   addMarker(lat: number, lng: number, options?: MarkerOptions): MarkerHandle;
 
   /** Remove a previously added marker by its handle. */
   removeMarker(handle: MarkerHandle): void;
+
+  /** Remove all markers and clusters from the map. */
+  clearMarkers(): void;
 
   /** Register a click callback on a specific marker. */
   onMarkerClick(
@@ -237,10 +316,90 @@ interface MapAdapter {
   /** Replace the current point set with clustered groups. */
   renderClusters(groups: ClusterGroup[]): void;
 
+  /** Register a callback for cluster clicks. */
+  onClusterClick(callback: (cluster: ClusterGroup) => void): void;
+
+  /** Register a callback that fires when the viewport changes (pan, zoom). */
+  onViewportChange(
+    callback: (bounds: LatLngBounds, zoom: number) => void,
+  ): void;
+
+  /** Switch tile style for dark/light mode. */
+  setTileStyle(style: "light" | "dark"): void;
+
+  /** Enable right-click-drag radius selection. */
+  enableRadiusSelection(options?: RadiusSelectionOptions): void;
+
+  /** Disable radius selection and clear any active circle overlay. */
+  disableRadiusSelection(): void;
+
+  /** Fires when the user completes a radius selection. */
+  onRadiusSelect(
+    callback: (center: LatLng, radiusMeters: number) => void,
+  ): void;
+
+  /** Fires when the user modifies an existing selection circle. */
+  onRadiusChange(
+    callback: (center: LatLng, radiusMeters: number) => void,
+  ): void;
+
+  /** Fires when the user dismisses the selection circle. */
+  onRadiusClear(callback: () => void): void;
+
   /** Tear down the map instance and release all resources. */
   destroy(): void;
 }
+
+/** Latitude/longitude pair. No library-specific types (e.g., L.LatLng). */
+interface LatLng {
+  lat: number;
+  lng: number;
+}
+
+interface LatLngBounds {
+  north: number;
+  south: number;
+  east: number;
+  west: number;
+}
+
+interface MapInitOptions {
+  center: LatLng;
+  zoom: number;
+  minZoom?: number; // Default: 3
+  maxZoom?: number; // Default: 19
+}
+
+interface MarkerOptions {
+  imageId?: string; // Domain identifier for the image
+  thumbnailUrl?: string; // Thumbnail URL for popup preview
+  draggable?: boolean; // For marker correction (UC3)
+  highlighted?: boolean; // Visual emphasis for selection
+}
+
+/** Opaque marker handle. Implementation may wrap a library-specific object. */
+type MarkerHandle = { readonly __brand: "MarkerHandle"; id: string };
+
+interface ClusterGroup {
+  center: LatLng;
+  pointCount: number;
+  bounds: LatLngBounds;
+  imageIds: string[]; // IDs of images in this cluster (for expand/detail)
+}
+
+interface RadiusSelectionOptions {
+  maxRadiusMeters?: number; // Default: 5000
+  circleStyle?: { color: string; fillOpacity: number };
+  showRadiusLabel?: boolean; // Default: true
+}
 ```
+
+### Lifecycle
+
+- `init()` is called once when the map Angular component is created.
+- `destroy()` is called in `ngOnDestroy`. It must: (1) remove all event listeners, (2) cancel in-flight tile loads, (3) release the map DOM container. Failure to call `destroy()` causes memory leaks.
+- `onViewportChange()` listeners are cleaned up automatically on `destroy()`.
+- If the component route is deactivated but not destroyed (e.g., route reuse), the map is preserved. `destroy()` is only called on actual component destruction.
 
 ### Concrete Adapters
 
@@ -299,3 +458,249 @@ GeoSite uses **Tailwind CSS** as its styling foundation. Dark mode and theming a
 - Map tile layers should visually adapt to dark mode where the provider supports a dark tile URL. The `MapAdapter` interface exposes `setTileStyle('light' | 'dark')` for this purpose; adapters that don't support dark tiles may no-op the call.
 
 See `decisions.md` (D9) for rationale.
+
+---
+
+## 8. Viewport Query Lifecycle
+
+Viewport-bounded loading (Feature 12) requires careful orchestration to avoid flooding the database on rapid pan/zoom.
+
+### Query Flow
+
+1. `MapAdapter.onViewportChange()` fires on every pan or zoom event.
+2. The `ViewportQueryService` **debounces** the event: 300ms idle timer after the last viewport change.
+3. Any in-flight query from a previous viewport change is **aborted** (`AbortController`).
+4. The service constructs a bounding-box query with the current viewport + active filters.
+5. Request is sent to Supabase (RPC or query).
+6. On response: markers/clusters are rendered via `MapAdapter.renderClusters()` or `addMarker()`.
+
+### Pagination Contract
+
+- **Page size:** 200 images per page (server-side).
+- **Cursor:** Keyset pagination using `(distance_from_center, id)` for spatial queries or `(created_at, id)` for time-ordered queries. No `OFFSET` (avoids performance degradation on deep pages).
+- **Max results per viewport:** 2000 images. Beyond this, the server returns clusters instead of individual markers. The zoom level determines whether to return clusters or points.
+- **Viewport padding:** The query viewport is expanded by 10% on each side to pre-fetch markers just outside the visible area, reducing flicker on small pans.
+
+### Zoom-Level Behaviour
+
+| Zoom Level            | Server Returns                          | Client Renders                                |
+| --------------------- | --------------------------------------- | --------------------------------------------- |
+| 1–10 (country/region) | Clusters only (grid-based, large cells) | Cluster markers with count badges             |
+| 11–14 (city/district) | Clusters (smaller cells)                | Cluster markers; dense areas remain clustered |
+| 15–17 (street)        | Individual markers + small clusters     | Individual pins; nearby pins clustered        |
+| 18–19 (building)      | Individual markers only                 | Individual pins                               |
+
+---
+
+## 9. Progressive Image Loading
+
+Images are loaded in three tiers to minimize bandwidth and maximize perceived speed. This applies everywhere images are displayed: map popups, workspace pane, detail views.
+
+### Tier 1 — Marker Only (Zero Image Bytes)
+
+At cluster/overview zoom levels, markers show only counts and positions. No image data is fetched.
+
+### Tier 2 — Thumbnails (128×128)
+
+Fetched when:
+
+- A cluster is expanded or the user zooms to individual-marker level.
+- Images appear in the workspace pane (Active Selection or group tab).
+- An image appears in a map popup on marker click.
+
+Thumbnails are generated on upload:
+
+- The ingestion pipeline produces a 128×128 JPEG thumbnail and stores it in Supabase Storage alongside the original.
+- The `images` table stores `thumbnail_url` (the storage path to the thumbnail).
+- If Supabase Storage image transformations are available, `thumbnail_url` may alternatively be a transformation URL (`?width=128&height=128`). The choice is an implementation detail; the contract is that `thumbnail_url` resolves to a small image.
+
+Thumbnails use `loading="lazy"` and `IntersectionObserver` for lists/grids.
+
+### Tier 3 — Full Resolution (On Demand)
+
+Fetched only when:
+
+- The user clicks an image to open the detail view.
+- The user explicitly requests download/export.
+
+Full-resolution images use Supabase Storage signed URLs (1-hour TTL, refreshed on demand if expired).
+
+### Network Priority
+
+On constrained connections (Technician persona on LTE):
+
+1. Map tiles load first (navigation context).
+2. Thumbnails load second (content preview).
+3. Full-res loads last (explicit user action).
+
+Thumbnails and full-res images use `<img loading="lazy">` and are fetched with lower priority (`fetch priority: low`) where the browser supports it.
+
+---
+
+## 10. Responsive Layout
+
+GeoSite must function across desktop (Clerk) and mobile (Technician) form factors. Responsive behaviour is a first-class requirement, not a post-MVP polish item.
+
+### Breakpoints
+
+| Breakpoint | Label   | Layout                                                                                                   |
+| ---------- | ------- | -------------------------------------------------------------------------------------------------------- |
+| ≥1024px    | Desktop | Map + workspace pane side-by-side. Left sidebar visible. Full toolbar.                                   |
+| 768–1023px | Tablet  | Map full-width. Workspace as slide-over panel from right. Sidebar collapsed to icons.                    |
+| <768px     | Mobile  | Map full-width. Workspace as bottom sheet. Sidebar hidden (hamburger menu). Filters in a dropdown/modal. |
+
+### Desktop Layout
+
+- **Left sidebar** (56px collapsed / 240px expanded): Navigation links (Map, Projects, Groups, Admin).
+- **Top toolbar**: Search bar, filter toggles, upload button, theme toggle.
+- **Map pane**: Takes remaining width minus workspace pane.
+- **Workspace pane** (right, collapsible): 300–600px. Contains group tabs (Active Selection + named groups), thumbnail grid, image detail. Drag-to-resize divider. Toggle button to collapse/expand.
+
+### Mobile Layout
+
+- **Top bar**: Compact search, filter dropdown trigger, hamburger menu.
+- **Map**: Full viewport.
+- **Bottom sheet**: Slides up from bottom with three snap points (minimized 48px, half screen, full screen). Contains chip bar for group tabs + thumbnail grid.
+- **Image detail**: Full-screen overlay with back button.
+
+### Map Initial State
+
+- **First load (no state):** If the browser provides geolocation, center on user's GPS coordinates at zoom 15. If geolocation is denied or unavailable, center on a configurable default location (e.g., company HQ coordinates from environment config) at zoom 12.
+- **Returning user:** Restore last viewport (center + zoom) from `localStorage`.
+- **After address search:** Center and zoom as specified in the geocoding section (section 3).
+
+---
+
+## 11. Group Workspace Architecture
+
+The workspace pane uses a **group-based tabbed model**. Each tab represents a named collection of images, not a single image.
+
+### Tab Types
+
+| Tab                  | Persistent                                                                                | Source                                                                                                |
+| -------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| **Active Selection** | Always visible (cannot be closed). Ephemeral — not saved to database.                     | Populated by radius selection, filter results, or marker clicks. Auto-updates when selection changes. |
+| **Named Group**      | Saved to database (`saved_groups` / `saved_group_images`). Survives refresh and sessions. | Created by the user via "Save as Group" from Active Selection, or via sidebar → "New Group."          |
+
+### Data Flow
+
+1. **Selection → Active Selection tab:** User draws a radius (right-click drag) → query returns matching images → Active Selection tab populates.
+2. **Active Selection → Named Group:** User clicks "Save as Group" → prompted for name → API writes to `saved_groups` + `saved_group_images` → new tab appears.
+3. **Named Group lifecycle:** Groups are loaded on login from `saved_groups WHERE user_id = auth.uid()`. Tabs are rendered in `tab_order`. Closing a tab hides it but does not delete the group. Groups can be re-opened from sidebar → "My Groups."
+
+### Memory and Rendering
+
+- Only the **active tab's** thumbnail grid is rendered in the DOM (`@if` on active state).
+- Thumbnail grids use **virtual scrolling** (`@angular/cdk/scrolling`): only visible rows are in the DOM.
+- Inactive tab data is held as lightweight metadata arrays in memory (~100 bytes per image).
+
+### Workspace State Persistence
+
+- **Active tab index** and **tab order** are persisted to `localStorage`.
+- **Group membership** is persisted server-side.
+- **Active Selection contents** are ephemeral and not persisted.
+
+See `decisions.md` (D14) for rationale.
+
+---
+
+## 12. Spatial Selection
+
+Spatial selection allows users to select all images within a user-defined radius on the map. The primary interaction is **right-click + drag**.
+
+### Desktop Interaction
+
+1. User right-clicks on the map and holds.
+2. Browser `contextmenu` event is suppressed (`preventDefault()`).
+3. As the user drags, a circle overlay grows from the click origin. A label shows the radius in meters.
+4. On mouse-up, the circle is finalized. The frontend queries for all images within the radius.
+5. Results populate the **Active Selection** tab in the workspace pane.
+6. The circle persists on the map with drag handles (center and edge) for refinement.
+7. `Escape` or the ✕ button on the circle dismisses the selection.
+
+### Mobile Interaction
+
+Long-press (≥500ms) + drag. Haptic feedback signals activation. Otherwise identical to desktop.
+
+### Fallback: Toolbar Button
+
+A toolbar button (crosshair icon, keyboard shortcut `S`) enters selection mode where **left-click + drag** draws the circle. This serves as a secondary path for discoverability and accessibility.
+
+### Query Integration
+
+Selection triggers a spatial query:
+
+```sql
+SELECT id, latitude, longitude, thumbnail_url, captured_at, project_id
+FROM images
+WHERE ST_DWithin(geog, ST_MakePoint(:lng, :lat)::geography, :radius_meters)
+  AND [active filters applied]
+ORDER BY geog <-> ST_MakePoint(:lng, :lat)::geography
+LIMIT 2000;
+```
+
+Active filters (time range, project, metadata) are AND-combined with the spatial selection. Organization-scoped RLS is applied automatically.
+
+See `decisions.md` (D13) for rationale.
+
+---
+
+## 13. UI State Contract
+
+Every asynchronous operation in GeoSite must handle four states. Components that skip any state are considered defects.
+
+| State       | Visual Treatment                                                 | Example                                                                                                                                    |
+| ----------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Loading** | Skeleton / shimmer placeholder or spinner. Never a blank screen. | Map: tile placeholders. Workspace: skeleton thumbnail grid. Search: spinner in input.                                                      |
+| **Success** | Content rendered normally.                                       | Markers on map. Thumbnails in grid. Search results in dropdown.                                                                            |
+| **Empty**   | Explicit empty-state message with guidance. Never a blank area.  | "No images found in this area. Try zooming out or adjusting filters." / "This group is empty. Select images on the map and add them here." |
+| **Error**   | Error message with retry action. User-friendly language.         | "Failed to load images. [Retry]" / "Address search unavailable. Try again or navigate manually."                                           |
+
+### Operations and Their States
+
+| Operation              | Loading                               | Empty                      | Error                             |
+| ---------------------- | ------------------------------------- | -------------------------- | --------------------------------- |
+| Map initialization     | Tile skeleton, gray rectangle         | N/A                        | "Map failed to load. [Retry]"     |
+| Viewport query         | Previous markers remain while loading | "No images in this area"   | "Failed to load images. [Retry]"  |
+| Geocoding search       | Spinner in search input               | "No results for '[query]'" | "Search unavailable"              |
+| Image detail           | Thumbnail shown while full-res loads  | N/A                        | "Image failed to load. [Retry]"   |
+| Upload                 | Per-file progress bar (bytes / total) | N/A                        | Per-file error with retry button  |
+| Radius selection query | Spinner in Active Selection tab       | "No images within [X]m"    | "Selection query failed. [Retry]" |
+| Group load             | Skeleton grid in tab                  | "Group is empty"           | "Failed to load group. [Retry]"   |
+
+---
+
+## 14. Angular State Management
+
+GeoSite uses **Angular Signals** as the primary state management approach. No external state library (NgRx, Akita) is used for MVP.
+
+### Service Responsibilities
+
+| Service                | State Managed                                                | Persistence                                          |
+| ---------------------- | ------------------------------------------------------------ | ---------------------------------------------------- |
+| `AuthService`          | Current user, JWT, roles                                     | Supabase session (auto-managed)                      |
+| `ViewportQueryService` | Current viewport bounds, debounce timer, abort controller    | In-memory only                                       |
+| `FilterService`        | Active filters (time, project, metadata, distance)           | `localStorage`                                       |
+| `SelectionService`     | Active selection circle (center, radius), selected image IDs | In-memory (ephemeral)                                |
+| `GroupService`         | Saved groups, group membership, active tab                   | Server (`saved_groups`) + `localStorage` (tab order) |
+| `ImageCacheService`    | Fetched image metadata, thumbnail URLs                       | In-memory `Map` with LRU eviction (max 5000 entries) |
+| `ThemeService`         | Light/dark mode                                              | `localStorage` key: `geosite-theme`                  |
+| `MapStateService`      | Last viewport center + zoom                                  | `localStorage` key: `geosite-map-state`              |
+
+### Signal Pattern
+
+Services expose `Signal<T>` (read-only) and mutate via methods:
+
+```typescript
+@Injectable({ providedIn: 'root' })
+export class FilterService {
+  private readonly _filters = signal<ActiveFilters>(DEFAULT_FILTERS);
+  readonly filters = this._filters.asReadonly();
+
+  setTimeRange(start: Date, end: Date): void { ... }
+  setProjects(ids: string[]): void { ... }
+  clearAll(): void { ... }
+}
+```
+
+Components use `computed()` and `effect()` to react to state changes. No manual subscription management.

@@ -237,6 +237,138 @@ See `architecture.md` section 5.
 
 ---
 
+## D11 – PostGIS as MVP Spatial Index
+
+**Context**  
+The original indexing strategy uses a composite btree on `(latitude, longitude)`. Btree indexes are one-dimensional: they efficiently range-scan the first column but filter the second column sequentially. For bounding-box viewport queries (`WHERE lat BETWEEN x1 AND x2 AND lng BETWEEN y1 AND y2`), this degrades to a partial table scan at scale. Additionally, distance-based queries (`ST_DWithin`) and server-side spatial clustering are impossible without a true spatial index.
+
+**Decision**  
+Use PostGIS with a `geography(Point, 4326)` column and GiST index as the **MVP default**, not an optional enhancement:
+
+- Add a `geog` column to `images`, maintained by a trigger on `latitude`/`longitude` changes.
+- Create a GiST index on `geog`.
+- All viewport queries use the `&&` (bounding box intersection) operator against `geog`.
+- Distance queries use `ST_DWithin` and the `<->` nearest-neighbor operator.
+- Server-side clustering uses `ST_SnapToGrid` grouped by zoom-level-appropriate grid sizes.
+
+Supabase supports PostGIS via `CREATE EXTENSION postgis`.
+
+**Consequences**
+
+- Viewport and distance queries are orders of magnitude faster than btree at scale.
+- Server-side clustering becomes possible, keeping mobile clients thin.
+- Schema migration is required (add `geog` column, backfill, create GiST index).
+- Engineers must learn basic PostGIS functions (`ST_DWithin`, `ST_MakePoint`, `ST_SnapToGrid`).
+- The btree indexes on `latitude`/`longitude` are removed. Effective coordinates are still stored as numeric columns for readability and non-spatial queries.
+
+See `database-schema.md` §9 and `architecture.md` §8.
+
+---
+
+## D12 – Organization-Scoped Data Visibility
+
+**Context**  
+The original RLS model restricts image visibility to the image owner (`user_id = auth.uid()`) or admins. This makes the Clerk use case (UC2) impossible: a Clerk cannot see images uploaded by a Technician even though they work for the same company. The `profiles.company` column was free text, unsuitable for relational scoping.
+
+**Decision**  
+Introduce an `organizations` table and scope all data visibility by organization membership:
+
+- Each user belongs to exactly one organization via `profiles.organization_id`.
+- Images, projects, and metadata keys are scoped to the user's organization.
+- RLS policies for `images`, `projects`, and `metadata_keys` check that the requesting user's `organization_id` matches the row's `organization_id`.
+- `images.organization_id` is denormalized (copied from the user's profile on insert) to avoid a join on every RLS check.
+
+**Consequences**
+
+- All users in the same organization can see all images and projects within that organization. No per-project access control for MVP.
+- The `profiles.company` free-text column is replaced by `profiles.organization_id`.
+- Organization creation and user-to-org assignment are admin operations (Supabase dashboard or admin UI in future).
+- Multi-tenant isolation is built in from day one.
+- Per-project access control (e.g., `project_members` table) can be layered on post-MVP without breaking the org model.
+
+See `database-schema.md` §2–§3 and `security-boundaries.md`.
+
+---
+
+## D13 – Right-Click Drag Radius Selection
+
+**Context**  
+Users need to select all images within a geographic area for review, grouping, or export. The natural gesture is click-and-drag to draw a selection radius. However, left-click drag is universally mapped to map panning, creating an irreconcilable UX conflict.
+
+**Decision**  
+Use **right-click + drag** as the primary desktop gesture for radius selection:
+
+- Right-click drag has no default behaviour in Leaflet, Google Maps, or Mapbox — it's an unoccupied gesture slot.
+- The browser's `contextmenu` event is suppressed on the map canvas.
+- On mobile, **long-press + drag** is the equivalent gesture (≥500ms press activates selection mode).
+- A toolbar button (crosshair icon, keyboard shortcut `S`) provides a secondary entry point for discoverability and accessibility.
+- On completion, selected images populate the **Active Selection** tab in the workspace pane.
+
+**Consequences**
+
+- No conflict with pan or zoom gestures.
+- Right-click context menus are not available on the map (acceptable; no map-level context menu is planned for MVP).
+- The `contextmenu` event suppression is map-scoped only; right-click works normally elsewhere in the UI.
+- First-use discoverability requires a tooltip or onboarding hint.
+- The `MapAdapter` interface is extended with `enableRadiusSelection()`, `onRadiusSelect()`, `onRadiusChange()`, and `onRadiusClear()` methods.
+
+See `architecture.md` §12 and `features.md`.
+
+---
+
+## D14 – Group-Based Tabbed Workspace
+
+**Context**  
+Users need a way to organize and review selected images while maintaining map context. The initial proposal was a split-screen layout with tabs. The key clarification: a tab represents a **named group of images** (not a single image), and a persistent **Active Selection** tab reflects the current map selection.
+
+**Decision**  
+Implement a **group-based tabbed workspace pane** on the right side of the map:
+
+- **Active Selection tab** (always present, ephemeral): shows images from the current radius selection or marker interaction. Not persisted.
+- **Named group tabs** (user-created, persistent): the user creates a group from a selection, gives it a name, and it becomes a tab. Each group can contain any number of images. Groups are persisted to the database (`saved_groups`, `saved_group_images`).
+- On desktop: the workspace pane is a collapsible side panel with resizable width.
+- On mobile: the workspace is a bottom sheet with a chip bar for tab switching.
+- Only the active tab's thumbnail grid is rendered in the DOM. Inactive tabs hold metadata only.
+
+**Consequences**
+
+- Tab count is user-controlled (users create groups intentionally), avoiding tab explosion.
+- Named groups require two new database tables with RLS policies.
+- The "explore → curate → persist" workflow (select on map → review in Active Selection → save as group) becomes a first-class interaction pattern.
+- Memory is bounded: only active tab thumbnails + lightweight metadata for inactive tabs.
+- Mobile layout uses a bottom sheet with three snap points (minimized, half, full).
+- Client state includes: active tab index (localStorage), tab order (localStorage), group membership (server-side).
+
+See `architecture.md` §11 and `database-schema.md` §10.
+
+---
+
+## D15 – Progressive Image Loading Pipeline
+
+**Context**  
+Loading full-resolution images for map markers kills bandwidth — especially for the Technician persona on LTE. The docs mentioned "thumbnails for overview" without specifying how thumbnails are created, stored, or loaded.
+
+**Decision**  
+Implement a three-tier progressive loading pipeline:
+
+- **Tier 1 – Markers only:** At overview zoom levels, markers/clusters show counts. Zero image bytes are fetched.
+- **Tier 2 – Thumbnails (128×128 JPEG):** Generated during the upload pipeline and stored alongside the original in Supabase Storage. The `images` table stores `thumbnail_path`. Thumbnails are loaded when images appear in workspace tabs, popups, or at individual-marker zoom levels. Uses `loading="lazy"` and `IntersectionObserver`.
+- **Tier 3 – Full resolution:** Loaded only on explicit user action (click to open detail view, export). Uses signed URLs with 1-hour TTL.
+
+Thumbnail generation happens server-side during upload (Supabase Edge Function or Storage transformation). If client-side generation is used as an interim, the thumbnail must still be uploaded to Storage.
+
+**Consequences**
+
+- Bandwidth usage is dramatically reduced for map browsing (the most common operation).
+- The `images` table gains a `thumbnail_path` column (non-nullable, set during upload).
+- The ingestion pipeline gains a thumbnail-generation step.
+- Signed URL TTL (1 hour) requires a refresh mechanism for long sessions.
+- Network priority: map tiles > thumbnails > full-res images.
+
+See `architecture.md` §9 and `database-schema.md` §7.
+
+---
+
 ## Adding New Decisions
 
 When you introduce a change that:
