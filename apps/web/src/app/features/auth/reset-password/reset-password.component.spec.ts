@@ -25,7 +25,7 @@ function setup(resetError: Error | null = null) {
         imports: [ResetPasswordComponent],
         providers: [
             { provide: AuthService, useValue: fakeAuth },
-            provideRouter([], withNavigationErrorHandler(() => {})),
+            provideRouter([], withNavigationErrorHandler(() => { })),
         ],
     });
 

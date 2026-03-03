@@ -28,7 +28,7 @@ function setup(signInError: Error | null = null) {
         imports: [LoginComponent],
         providers: [
             { provide: AuthService, useValue: fakeAuth },
-            provideRouter([], withNavigationErrorHandler(() => {})),
+            provideRouter([], withNavigationErrorHandler(() => { })),
         ],
     });
 

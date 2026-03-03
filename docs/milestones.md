@@ -369,13 +369,13 @@ Success condition
 
 These milestones track actual code delivery. They depend on design milestones M1–M7a being complete.
 
-| ID       | Name                            | Status      | Depends On           |
-| -------- | ------------------------------- | ----------- | -------------------- |
-| M-IMPL1  | Project Bootstrap               | ✅ Done     | M1–M4                |
-| M-IMPL2  | Auth Layer                      | ✅ Done     | M-IMPL1, M2          |
-| M-IMPL3  | Map Shell                       | 🔲 Next     | M-IMPL2, M5          |
-| M-IMPL4  | Photo Ingestion Pipeline        | 🔲 Pending  | M-IMPL3, M6          |
-| M-IMPL5  | Filter + Retrieval UI           | 🔲 Pending  | M-IMPL4, M7, M7a     |
+| ID      | Name                     | Status     | Depends On       |
+| ------- | ------------------------ | ---------- | ---------------- |
+| M-IMPL1 | Project Bootstrap        | ✅ Done    | M1–M4            |
+| M-IMPL2 | Auth Layer               | ✅ Done    | M-IMPL1, M2      |
+| M-IMPL3 | Map Shell                | 🔲 Next    | M-IMPL2, M5      |
+| M-IMPL4 | Photo Ingestion Pipeline | 🔲 Pending | M-IMPL3, M6      |
+| M-IMPL5 | Filter + Retrieval UI    | 🔲 Pending | M-IMPL4, M7, M7a |
 
 ---
 
