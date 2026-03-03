@@ -114,7 +114,7 @@ Non-goals are listed in `project-description.md` and must be treated as such.
 **Consequences**
 
 - We say “no” to advanced editing, offline, and analytics in early iterations.
-- Architecture should make these future features *possible* but not *required*.
+- Architecture should make these future features _possible_ but not _required_.
 - Success is measured against the MVP success criteria, not long-term vision promises.
 
 ---
@@ -246,4 +246,3 @@ When you introduce a change that:
 - Introduces a new external dependency,
 
 add a new section here (`Dx`) and link it from relevant docs (e.g., `architecture.md`, `database-schema.md`).
-

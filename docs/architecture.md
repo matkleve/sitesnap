@@ -178,25 +178,25 @@ interface ImageInputAdapter {
 }
 
 interface ImageInputRef {
-  id: string;       // Opaque identifier within the adapter's namespace
-  label: string;    // Human-readable label (filename, Drive title, etc.)
+  id: string; // Opaque identifier within the adapter's namespace
+  label: string; // Human-readable label (filename, Drive title, etc.)
   mimeType: string;
 }
 
 interface ImageInputMetadata {
   originalName?: string;
   sourceCreatedAt?: string; // ISO 8601
-  [key: string]: unknown;   // Adapter-specific extras; core ignores unknown keys
+  [key: string]: unknown; // Adapter-specific extras; core ignores unknown keys
 }
 ```
 
 ### Concrete Adapters
 
-| Adapter | Status | Description |
-|---|---|---|
-| `LocalUploadAdapter` | MVP | Wraps the browser `<input type="file">` API. Ships first. |
-| `GoogleDriveAdapter` | Post-MVP | Fetches files via the Google Drive Picker API. |
-| *(future)* | Post-MVP | Any source (Dropbox, FTP, camera API) that implements `ImageInputAdapter`. |
+| Adapter              | Status   | Description                                                                |
+| -------------------- | -------- | -------------------------------------------------------------------------- |
+| `LocalUploadAdapter` | MVP      | Wraps the browser `<input type="file">` API. Ships first.                  |
+| `GoogleDriveAdapter` | Post-MVP | Fetches files via the Google Drive Picker API.                             |
+| _(future)_           | Post-MVP | Any source (Dropbox, FTP, camera API) that implements `ImageInputAdapter`. |
 
 ### Invariants
 
@@ -229,7 +229,10 @@ interface MapAdapter {
   removeMarker(handle: MarkerHandle): void;
 
   /** Register a click callback on a specific marker. */
-  onMarkerClick(handle: MarkerHandle, callback: (handle: MarkerHandle) => void): void;
+  onMarkerClick(
+    handle: MarkerHandle,
+    callback: (handle: MarkerHandle) => void,
+  ): void;
 
   /** Replace the current point set with clustered groups. */
   renderClusters(groups: ClusterGroup[]): void;
@@ -241,10 +244,10 @@ interface MapAdapter {
 
 ### Concrete Adapters
 
-| Adapter | Status | Description |
-|---|---|---|
-| `LeafletOSMAdapter` | MVP | Leaflet with OpenStreetMap tiles. Default. |
-| *(future)* | Post-MVP | Google Maps, Mapbox, or any tile provider implementing `MapAdapter`. |
+| Adapter             | Status   | Description                                                          |
+| ------------------- | -------- | -------------------------------------------------------------------- |
+| `LeafletOSMAdapter` | MVP      | Leaflet with OpenStreetMap tiles. Default.                           |
+| _(future)_          | Post-MVP | Google Maps, Mapbox, or any tile provider implementing `MapAdapter`. |
 
 ### Invariants
 
@@ -273,19 +276,19 @@ GeoSite uses **Tailwind CSS** as its styling foundation. Dark mode and theming a
 ```css
 /* Defined in styles.scss or a dedicated tokens file */
 :root {
-  --color-primary: theme('colors.blue.600');
-  --color-surface: theme('colors.white');
-  --color-surface-alt: theme('colors.gray.100');
-  --color-text: theme('colors.gray.900');
-  --color-text-muted: theme('colors.gray.500');
+  --color-primary: theme("colors.blue.600");
+  --color-surface: theme("colors.white");
+  --color-surface-alt: theme("colors.gray.100");
+  --color-text: theme("colors.gray.900");
+  --color-text-muted: theme("colors.gray.500");
 }
 
 .dark {
-  --color-primary: theme('colors.blue.400');
-  --color-surface: theme('colors.gray.900');
-  --color-surface-alt: theme('colors.gray.800');
-  --color-text: theme('colors.gray.100');
-  --color-text-muted: theme('colors.gray.400');
+  --color-primary: theme("colors.blue.400");
+  --color-surface: theme("colors.gray.900");
+  --color-surface-alt: theme("colors.gray.800");
+  --color-text: theme("colors.gray.100");
+  --color-text-muted: theme("colors.gray.400");
 }
 ```
 

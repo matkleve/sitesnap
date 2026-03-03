@@ -113,15 +113,15 @@ See `architecture.md`, `database-schema.md`, and `security-boundaries.md`.
 
 ### 1.7 MVP Feature-to-Use-Case Mapping
 
-| MVP Feature Group | Feature IDs | Primary Use Cases |
-|---|---|---|
-| Authentication and User Management | 1-3 | UC1, UC2, UC3, UC4 |
-| Image Ingestion | 4-8 | UC3 |
-| Spatial and Temporal Exploration | 9-15 | UC1, UC2 |
-| Project and Metadata | 16-18 | UC2, UC3 |
-| Distance Filtering | 19 | UC1, UC2 |
-| Security and Performance | 20-22 | UC1, UC2, UC3, UC4 |
-| UI and Theming | 23-25 | UC1, UC2, UC3, UC4 |
+| MVP Feature Group                  | Feature IDs | Primary Use Cases  |
+| ---------------------------------- | ----------- | ------------------ |
+| Authentication and User Management | 1-3         | UC1, UC2, UC3, UC4 |
+| Image Ingestion                    | 4-8         | UC3                |
+| Spatial and Temporal Exploration   | 9-15        | UC1, UC2           |
+| Project and Metadata               | 16-18       | UC2, UC3           |
+| Distance Filtering                 | 19          | UC1, UC2           |
+| Security and Performance           | 20-22       | UC1, UC2, UC3, UC4 |
+| UI and Theming                     | 23-25       | UC1, UC2, UC3, UC4 |
 
 MVP use cases are UC1-UC4. UC5 is post-MVP and does not gate MVP release.
 
