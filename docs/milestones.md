@@ -525,6 +525,104 @@ Acceptance criteria
 
 ---
 
+## M-IMPL4a: Upload Bug Fixes & Direction EXIF ✅
+
+Goal
+
+- Fix the placement bug (no-GPS images can now be placed on the map), extract GPSImgDirection EXIF data, and add user feedback for placement mode. Full UX audit documented in `docs/audit-upload-map-interaction.md`.
+
+Files
+
+- `apps/web/src/app/features/upload/upload-panel/upload-panel.component.ts`
+- `apps/web/src/app/features/map/map-shell/map-shell.component.ts` (+ html, scss)
+- `apps/web/src/app/core/upload.service.ts`
+- `apps/web/src/app/core/upload.service.spec.ts`
+- `apps/web/src/app/features/upload/upload-panel/upload-panel.component.spec.ts`
+- `apps/web/src/app/features/map/map-shell/map-shell.component.spec.ts`
+- `docs/audit-upload-map-interaction.md` (new — 100 UX ideas)
+- `docs/features.md` (updated direction spec)
+- `docs/decisions.md` (updated D7)
+
+TODOs
+
+- [x] Fix `placementRequested` output missing from `UploadPanelComponent`. (AI, 2026-03-04)
+- [x] Wire `(placementRequested)="enterPlacementMode($event)"` in `map-shell.component.html`. (AI, 2026-03-04)
+- [x] Add placement mode banner + crosshair cursor + cancel button. (AI, 2026-03-04)
+- [x] Extract `GPSImgDirection` in `parseExif()` and persist `direction` in DB insert. (AI, 2026-03-04)
+- [x] Add `direction` to `ParsedExif`, `UploadSuccess`, and the DB insert. (AI, 2026-03-04)
+- [x] Write 12 new tests (direction EXIF, placement mode, placementRequested output). (AI, 2026-03-04)
+- [x] All 131 tests pass (`ng test --no-watch` exits 0). (AI, 2026-03-04)
+- [x] `ng build` exits 0. (AI, 2026-03-04)
+- [x] Create `docs/audit-upload-map-interaction.md` — 100 UX ideas for upload/map/direction. (AI, 2026-03-04)
+- [x] Update `features.md` and `decisions.md` to reflect direction is now persisted and will be exposed. (AI, 2026-03-04)
+
+Acceptance criteria
+
+- No-GPS images: "📍 Place on map" triggers placement mode with banner + crosshair. ✅
+- Clicking the map during placement mode places the image and removes the banner. ✅
+- Cancel button exits placement mode without placing. ✅
+- GPSImgDirection is extracted from EXIF and stored in the `direction` column. ✅
+- Direction values outside 0–360 or non-numeric are rejected (stored as NULL). ✅
+- 131 tests pass, `ng build` clean. ✅
+
+---
+
+## ⚠️ SESSION HANDOFF — Delete this section immediately when you start ⚠️
+
+> **First action of the next session:** Delete this entire "SESSION HANDOFF" section from milestones.md. It is a temporary briefing, not a permanent record.
+
+### Where we are
+
+- **M-IMPL1–4** ✅, **M-IMPL4a** ✅ — all complete, 131 tests passing, `ng build` clean.
+- The upload pipeline works end-to-end: EXIF GPS + direction extraction, signed-URL storage, marker rendering.
+- Placement mode for no-GPS images is wired and has visual feedback (banner + crosshair + cancel).
+- A 100-issue UX audit lives in `docs/audit-upload-map-interaction.md` with a phased plan.
+
+### What to do next (pick one track)
+
+**Track A — M-IMPL4b: Upload polish (recommended first)**
+Priority fixes from the audit (issues 5, 8, 9, 10, 21, 39, 61, 71):
+1. Eliminate double EXIF parse — `processFile()` parses EXIF, then `uploadFile()` parses again. Pass `ParsedExif` through instead. (audit #9, #61, #97)
+2. Add `direction` to `ImageUploadedEvent` so the map can render cones without re-fetching. (audit #39, #71)
+3. Add retry button for failed uploads. (audit #8)
+4. Show thumbnail preview in the upload panel (`URL.createObjectURL`). (audit #10, #21)
+5. Fix panel item not transitioning out of `awaiting_placement` after successful placement. (audit #5)
+
+**Track B — M-IMPL4c: Drag-to-map placement**
+The user's vision: drag a no-GPS file from the panel onto the map with a smooth rectangle-to-marker morph animation. See `audit-upload-map-interaction.md` Pattern 1 for full design. Key steps:
+1. Implement pointer-events-based drag manager on `awaiting_placement` items.
+2. Disable Leaflet panning during drag.
+3. Show ghost marker at cursor position over the map.
+4. Animate thumbnail → marker morph on drop (300ms, border-radius + scale transition).
+5. Call `placeFile()` with `containerPointToLatLng` coordinates.
+
+**Track C — M-IMPL4d: Direction cone visualization**
+Render the direction data that's now stored. See `audit-upload-map-interaction.md` Pattern 2. Key steps:
+1. Create a direction cone SVG overlay (L.SVGOverlay or custom layer) that renders on marker hover.
+2. Add a drag handle at the cone tip for direction editing.
+3. Persist direction changes via PATCH to Supabase.
+4. Support cardinal-direction snap (±5°) and text input fallback.
+
+**Track D — M-IMPL5: Filter + Retrieval UI**
+The next full milestone. Viewport-bounded PostGIS queries, cursor pagination, filter panel. See the M-IMPL5 section below.
+
+### Key files to read first
+
+- `docs/audit-upload-map-interaction.md` — the full 100-issue audit with priorities
+- `apps/web/src/app/core/upload.service.ts` — upload pipeline
+- `apps/web/src/app/features/upload/upload-panel/upload-panel.component.ts` — panel state machine
+- `apps/web/src/app/features/map/map-shell/map-shell.component.ts` — map shell + placement mode
+
+### Ground rules reminder
+
+- 131 tests must stay green after every change (`npx ng test --no-watch` from `apps/web`).
+- `ng build --configuration development` must exit 0.
+- No real Supabase in tests. SupabaseService is always faked.
+- Signals for UI state, no BehaviorSubject. Errors as `{ error }`, never thrown.
+- Update docs when architecture decisions change.
+
+---
+
 ## M-IMPL5: Filter + Retrieval UI 🔲
 
 Goal

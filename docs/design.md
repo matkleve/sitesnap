@@ -9,7 +9,7 @@ See `features.md` for capability scope, `use-cases.md` for user flows, and `arch
 
 ## 1. Design Principles
 
-These four principles filter every design decision. When two choices conflict, this order resolves the tie.
+These principles filter every design decision. When choices conflict, this order resolves the tie. Principles 1–4 govern utility; principles 5–7 govern character and feel.
 
 ### 1.1 Field-First
 
@@ -26,6 +26,7 @@ The map is not a support feature. It is the main interface. All other panels —
 - The map is never fully occluded on any breakpoint during normal use.
 - Panels animate in over the map (overlay/sheet) rather than pushing it aside on smaller screens.
 - The map retains its position, zoom, and state when panels open or close.
+- **The base tile is always styled** — default OSM tiles are never shipped as-is. Irrelevant POIs (restaurants, ATMs, tourist labels) are suppressed; only roads, building footprints, and water bodies relevant to construction navigation are kept. This is not cosmetic — it is a direct cognitive-load reduction. The product's own data layer (photo markers) must be the most visually prominent thing on the map at all times (Eleken: strip noise, prioritize your data).
 
 ### 1.3 Progressive Disclosure
 
@@ -35,6 +36,7 @@ Show only what the user needs for the task at hand. Complexity surfaces on deman
 - Collapsed filter panel by default; expand on demand.
 - Detail metadata shown inline but collapsed; expand on tap.
 - Batch and advanced actions in context menus, not in primary toolbar.
+- **Zoom-level intelligence:** markers reveal progressively more detail as the user zooms in. At city scale (zoom ≤ 13), only clusters with counts are shown. At street scale (zoom 14–17), individual pins appear with project-badge color. At address scale (zoom ≥ 18), pins expand to show an inline thumbnail preview. Never render a detail that is invisible or unusable at the current zoom level.
 
 ### 1.4 Legibility in All Conditions
 
@@ -44,6 +46,35 @@ Outdoor light, dark basements, OLED phones, wide-gamut monitors — the product 
 - Map tiles swap to a dark style in dark mode.
 - Text never renders below 4.5:1 contrast ratio (WCAG AA).
 - Minimum body type size: 14px / 0.875rem.
+- **Markers are legible on any tile background.** Every map pin has a 2px white outline and a subtle drop shadow so it reads equally well against satellite imagery (bright desert, dark forest canopy, urban rooftop) as against styled vector tiles.
+
+### 1.5 Warmth Over Sterility
+
+*Inspired by Anthropic's design philosophy.* Cold, clinical UIs communicate distance. GeoSite is a tool people use every day on job sites — it should feel grounded and human. Warmth is embedded in the palette (off-white rather than pure white, near-black with a warm tint rather than cold blue-black), the type system (generous line-height, readable body sizes), and the language used in labels and empty states (plain, direct, never corporate).
+
+- Light-mode backgrounds use warm off-whites (`#F9F7F4`), not cold grays.
+- Dark-mode backgrounds use warm near-blacks (`#0F0E0C`), not cold blue-blacks.
+- UI copy uses plain language: "Upload photos" not "Initiate image ingestion". "Something went wrong" not "Error code 5023".
+- Empty states are encouraging, not passive: "Nothing here yet — start by uploading your first site photo."
+
+### 1.6 Calm Confidence
+
+*Inspired by Anthropic's design philosophy.* The UI should never shout. A calm interface creates trust; a frantic one creates anxiety. Consequences:
+
+- No notification badges on the navigation sidebar unless an action genuinely requires urgent user attention.
+- Primary buttons are present and clear but visually understated — their weight comes from position and label, not from an overloaded fill color.
+- Error states explain what went wrong and what to do next; they do not just flash red.
+- Loading states are patient: skeleton screens rather than aggressively pulsing spinners. Debounce user-triggered queries (300ms) so the UI does not reload on every keystroke.
+- Transitions are short (120–250ms). The UI responds immediately but never flickers.
+
+### 1.7 Honesty
+
+*Inspired by Anthropic's design philosophy.* Show the user what is true. Do not hide information to make the UI look cleaner, and do not present provisional data as final. Consequences:
+
+- If an image's location was manually corrected, indicate this at a glance (correction indicator on the marker and in the detail view). Do not silently replace the EXIF value.
+- If a filter is active and hiding results, make it obvious — the active filter chip strip is always visible.
+- If an upload fails, show why (file too large, no GPS data, network error) — not just a generic failure badge.
+- If the system has not yet loaded all markers for the viewport, show a loading indicator. Do not present a map that appears complete but is not.
 
 ---
 
@@ -127,6 +158,34 @@ These products solve adjacent problems with notable design decisions worth study
 - Monospace font used sparingly for code/IDs; clean sans-serif for all other content.
 - Empty states are illustrative and unambiguous — "No images in this area. Try expanding the radius or adjusting filters." with a clear secondary action button.
 
+### 2.8 Claude / Anthropic (`claude.ai`)
+
+**What it does:** AI assistant with a highly considered, restrained interface.  
+**Why it is relevant:** Claude's UI design philosophy — warmth, restraint, honesty, calm confidence — is the direct source of GeoSite's principles 1.5–1.7. It is worth studying in depth because it represents a rare case of a professional product that feels genuinely human without sacrificing clarity.  
+**Design takeaways:**
+
+- **Warm neutral palette.** Claude.ai uses warm off-whites (the `#FAF9F7` family) for light mode and a warm near-black (the `#0F0E0C` family) for dark mode. Neither reaches pure white or pure black. This prevents eye strain and gives the interface a craft quality that cold grays cannot. GeoSite adopts this directly in its `--color-bg-base` tokens.
+- **Three-level warm surface hierarchy in dark mode.** Base (`#0F0E0C`) → Panel/sidebar (`#1A1917`) → Elevated/card (`#252320`). Each step is a ~7% luminance shift rather than a large jump. The result is clear depth without harsh contrast between layers.
+- **Typography carries the weight.** Claude's UI uses very little ornamentation. Hierarchy is achieved almost entirely through font size, weight, and the distinction between `--color-text-primary` and `--color-text-secondary`. This is the model for GeoSite's workspace pane and filter panel.
+- **Primary actions are placed, not decorated.** The send button in Claude is visually present but not aggressive — it sits at the right of the input area, not as a glowing full-width CTA. GeoSite's primary action buttons ("Save correction", "Confirm upload") follow the same logic: correct placement and label, not visual over-emphasis.
+- **Brand accent used sparingly.** Anthropic's warm orange-terracotta hue appears only at moments where the brand actively needs to assert itself — a loading bar, an active state, a key callout. It is never used decoratively. GeoSite adopts this reserve: `--color-clay` (upload CTAs, active selection) is the only warm-accent color and is never used for decoration.
+- **Calm loading states.** Claude uses a gentle pulsing sequence, not an aggressive spinner. Time-to-first-content is prioritized; placeholders look structurally complete. GeoSite's three-tier progressive image loading (markers → thumbnails → full-res) follows the same instinct.
+- **Plain-language UI copy.** Claude's interface labels are direct: "New chat", "Projects", "History". Not "Initiate session", "Workspaces", "Interaction log". Every GeoSite label should be audited against this standard before shipping.
+
+### 2.9 Eleken – Map UI Design Research (`eleken.co/blog-posts/map-ui-design`)
+
+**What it is:** a practitioner case study from a UX/product agency that has built several production geospatial products (ReVeal, Greenventory, Gamaya, Involi, Astraea — platforms where the map is the product).  
+**Why it is relevant:** the most directly applicable published guide to the specific class of UI problem GeoSite solves. Every principle in this section was learned from a shipped product, not from theory.  
+**Key lessons extracted for GeoSite:**
+
+- **Never ship a default map.** "Default maps often look unattractive. If you're building a product around maps, you always need to style them. Adjust colors, simplify details, reduce clutter — whatever it takes to make the map feel like it belongs in your product." (Maksym, Eleken Head of Design). Consequence: GeoSite must launch with a brand-adapted tile style, not stock OSM.
+- **Visual hierarchy has four layers.** (1) Base map — geography foundation. (2) Data layer — GeoSite's photo markers, the product's unique value. (3) Interactive elements — radius circle, selection handles, hover states. (4) UI chrome — toolbar, filter panel, workspace pane. Each layer must be visually subordinate to the layer above it in this list. The data layer is always the most prominent thing on the map.
+- **Two interaction modes must coexist without conflict.** Map navigation (zoom, pan, explore) vs. object interaction (tap marker, draw selection, view detail). The Eleken team describes this as their hardest recurring challenge. GeoSite addresses it by: (a) using long-press as the entry point for radius selection, preventing accidental activation; (b) showing a cursor change on desktop when entering selection mode; (c) de-selecting on intentional map pan, but not on pinch-zoom (which is non-intentional).
+- **Cluster objects when density exceeds readability.** The ReVeal project shows that city-scale maps with hundreds of markers become unusable without clustering. Solution: group by neighborhood when zoomed out, expand to individual markers on zoom-in. This is the exact pattern GeoSite implements via `ST_SnapToGrid` server-side clustering.
+- **"Info on demand," not "info always on."** Click any object for its detail; do not clutter the base map view. GeoSite's marker carries only a color-coded pin + optional project badge — all other metadata surfaces in the detail panel on tap.
+- **Context retention when navigating.** A selected marker stays highlighted and the workspace pane stays populated when the user pans or zooms. A "Return to selected" link in the search bar area restores context if the user has panned far away.
+- **Keep things simple at first glance, but make advanced features easily accessible.** The most successful map interfaces Eleken has built share this trait. GeoSite achieves this via the collapsed filter panel, the fixed Active Selection tab, and the hidden batch-action context menu.
+
 ---
 
 ## 3. Visual Language
@@ -137,38 +196,59 @@ Design tokens are CSS custom properties. All components use tokens — never raw
 
 #### Semantic token hierarchy
 
-| Token                    | Light value | Dark value | Usage                                        |
-| ------------------------ | ----------- | ---------- | -------------------------------------------- |
-| `--color-bg-base`        | `#F4F5F7`   | `#0D0E12`  | Page/app background                          |
-| `--color-bg-surface`     | `#FFFFFF`   | `#17191F`  | Panels, sidebar, workspace pane              |
-| `--color-bg-elevated`    | `#FFFFFF`   | `#22252E`  | Dropdowns, tooltips, modal ovelays           |
-| `--color-bg-map`         | — (tile)    | — (tile)   | Map canvas; tile URL swaps on dark mode      |
-| `--color-border`         | `#E2E5EA`   | `#2C303A`  | Panel borders, dividers                      |
-| `--color-border-strong`  | `#C4CAD4`   | `#3E4452`  | Inputs, focused borders                      |
-| `--color-text-primary`   | `#111318`   | `#EAECF0`  | Headlines, body, labels                      |
-| `--color-text-secondary` | `#5B6370`   | `#8B93A1`  | Subtext, timestamps, metadata labels         |
-| `--color-text-disabled`  | `#A0A8B4`   | `#484F5C`  | Disabled states                              |
-| `--color-primary`        | `#2563EB`   | `#3B82F6`  | Primary actions, active markers, focus rings |
-| `--color-primary-hover`  | `#1D4ED8`   | `#60A5FA`  | Hover state for primary                      |
-| `--color-success`        | `#16A34A`   | `#22C55E`  | Upload success, confirmed correction         |
-| `--color-warning`        | `#D97706`   | `#F59E0B`  | Missing GPS, low-confidence EXIF             |
-| `--color-danger`         | `#DC2626`   | `#EF4444`  | Upload error, deletion confirmation          |
-| `--color-accent`         | `#7C3AED`   | `#A78BFA`  | Named group tabs, badge accents              |
+| Token                    | Light value | Dark value | Usage                                                                            |
+| ------------------------ | ----------- | ---------- | -------------------------------------------------------------------------------- |
+| `--color-bg-base`        | `#F9F7F4`   | `#0F0E0C`  | Page/app background — warm off-white / warm near-black                           |
+| `--color-bg-surface`     | `#FFFFFF`   | `#1A1917`  | Panels, sidebar, workspace pane                                                  |
+| `--color-bg-elevated`    | `#FFFFFF`   | `#252320`  | Dropdowns, tooltips, modal overlays                                              |
+| `--color-bg-map`         | — (tile)    | — (tile)   | Map canvas; tile URL swaps on dark mode                                          |
+| `--color-border`         | `#E8E4DE`   | `#2E2B27`  | Panel borders, dividers — warm-tinted                                            |
+| `--color-border-strong`  | `#C8C1B8`   | `#3D3830`  | Inputs, focused borders                                                          |
+| `--color-text-primary`   | `#1A1714`   | `#EDEBE7`  | Headlines, body, labels — warm near-black / warm near-white                      |
+| `--color-text-secondary` | `#6B6259`   | `#908880`  | Subtext, timestamps, metadata labels                                             |
+| `--color-text-disabled`  | `#A89E95`   | `#4A4540`  | Disabled states                                                                  |
+| `--color-primary`        | `#2563EB`   | `#3B82F6`  | Primary actions, active markers, focus rings                                     |
+| `--color-primary-hover`  | `#1D4ED8`   | `#60A5FA`  | Hover state for primary                                                          |
+| `--color-success`        | `#16A34A`   | `#22C55E`  | Upload success, confirmed correction                                             |
+| `--color-warning`        | `#C2610A`   | `#F59E0B`  | Missing GPS, low-confidence EXIF                                                 |
+| `--color-danger`         | `#DC2626`   | `#EF4444`  | Upload error, deletion confirmation                                              |
+| `--color-accent`         | `#7C3AED`   | `#A78BFA`  | Named group tabs, badge accents                                                  |
+| `--color-clay`           | `#CC7A4A`   | `#D9895A`  | Upload CTA, active selection emphasis — Anthropic-inspired warm accent; used sparingly |
 
 **Map marker colors (semantic):**
 
-| State          | Color token                                             | Meaning                            |
-| -------------- | ------------------------------------------------------- | ---------------------------------- |
-| Default        | `--color-primary`                                       | Normal EXIF-placed image           |
-| Corrected      | `--color-accent`                                        | Marker has been manually corrected |
-| Selected       | `#FFFFFF` with primary ring                             | Currently active/selected marker   |
-| Pending upload | `--color-warning`                                       | In upload queue, not yet saved     |
-| Error          | `--color-danger`                                        | Upload failed                      |
-| Cluster        | `--color-bg-elevated` with `--color-text-primary` badge | Aggregated cluster                 |
+| State          | Color token                                             | Meaning                                    |
+| -------------- | ------------------------------------------------------- | ------------------------------------------ |
+| Default        | `--color-primary`                                       | Normal EXIF-placed image                   |
+| Corrected      | `--color-accent`                                        | Marker has been manually corrected         |
+| Selected       | `#FFFFFF` with primary ring                             | Currently active/selected marker           |
+| Pending upload | `--color-clay`                                          | In upload queue, not yet saved             |
+| Error          | `--color-danger`                                        | Upload failed                              |
+| Cluster        | `--color-bg-elevated` with `--color-text-primary` badge | Aggregated cluster                         |
+
+All markers use a **2px solid white outline** (`stroke: #FFFFFF; stroke-width: 2`) and a `drop-shadow(0 1px 3px rgba(0,0,0,0.45))`. This ensures legibility on any tile background — street tiles, dark matter tiles, and satellite imagery alike (Eleken principle: always test markers against the darkest and brightest backgrounds you will encounter).
+
+#### Tile styling
+
+The default OSM tile is never shipped unstyled. Strip the following from the base tile configuration:
+
+- Restaurant, cafe, hotel, and retail POI icons
+- Tourist attraction markers
+- Parking and transit symbols (unless in a zone with heavy construction logistics)
+- Decorative park and landuse labels
+
+Keep:
+- Road network (all levels, muted stroke)
+- Building footprints (muted warm fill)
+- Water bodies, green areas (muted, desaturated)
+- Address labels at zoom ≥ 15
+- Motorway and primary road labels at all zoom levels
+
+For MVP: use CartoDB Light (Positron) in light mode — already significantly cleaner than stock OSM. Apply full custom brand tile style post-MVP (see Section 10).
 
 #### Dark mode tile layers
 
-- **Light mode:** OpenStreetMap standard tiles (default `LeafletOSMAdapter`)
+- **Light mode:** CartoDB Positron (clean, minimal, light) — `https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png`
 - **Dark mode:** CartoDB Dark Matter — `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png`
 - **Dark mode alternative:** Stadia Alidade Smooth Dark — `https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png`
 
@@ -245,7 +325,7 @@ In dark mode, shadows are less visible — increase surface contrast (`--color-b
 
 ### 3.6 Iconography
 
-Use a single coherent icon set throughout. Default: **Lucide Icons** (MIT licensed, clean, consistent stroke width).
+Use a single coherent icon set throughout. Default: **Lucide Icons** (MIT licensed, clean, consistent stroke width). The stroke-based style of Lucide aligns with the warm, restrained aesthetic — it reads well at small sizes without appearing heavy or aggressive.
 
 Icon sizing conventions:
 
@@ -255,6 +335,30 @@ Icon sizing conventions:
 - Map markers: custom SVG (not icon font)
 
 All interactive icons must have a visible label or a `title` / `aria-label` attribute for accessibility.
+
+### 3.7 Map Visual Hierarchy and Zoom Levels
+
+A well-designed map has four distinct visual layers, each lower in visual weight than the layer above it. This hierarchy must be enforced via tile styling, z-index management, and zoom-level logic:
+
+| Layer | Visual weight | Elements | Design rule |
+|---|---|---|---|
+| Base map | Lowest | Roads, buildings, water, terrain | Muted — no POI clutter, desaturated fills, thin outlines |
+| Data layer | **Highest** | Photo markers, clusters | Most visually prominent element on the map. `--color-primary` fill, white outline, shadow |
+| Interactive elements | Medium-high | Radius circle, selection handles, hover states | Clearly distinct from base, does not compete with markers |
+| UI chrome | Medium | Toolbar, filter panel, workspace pane | Floats above map on `--color-bg-surface` background with shadow |
+
+Quoting Eleken's Head of Design: _"The challenge is balancing information density with readability. You need to decide what information is essential at each zoom level and how to present it without overwhelming the user."_
+
+**Zoom-level visibility rules:**
+
+| Zoom level | What is shown |
+|---|---|
+| ≤ 12 (city / region) | Clusters only — numbered circle, `--color-bg-elevated` fill, count in `--text-caption` |
+| 13–15 (district / street) | Individual pins — drop-shaped, `--color-primary` fill, white outline, no text |
+| 16–17 (block) | Pin + project badge chip beneath the pin (short project name, `--color-accent` background) |
+| ≥ 18 (address) | Pin + project badge + inline thumbnail preview (64×64, `rounded-md`) for the nearest 1–3 images |
+
+From the Eleken ReVeal case: objects are grouped by neighborhood to improve performance when viewing larger areas. At zoom ≤ 12, rendering individual pins for thousands of images would be both visually unreadable and technically prohibitive. The zoom-level transition from cluster → pin → pin+badge → pin+thumbnail is the solution.
 
 ---
 
@@ -487,16 +591,19 @@ All motion serves clarity or orientation — no decorative animation.
 
 Dark mode is first-class, not an afterthought. Every component ships with dark-mode Tailwind variants.
 
+Dark mode is inspired directly by Anthropic's approach to Claude: **warm, not cold**. Most dark UIs skew blue-black (cold, techy). GeoSite's dark mode skews toward a warm near-black — the same instinct that makes a physical notebook feel more comfortable than a screen.
+
 **Design rules for dark mode:**
 
-1. **Backgrounds are near-black, never pure black.** `--color-bg-base: #0D0E12`. This reduces eye strain and makes elevation legible (pure black makes it impossible to distinguish surface layers).
-2. **Three-level surface hierarchy.** `bg-base → bg-surface → bg-elevated`. Panels are one step above the page; dropdowns and modals are two steps above.
-3. **Primary color brightens slightly.** `--color-primary: #2563EB` (light) → `#3B82F6` (dark). On a dark surface, the lighter blue maintains the same perceived contrast.
-4. **Borders are subtle.** `--color-border: #2C303A` — barely visible but enough to delineate panels without harsh lines.
-5. **Map tile: CartoDB Dark Matter.** The dark tile URL is configured in `LeafletOSMAdapter.darkTileUrl`. The map blends naturally with `--color-bg-base`.
-6. **Image thumbnails need no special treatment.** Photos are self-contained; they do not invert or adapt.
-7. **User preference persisted to `localStorage` as `geosite-theme: 'dark' | 'light' | 'system'`.** Default: `'system'` (follows OS preference).
-8. **Theme toggle** in the top toolbar: a sun/moon icon button. Single tap cycles between `light → dark → system`.
+1. **Backgrounds are warm near-black, never cold blue-black and never pure black.** `--color-bg-base: #0F0E0C`. The slight warm tint (+2 red, -2 blue relative to neutral) is not consciously perceptible but produces a measurably more comfortable reading environment for extended field use.
+2. **Three-level warm surface hierarchy.** `#0F0E0C → #1A1917 → #252320`. Each step is a ~7-8% luminance lift. The warm tint is preserved at each level. This mirrors Anthropic's surface system and avoids the harsh contrast that cold-gray dark themes create between surface layers.
+3. **Primary color brightens slightly.** `--color-primary: #2563EB` (light) → `#3B82F6` (dark). On a dark surface, the lighter blue maintains equivalent perceived contrast without oversaturating.
+4. **Clay accent stays warm in dark mode.** `--color-clay: #D9895A` (dark) — slightly lighter and more saturated than the light-mode value to compensate for the dark background. This is the only warm-hued element in the dark UI; its rarity makes upload CTAs unmistakeable.
+5. **Borders are warm and subtle.** `--color-border: #2E2B27` — a warm dark brown, barely visible but enough to delineate panels without harsh lines.
+6. **Map tile: CartoDB Dark Matter.** The dark tile URL is configured in `LeafletOSMAdapter.darkTileUrl`. The tile's dark neutral palette blends naturally with `--color-bg-base`. Markers with white outlines and shadows read clearly against it.
+7. **Image thumbnails need no special treatment.** Photos are self-contained; they do not invert or adapt.
+8. **User preference persisted to `localStorage` as `geosite-theme: 'dark' | 'light' | 'system'`.** Default: `'system'` (follows OS preference).
+9. **Theme toggle** in the top toolbar: a sun/moon icon button. Single tap cycles between `light → dark → system`. The icon itself uses `--color-clay` as a fill accent to make it visually warm and memorable.
 
 ---
 
@@ -525,10 +632,12 @@ Dark mode is first-class, not an afterthought. Every component ships with dark-m
 
 These are intentional deferrals, not oversights.
 
-1. **Custom typeface:** the system-font stack is chosen for performance on low-end field devices. A brand typeface (e.g., Inter as a web font) is a post-MVP refinement.
-2. **Illustration library:** empty-state illustrations are specified but not yet designed. Placeholder: simple line-art SVG that color-adapts to the current theme.
-3. **Animation library:** motion guidelines are defined but implementation uses vanilla CSS transitions. A dedicated animation system (Framer Motion or Angular Animations) is post-MVP.
-4. **Onboarding / first-use tour:** defined only at the empty-state level. A guided walkthrough for new users is post-MVP.
-5. **Heatmap / density overlay:** post-MVP. Map layer capability (tile swapping via `MapAdapter`) is already designed to support it.
-6. **Before/after slider component:** post-MVP feature but the full-image viewer layout anticipates it.
-7. **Brand color finalization:** `--color-primary: #2563EB` (blue) is a placeholder. Final brand color to be confirmed before MVP launch.
+1. **Custom typeface:** the system-font stack is chosen for performance on low-end field devices. A brand typeface (e.g., Inter as a web font) is a post-MVP refinement. If Inter is adopted, preload the variable font subset (latin, weights 400+600 only) to avoid FOUT on field devices.
+2. **Illustration library:** empty-state illustrations are specified but not yet designed. They should be warm, line-art SVGs that use `currentColor` so they adapt to both light and dark mode without duplication. Style reference: Anthropic's own illustrated brand assets — warm, approachable, hand-drawn-feeling without being cartoonish.
+3. **Tile styling:** the plan to strip default OSM tiles (see Section 3.7) requires a Mapbox Studio account or Stadia custom style. For MVP, use CartoDB Light (Positron) in light mode — it is already significantly cleaner than stock OSM. Apply full brand tile styling post-MVP.
+4. **Animation library:** motion guidelines are defined but implementation uses vanilla CSS transitions. A dedicated animation system (Angular Animations) is post-MVP.
+5. **Onboarding / first-use tour:** defined only at the empty-state level. A guided walkthrough for new users is post-MVP.
+6. **Heatmap / density overlay:** post-MVP. Map layer capability (tile swapping via `MapAdapter`) is already designed to support it.
+7. **Before/after slider component:** post-MVP feature but the full-image viewer layout anticipates it.
+8. **Brand color finalization:** `--color-primary: #2563EB` (blue) is a working default. The warm palette overall (Principle 1.5, Section 7) is confirmed as the design direction. The clay accent (`--color-clay: #CC7A4A`) is confirmed. Primary blue is the only open question before MVP launch.
+9. **Marker thumbnail overlay at high zoom:** the zoom-level visibility rule (Section 3.7) specifies a 64×64 thumbnail inline at zoom ≥ 18. This requires a hover/tap interaction model decision for desktop (does the thumbnail appear on hover, or always?). Defer to post-MVP; ship zoom ≥ 18 as pin + project badge only.

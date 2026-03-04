@@ -36,6 +36,8 @@ See `user-lifecycle.md` for lifecycle details.
    - Files are uploaded to Supabase Storage with UUID-based paths/names.
 6. **Automatic EXIF extraction**
    - Extract latitude, longitude, timestamp, and direction/bearing when available.
+   - Direction is extracted from GPSImgDirection EXIF tag and stored in the `direction` column.
+   - Direction is visualized as a 30° cone on marker hover and is editable via drag interaction.
    - Store EXIF coordinates separately from corrected coordinates.
 7. **Map preview before save**
    - Image appears as a map marker after EXIF parse.
@@ -260,7 +262,7 @@ The following items are out of scope for MVP and may be considered post-MVP:
 4. Before/after overlays.
 5. Heatmaps and analytics.
 6. Offline mode (graceful degradation for intermittent connectivity IS in scope; full offline is not).
-7. Directional relevance (bearing data is stored but not exposed in MVP UI).
+7. Directional relevance (bearing data is stored and exposed via direction cone on markers — see `audit-upload-map-interaction.md` Pattern 2).
 8. Right-click map actions for upload/create marker here — UC5.
 9. `GoogleDriveAdapter` and other `ImageInputAdapter` implementations (local file upload is the MVP default).
 10. Alternative `MapAdapter` implementations (Google Maps, Mapbox, etc.); `LeafletOSMAdapter` is the MVP default.

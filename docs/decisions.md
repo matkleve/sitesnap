@@ -161,7 +161,7 @@ For MVP:
 **Consequences**
 
 - Engineers have a clear, testable contract for filter parameters and sorting order.
-- Directional relevance remains a post‑MVP enhancement; bearing is stored but not yet exposed to users.
+- Direction data (GPSImgDirection) is now extracted during EXIF parsing and persisted in the `direction` column. Direction cone visualization and editing will be exposed in the MVP UI as part of the marker interaction layer. See `audit-upload-map-interaction.md` Pattern 2.
 - UI implementations should treat this ordering as part of the product behaviour, not as an incidental choice.
 
 ---

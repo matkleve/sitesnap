@@ -120,4 +120,43 @@ describe('MapShellComponent', () => {
         const panel = (fixture.nativeElement as HTMLElement).querySelector('app-upload-panel');
         expect(panel).not.toBeNull();
     });
+
+    it('enterPlacementMode sets placementActive to true', () => {
+        const fixture = TestBed.createComponent(MapShellComponent);
+        fixture.detectChanges();
+
+        fixture.componentInstance.enterPlacementMode('test-key');
+
+        expect(fixture.componentInstance.placementActive()).toBe(true);
+    });
+
+    it('cancelPlacement resets placementActive to false', () => {
+        const fixture = TestBed.createComponent(MapShellComponent);
+        fixture.detectChanges();
+
+        fixture.componentInstance.enterPlacementMode('test-key');
+        fixture.componentInstance.cancelPlacement();
+
+        expect(fixture.componentInstance.placementActive()).toBe(false);
+    });
+
+    it('shows placement banner when placementActive is true', () => {
+        const fixture = TestBed.createComponent(MapShellComponent);
+        fixture.detectChanges();
+
+        fixture.componentInstance.enterPlacementMode('test-key');
+        fixture.detectChanges();
+
+        const banner = (fixture.nativeElement as HTMLElement).querySelector('.map-placement-banner');
+        expect(banner).not.toBeNull();
+        expect(banner?.textContent).toContain('Click the map to place the image');
+    });
+
+    it('hides placement banner when placementActive is false', () => {
+        const fixture = TestBed.createComponent(MapShellComponent);
+        fixture.detectChanges();
+
+        const banner = (fixture.nativeElement as HTMLElement).querySelector('.map-placement-banner');
+        expect(banner).toBeNull();
+    });
 });
