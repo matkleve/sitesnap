@@ -189,27 +189,33 @@ See `architecture.md` sections 3 and 6.
 
 ---
 
-## D9 – Tailwind CSS with First-Class Dark Mode
+## D9 – Tailwind CSS as Styling Framework with First-Class Dark Mode
 
 **Context**  
 GeoSite is a field-facing tool used in varied lighting conditions. Dark mode is a real ergonomic requirement for technicians working at night or in low-light environments, not a cosmetic option. Without a deliberate theming architecture, dark mode tends to be bolted on late and incompletely.
 
+Tailwind was specifically chosen for its utility-first approach, strong theme support, first-class dark mode support via the class strategy, and strong compatibility with AI-assisted development workflows where utilities are unambiguous and self-documenting.
+
 **Decision**  
 Use Tailwind CSS as the sole styling foundation with first-class dark mode support:
 
-- Configure Tailwind with `darkMode: 'class'` for explicit, JavaScript-controlled activation.
-- Manage the `dark` class on `<html>` via an Angular `ThemeService` that persists preference to `localStorage`.
-- Define all brand colors, surfaces, and text tokens as CSS custom properties so they can be overridden at runtime.
+- Utility-first: all styling is expressed as Tailwind utility classes or design-token-mapped utilities.
+- Configure Tailwind with `darkMode: ['class', '[data-theme="dark"]']` — activates `dark:` utilities when a `[data-theme="dark"]` attribute is present on an ancestor (mirrors the CSS custom property toggle).
+- Manage `[data-theme="dark"]` on `<html>` via an Angular `ThemeService` that persists preference to `localStorage`.
+- Define all brand colors, surfaces, border radii, spacing, and text tokens in `tailwind.config.js` as the canonical source of truth, referencing CSS custom properties so runtime overrides remain possible.
 - Every component ships with both light and `dark:` variants. Shipping without dark mode is a defect.
+- Arbitrary CSS values (e.g., `w-[37px]`) are only permitted when no token covers the use case. Otherwise every value must map to a defined token.
+- All interactive elements (buttons, chips, pills, tags, icon buttons, filters) must have a minimum hit area of ~38px. Use `min-h-tap` / `min-w-tap` tokens or padding / `::before` pseudo-elements to meet this without changing the visual size.
 
 **Consequences**
 
 - Tailwind's JIT compiler keeps the CSS bundle small regardless of token count.
 - No CSS-in-JS or separate theming library is needed.
 - The CSS custom property contract is the stable surface for theming; component classes change freely as long as the tokens are honored.
-- Designers and engineers must coordinate on the token set; ad-hoc color usage is prohibited.
+- Designers and engineers must coordinate on the token set defined in `tailwind.config.js`; ad-hoc color or size usage is prohibited.
+- Dark mode is treated as a first-class concern from the beginning, not a post-MVP enhancement.
 
-See `architecture.md` section 7.
+See `architecture.md` section 7 and `tailwind.config.js`.
 
 ---
 

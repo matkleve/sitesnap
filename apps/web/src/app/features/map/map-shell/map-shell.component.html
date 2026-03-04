@@ -52,8 +52,8 @@
     aria-label="Site map"
   ></div>
 
-  <!-- Floating search bar — top-center over the map -->
-  <div class="map-search-bar" role="search">
+  <!-- Floating search bar — top-center over the map; grows downward when results are shown -->
+  <div class="map-search-bar" role="search" [class.map-search-bar--open]="dropdownOpen()">
     <input
       class="map-search-bar__input"
       type="search"
@@ -66,7 +66,7 @@
       (blur)="onSearchBlur()"
     />
 
-    <!-- Results dropdown -->
+    <!-- Results — rendered inside the same container; no separate overlay -->
     @if (dropdownOpen()) {
       <div class="search-dropdown" role="listbox" aria-label="Search results">
         @if (!searchQuery().trim()) {

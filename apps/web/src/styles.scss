@@ -1,3 +1,18 @@
+// ── Tailwind CSS directives ───────────────────────────────────────────────────
+// Must appear before any other CSS or SCSS rules.
+//
+//   @tailwind base      — Preflight (normalize) + base element styles.
+//   @tailwind components — Component class utilities (none currently defined,
+//                          but required so the layer is available for @layer).
+//   @tailwind utilities  — All generated utility classes (JIT, tree-shaken).
+//
+// Dark mode activates via [data-theme="dark"] on <html>,
+// mirroring the CSS custom property tokens below.
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* =============================================================
    SiteSnap — Global Styles & Design Token System
    M-UI1: All CSS custom property tokens from design.md §3.

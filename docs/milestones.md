@@ -377,7 +377,8 @@ These milestones track actual code delivery. They depend on design milestones M1
 | M-IMPL4  | Photo Ingestion Pipeline          | ✅ Done | M-IMPL3, M6       |
 | M-IMPL4a | Upload Bug Fixes & Direction EXIF | ✅ Done | M-IMPL4           |
 | M-IMPL4b | Upload Polish                     | ✅ Done | M-IMPL4a          |
-| M-IMPL5  | Filter + Retrieval UI             | 🔲 Next | M-IMPL4b, M7, M7a |
+| M-IMPL4c | Design System & Tailwind Setup    | ✅ Done | M-IMPL4b          |
+| M-IMPL5  | Filter + Retrieval UI             | 🔲 Next | M-IMPL4c, M7, M7a |
 
 ---
 
@@ -602,6 +603,57 @@ Acceptance criteria
 - Each uploaded file shows a thumbnail preview immediately on enqueue. ✅
 - Awaiting-placement items can be dismissed (× button) and do not get permanently stuck in the panel. ✅
 - 131 tests pass, `ng build` clean. ✅
+
+---
+
+## M-IMPL4c: Design System & Tailwind Setup ✅
+
+Goal
+
+- Establish Tailwind CSS as the sole styling foundation with an explicit design-token contract.
+- Redesign the left sidebar (NavComponent) and map shell UI per the new layout spec.
+- Unify dark mode strategy and document it for every future component.
+
+Files
+
+- `apps/web/tailwind.config.js` (new)
+- `apps/web/postcss.config.js` (new)
+- `apps/web/src/styles.scss`
+- `apps/web/src/app/features/nav/nav.component.ts`
+- `apps/web/src/app/features/nav/nav.component.html`
+- `apps/web/src/app/features/nav/nav.component.scss`
+- `apps/web/src/app/features/nav/nav.component.spec.ts`
+- `apps/web/src/app/features/map/map-shell/map-shell.component.ts`
+- `apps/web/src/app/features/map/map-shell/map-shell.component.html`
+- `apps/web/src/app/features/map/map-shell/map-shell.component.scss`
+- `apps/web/src/app/features/map/map-shell/map-shell.component.spec.ts`
+- `docs/decisions.md` (D9 updated)
+- `docs/setup-guide.md` (§6 added)
+- `apps/web/src/index.html` (Material Icons CDN)
+
+TODOs
+
+- [x] Install Tailwind CSS v3 + PostCSS + Autoprefixer in `apps/web`. (AI, 2026-03-04)
+- [x] Create `tailwind.config.js` with semantic radius tokens (pill/card/input), spacing aliases, color tokens referencing CSS custom properties, min-h-tap/min-w-tap interactive target helpers, and `darkMode: ['class', '[data-theme="dark"']`. (AI, 2026-03-04)
+- [x] Create `postcss.config.js` with `tailwindcss` and `autoprefixer` plugins. (AI, 2026-03-04)
+- [x] Add `@tailwind base/components/utilities` directives to top of `styles.scss`. (AI, 2026-03-04)
+- [x] Redesign NavComponent: Material Icons, pill sidebar (0.5rem collapsed → 11rem expanded), 1rem fixed `border-radius`, golden-ratio height, frosted glass panel. (AI, 2026-03-04)
+- [x] Redesign MapShellComponent: upload button top-right, unified expanding search bar (single box, no separate dropdown), GPS button with active re-request on every click. (AI, 2026-03-04)
+- [x] Add Material Icons CDN link to `index.html`. (AI, 2026-03-04)
+- [x] Update D9 in `decisions.md` with utility-first rules, arbitrary-value prohibition, and 38px tap-target requirement. (AI, 2026-03-04)
+- [x] Document Tailwind setup, dark mode, and token table in `setup-guide.md §6`. (AI, 2026-03-04)
+- [x] All 157 tests pass (`ng test --no-watch` exits 0). (AI, 2026-03-04)
+- [x] `ng build --configuration development` exits 0. (AI, 2026-03-04)
+
+Acceptance criteria
+
+- `ng build` exits 0 with Tailwind JIT active (style output contains Tailwind preflight). ✅
+- `tailwind.config.js` defines `pill`, `card`, `input` border-radius tokens. ✅
+- `dark:` utilities activate on `[data-theme="dark"]` attribute on `<html>`. ✅
+- NavComponent: pill handle (0.5rem wide) visible at all times; expands to full nav on hover. ✅
+- SearchBar: single expanding container, no separate dropdown overlay. ✅
+- GPS button actively re-requests geolocation on every click. ✅
+- 157 tests pass. ✅
 
 ---
 

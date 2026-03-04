@@ -25,21 +25,21 @@
 
   @media (min-width: 768px) {
     top: 50%;
-    left: 1rem; // ~16px from screen edge — never flush
+    left: 1rem;
     transform: translateY(-50%);
-    height: 61.8vh; // golden ratio
-    width: 3rem; // collapsed: 48px — icon-only pill
+    height: 3rem; // collapsed: tiny pill handle (~48px)
+    width: 0.5rem; // collapsed: ~8px sliver
+    border-radius: 1rem; // fixed — identical in both states
     display: flex;
     align-items: stretch;
-    transition: width 150ms ease-out;
+    transition:
+      width 200ms ease,
+      height 200ms ease;
 
     &:hover,
     &:focus-within {
-      width: 11.25rem; // 180px — expanded card
-
-      .sidebar__panel {
-        border-radius: 1.5rem; // 24px — rounded card, not pill
-      }
+      width: 11rem; // expanded nav card
+      height: 61.8vh; // golden-ratio height
 
       .nav__label {
         opacity: 1;
@@ -82,17 +82,14 @@
     width: 100%; // fills whatever .sidebar width is at any point in transition
     overflow: hidden;
 
-    // Full pill when collapsed (9999px on 3rem wide = 1.5rem effective radius).
-    border-radius: 9999px;
+    // Mirror parent's fixed border-radius (1rem) — no transition needed.
+    border-radius: 1rem;
 
     // Frosted glass, warm surface.
     background: color-mix(in srgb, var(--color-bg-surface) 90%, transparent);
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
     box-shadow: var(--shadow-md);
-
-    // Radius transitions alongside parent width.
-    transition: border-radius 150ms ease-out;
   }
 
   @media (max-width: 767px) {

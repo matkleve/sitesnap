@@ -153,12 +153,23 @@ export class MapShellComponent implements OnDestroy {
 
     // ── GPS button ────────────────────────────────────────────────────────────
 
-    /** Pan + zoom to the user's GPS position if available. */
+    /**
+     * Actively requests the current GPS position and flies the map there.
+     * Re-requests on every click so it works even after initial denial.
+     */
     goToUserPosition(): void {
-        const pos = this.userPosition();
-        if (pos && this.map) {
-            this.map.setView(pos, 15);
-        }
+        if (!this.map || typeof navigator === 'undefined' || !navigator.geolocation) return;
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                const coords: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+                this.userPosition.set(coords);
+                this.map?.setView(coords, 15);
+            },
+            () => {
+                // Permission denied or unavailable — do nothing.
+            },
+            { enableHighAccuracy: true, timeout: 10000 },
+        );
     }
 
     // ── Search ────────────────────────────────────────────────────────────────

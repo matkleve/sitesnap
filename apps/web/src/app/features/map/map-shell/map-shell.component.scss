@@ -100,53 +100,58 @@
   }
 }
 
-// ── Floating search bar — top-center ─────────────────────────────────────────
+// ── Floating search bar — top-center, unified expanding box ──────────────────
+//
+// The container IS the box. When collapsed it looks like a pill input.
+// When results appear (.map-search-bar--open) it stretches downward and
+// border-radius switches to --radius-lg so corners stay proportional.
+// No separate overlay or dropdown — results live inside the same element.
 
 .map-search-bar {
   position: absolute;
-  top: var(--spacing-3);
+  top: 1rem;
   left: 50%;
   transform: translateX(-50%);
   z-index: var(--z-upload-button);
-  width: min(480px, calc(100% - 120px));
+  width: min(30rem, calc(100% - 7.5rem));
+
+  // Unified box styling — container owns the chrome.
+  background: color-mix(in srgb, var(--color-bg-surface) 92%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  transition: border-radius 120ms ease-out;
+
+  // When results are visible, switch to a rounded rect so content fits.
+  &--open {
+    border-radius: var(--radius-lg);
+  }
 
   &__input {
     width: 100%;
-    height: 40px;
+    height: 2.5rem; // 40px
     padding: 0 var(--spacing-4);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-full);
-    background: color-mix(in srgb, var(--color-bg-surface) 92%, transparent);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    border: none; // container owns the border
+    border-radius: 0; // container owns the radius
+    background: none; // container owns the background
     color: var(--color-text-primary);
     font-size: 0.875rem;
     outline: none;
-    box-shadow: var(--shadow-md);
-    transition: border-color 120ms ease-out;
 
     &::placeholder {
       color: var(--color-text-disabled);
     }
-
-    &:focus {
-      border-color: var(--color-primary);
-    }
   }
 }
 
-// ── Search results dropdown ───────────────────────────────────────────────────
+// ── Search results — in-flow section inside .map-search-bar ─────────────────
 
 .search-dropdown {
-  position: absolute;
-  top: calc(100% + var(--spacing-1));
-  left: 0;
-  right: 0;
+  border-top: 1px solid var(--color-border);
   background: var(--color-bg-elevated);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
-  overflow: hidden;
-  z-index: var(--z-dropdown);
   padding: var(--spacing-1) 0;
 
   &__section-label {

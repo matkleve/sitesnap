@@ -160,7 +160,102 @@ supabase status  # shows local URLs and keys
 
 ---
 
-## 6. Verification Checklist
+## 6. Tailwind CSS & Design Tokens
+
+SiteSnap uses Tailwind CSS v3 as the styling foundation (see `decisions.md D9`).
+The setup is already complete in the repository; this section explains how it
+works and what to do if you reinstall or encounter issues.
+
+### 6.1 How it is Wired
+
+| File                          | Role                                                        |
+| ----------------------------- | ----------------------------------------------------------- |
+| `apps/web/tailwind.config.js` | Token definitions + content paths + dark mode strategy      |
+| `apps/web/postcss.config.js`  | PostCSS plugin registration (`tailwindcss`, `autoprefixer`) |
+| `apps/web/src/styles.scss`    | `@tailwind base/components/utilities` directives at top     |
+
+Angular's `@angular/build:application` (esbuild) picks up `postcss.config.js`
+automatically — no changes to `angular.json` are needed.
+
+### 6.2 Installing from Scratch
+
+If you need to reinstall Tailwind (e.g., after deleting `node_modules`):
+
+```bash
+# From the Angular app directory
+cd apps/web
+npm install -D tailwindcss@3 postcss autoprefixer
+```
+
+> **Important:** Pin to `tailwindcss@3`. Tailwind v4 moved the PostCSS plugin to a
+> separate `@tailwindcss/postcss` package and replaced `tailwind.config.js` with a
+> CSS-based config. The project is intentionally on v3 for the JS-config approach.
+
+The config files (`tailwind.config.js`, `postcss.config.js`) and the
+`@tailwind` directives in `styles.scss` are already committed and require no
+regeneration.
+
+### 6.3 Dark Mode
+
+Dark mode is controlled by a `[data-theme="dark"]` attribute on `<html>`:
+
+```ts
+// Angular ThemeService (to be implemented — M-IMPL4c)
+document.documentElement.setAttribute("data-theme", "dark"); // enable
+document.documentElement.removeAttribute("data-theme"); // disable
+```
+
+The OS fallback (`@media (prefers-color-scheme: dark)`) is also handled in
+`styles.scss` and activates automatically when no explicit preference is set.
+
+### 6.4 Design Token Source of Truth
+
+All tokens are defined in `tailwind.config.js` and map to CSS custom properties
+from `styles.scss`. **Never use raw values; always use tokens.**
+
+**Border radius:**
+
+| Tailwind class  | Token                | Value                                  |
+| --------------- | -------------------- | -------------------------------------- |
+| `rounded-pill`  | `var(--radius-full)` | 9999px — pills, chips, sidebar handles |
+| `rounded-card`  | `var(--radius-lg)`   | 16px — floating panels, cards          |
+| `rounded-input` | `var(--radius-md)`   | 8px — form inputs, dropdowns           |
+
+**Minimum interactive hit area (~38px rule):**
+
+All buttons, chips, icon buttons, filters, and tags must meet the 38px minimum.
+
+```html
+<!-- ✅ button with min-h-tap class -->
+<button class="min-h-tap min-w-tap flex items-center justify-center ...">
+  <span class="material-icons">close</span>
+</button>
+
+<!-- ✅ visually small element — hit area expanded with padding -->
+<button class="p-spacing-2 -m-spacing-2 ...">
+  <span class="material-icons text-sm">more_vert</span>
+</button>
+```
+
+### 6.5 Adding a New Component (Dark Mode Checklist)
+
+Every new component must include `dark:` Tailwind variants:
+
+```html
+<!-- ✅ correct — both light and dark covered -->
+<div
+  class="bg-bg-surface text-text-primary dark:bg-bg-elevated dark:text-text-primary"
+>
+  <!-- ❌ wrong — dark mode not specified; will look broken in dark theme -->
+  <div class="bg-white text-gray-900"></div>
+</div>
+```
+
+Failing to ship dark mode for a component is treated as a defect (see D9).
+
+---
+
+## 7. Verification Checklist
 
 - [ ] `SELECT PostGIS_Version();` returns a version string.
 - [ ] `organizations` table contains at least one row.
@@ -177,14 +272,16 @@ supabase status  # shows local URLs and keys
 
 ---
 
-## 7. Common Failure Points
+## 8. Common Failure Points
 
-| Symptom                             | Likely Cause                                                     |
-| ----------------------------------- | ---------------------------------------------------------------- |
-| Supabase client fails to initialize | Missing `SUPABASE_URL` or `SUPABASE_ANON_KEY` in env.            |
-| Queries return empty results        | RLS enabled but policies not created yet.                        |
-| Uploads fail with 403               | Storage policy mismatch — check bucket name and path convention. |
-| Registration fails                  | `organizations` table empty — seed a default org first.          |
-| Spatial queries don't work          | PostGIS extension not enabled, or `geog` column/trigger missing. |
-| Geocoding not working locally       | `GEOCODING_PROVIDER` / `GEOCODING_API_KEY` not set.              |
-| CORS errors on Storage              | CORS config in Supabase dashboard missing `localhost:4200`.      |
+| Symptom                             | Likely Cause                                                                                                                                     |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Supabase client fails to initialize | Missing `SUPABASE_URL` or `SUPABASE_ANON_KEY` in env.                                                                                            |
+| Queries return empty results        | RLS enabled but policies not created yet.                                                                                                        |
+| Uploads fail with 403               | Storage policy mismatch — check bucket name and path convention.                                                                                 |
+| Registration fails                  | `organizations` table empty — seed a default org first.                                                                                          |
+| Spatial queries don't work          | PostGIS extension not enabled, or `geog` column/trigger missing.                                                                                 |
+| Geocoding not working locally       | `GEOCODING_PROVIDER` / `GEOCODING_API_KEY` not set.                                                                                              |
+| CORS errors on Storage              | CORS config in Supabase dashboard missing `localhost:4200`.                                                                                      |
+| Tailwind classes not generated      | `postcss.config.js` missing or `tailwindcss` not installed. Run `npm install -D tailwindcss postcss autoprefixer` in `apps/web/`.                |
+| Dark mode not applying              | `[data-theme="dark"]` attribute not set on `<html>`. Check `ThemeService`. OS fallback in `styles.scss` should still apply for system dark mode. |
