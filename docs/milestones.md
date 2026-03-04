@@ -675,6 +675,374 @@ Render the `direction` value now forwarded via `ImageUploadedEvent`. Design spec
 
 ---
 
+## UI Implementation Milestone Index
+
+These milestones cover the full visual design and front-end layout work. They run in parallel with or after M-IMPL5. Every milestone targets a specific page or system; they can be executed in the order below.
+
+| ID    | Name                          | Status         | Depends On      |
+| ----- | ----------------------------- | -------------- | --------------- |
+| M-UI1 | Design System Foundation      | 🔲 Not started | M-IMPL1         |
+| M-UI2 | App Shell & Navigation        | 🔲 Not started | M-UI1           |
+| M-UI3 | Map Page – Split Layout       | 🔲 Not started | M-UI2, M-IMPL3  |
+| M-UI4 | Map Page – Side Panel         | 🔲 Not started | M-UI3           |
+| M-UI5 | Map Page – Upload Entry Point | 🔲 Not started | M-UI3, M-IMPL4b |
+| M-UI6 | Photos Page                   | 🔲 Not started | M-UI2           |
+| M-UI7 | Groups Page                   | 🔲 Not started | M-UI2           |
+| M-UI8 | Settings Page                 | 🔲 Not started | M-UI2           |
+| M-UI9 | Account Page                  | 🔲 Not started | M-UI2           |
+
+---
+
+## M-UI1: Design System Foundation
+
+Goal
+
+- Replace ad-hoc styles with a single source of truth: CSS custom properties for every color, spacing, radius, and shadow token from `docs/design.md §3`.
+
+Files
+
+- `apps/web/src/styles.scss` — global token definitions and reset
+- `apps/web/src/app/app.scss` — remove old one-off styles
+
+TODOs
+
+- [ ] Define all `--color-*` tokens (light + dark) from design.md §3.1 in `:root` and `[data-theme="dark"]`.
+- [ ] Define `--radius-*`, `--shadow-*`, `--spacing-*`, and `--font-*` scale tokens.
+- [ ] Add `prefers-color-scheme` media-query fallback alongside `[data-theme]` selector.
+- [ ] Audit existing component `.scss` files and replace raw hex values with tokens.
+- [ ] Confirm `ng build` and all tests pass after token rollout.
+
+Acceptance criteria
+
+- No raw hex colour values remain in any component stylesheet.
+- Dark mode applies automatically from system preference and via `[data-theme="dark"]` on `<html>`.
+- Token names match exactly the names used in `design.md` so they are cross-referenceable.
+
+---
+
+## M-UI2: App Shell & Navigation
+
+Goal
+
+- Create the persistent app shell: a narrow icon sidebar on the left for page-level navigation. Pages not yet implemented are present but visually disabled (greyed out, non-interactive).
+
+Layout
+
+```
+┌──┬─────────────────────────────────┐
+│  │                                 │
+│  │   <router-outlet>               │
+│nav│                                 │
+│  │                                 │
+└──┴─────────────────────────────────┘
+```
+
+Pages and nav items (in order):
+
+| Icon  | Label    | Route       | Status     |
+| ----- | -------- | ----------- | ---------- |
+| 🗺    | Map      | `/`         | Active     |
+| 📷    | Photos   | `/photos`   | Active     |
+| 📁    | Groups   | `/groups`   | Active     |
+| ⚙️    | Settings | `/settings` | Active     |
+| 👤    | Account  | `/account`  | Active     |
+| (TBD) | Future   | —           | Greyed out |
+
+Files
+
+- `apps/web/src/app/app.html` — add `<app-nav>` alongside `<router-outlet>`
+- `apps/web/src/app/features/nav/nav.component.ts` (+ html, scss)
+- `apps/web/src/app/app.routes.ts` — add placeholder routes for all pages
+
+TODOs
+
+- [ ] Create `NavComponent`: icon-only vertical sidebar, active-link highlight, tooltips on hover.
+- [ ] Add a `disabled` variant: greyed-out items with `pointer-events: none` and a "Coming soon" tooltip.
+- [ ] Wire lazy-loaded routes for `/photos`, `/groups`, `/settings`, `/account` (placeholder shell components for now).
+- [ ] Nav collapses to a bottom tab bar on mobile (< 768 px breakpoint).
+- [ ] Write unit tests for `NavComponent` (active route, disabled state).
+
+Acceptance criteria
+
+- All five nav items are present and navigable.
+- Active page is visually highlighted.
+- Disabled/future items are visually distinct and non-interactive.
+- Nav tab bar appears on mobile; icon sidebar on desktop.
+
+---
+
+## M-UI3: Map Page – Split Layout
+
+Goal
+
+- Implement the two-pane map layout: a collapsible left panel and a full-height right map pane.
+- **At rest** the panel collapses to a narrow strip (~12–16 px) at the left edge — barely visible, non-intrusive.
+- **On hover** the strip expands to the full panel width quickly (120 ms ease-out). The panel stays open while the cursor is inside it and collapses again when the cursor leaves and no marker is selected.
+- **When a marker is selected** (M-UI4) the panel stays open regardless of hover state; a close button (×) in the header is the only way to dismiss it.
+
+States
+
+```
+At rest (no hover, no selection):
+┌──┬──────────────────────────────────────────┐
+│▌ │            map pane (full)               │
+│  │         [search bar top-center]          │
+│  │                Leaflet                   │
+│  │                                          │
+└──┴──────────────────────────────────────────┘
+  ↑ ~14 px strip
+
+On hover / marker selected:
+┌────────────────┬─────────────────────────────┐
+│  side panel    │        map pane              │
+│  320 px wide   │    [search bar]              │
+│                │                              │
+│                │         Leaflet              │
+│                │                              │
+└────────────────┴─────────────────────────────┘
+```
+
+Files
+
+- `apps/web/src/app/features/map/map-shell/map-shell.component.ts` (+ html, scss)
+
+TODOs
+
+- [ ] Convert `MapShellComponent` to a CSS Flexbox row with a left panel and a map column.
+- [ ] Left panel has two CSS states: `collapsed` (width: 14 px, overflow hidden) and `expanded` (width: 320 px). Transition: `width 120ms ease-out`.
+- [ ] Panel expands on `mouseenter` and collapses on `mouseleave` unless `panelPinned()` signal is true.
+- [ ] `panelPinned` is set to `true` when a marker is selected (M-UI4) and `false` when deselected or the × close button is clicked.
+- [ ] The collapsed strip has a subtle visual affordance: a faint `--color-border` right edge and a centred drag-bar pill (like a browser scrollbar thumb) so users know it is interactive.
+- [ ] Map pane always occupies remaining width; Leaflet `invalidateSize()` is called after every expand/collapse transition ends (`transitionend` event).
+- [ ] Pin the search bar inside the **left panel header**; it is only visible when the panel is expanded.
+- [ ] Write tests: hover opens, mouseleave closes, pinned state prevents close, `invalidateSize` called on transition end.
+
+Acceptance criteria
+
+- Panel collapses to a ~14 px strip at rest; no layout shift on the map pane.
+- Hovering the strip expands the panel in ≤ 120 ms.
+- Moving the cursor off the panel collapses it unless a marker is selected.
+- With a marker selected, the panel stays open; × button closes and un-pins it.
+- Map reflows with no grey tiles after every expand/collapse.
+- Search bar is visible only in the expanded state.
+
+---
+
+## M-UI4: Map Page – Side Panel Content
+
+Goal
+
+- When the user clicks a marker or a cluster, the side panel opens and shows the selected image(s) metadata, thumbnail, and available actions. Clicking elsewhere on the map or the close button collapses it.
+
+Panel sections (single marker selected):
+
+```
+┌──────────────────────────┐
+│ ×   [image title / name] │  ← header
+├──────────────────────────┤
+│ [thumbnail]              │
+│ coordinates              │
+│ captured_at              │
+│ direction (if present)   │
+│ correction indicator     │
+├──────────────────────────┤
+│ [Edit location]  [Group] │  ← ghost action buttons
+└──────────────────────────┘
+```
+
+Cluster selected → shows a scrollable list of thumbnail cards (same layout as Photos page).
+
+Files
+
+- `apps/web/src/app/features/map/map-shell/` (extend)
+- `apps/web/src/app/features/map/image-detail-panel/` (new component)
+
+TODOs
+
+- [ ] Create `ImageDetailPanelComponent`: thumbnail, metadata rows (property-style from design.md §2.10), action buttons.
+- [ ] Pass selected marker data from `MapShellComponent` into the panel via `@Input` or signal.
+- [ ] Clicking a map marker: set selected marker signal → open panel.
+- [ ] Clicking the map background (not a marker): clear selected → close panel.
+- [ ] Cluster click: zoom in if at a zoom level that would separate markers; at max zoom, open panel with list view.
+- [ ] Show a correction indicator badge if `coordinate_corrections` entry exists for the image.
+- [ ] Panel header shows image count badge when cluster is selected.
+- [ ] Write unit tests for `ImageDetailPanelComponent`.
+
+Acceptance criteria
+
+- Single marker click opens panel with correct metadata.
+- Map background click closes panel.
+- Cluster click at max zoom shows list view in panel.
+- Correction indicator appears when applicable.
+- Panel open/close preserves map zoom and position.
+
+---
+
+## M-UI5: Map Page – Upload Entry Point
+
+Goal
+
+- Implement the upload button from the mockup: a persistent button anchored to the **top-right of the map pane**. On hover it previews the upload panel; on click it fully opens the upload panel, which expands to the left and downward from the button. The panel is a drop target.
+
+Button + panel behavior:
+
+- At rest: compact icon button (upload icon, `--color-clay` fill per design.md).
+- On hover: panel previews at reduced opacity (ghost expand) — button stays rendered.
+- On click / drag-over: panel animates fully open (expands left and down from button anchor).
+- Upload panel stays open after files are added; close button or clicking away dismisses it.
+
+Files
+
+- `apps/web/src/app/features/map/map-shell/map-shell.component.html` (+ scss)
+- `apps/web/src/app/features/upload/upload-panel/upload-panel.component.ts` (+ html, scss)
+
+TODOs
+
+- [ ] Anchor upload button to `position: absolute; top: 1rem; right: 1rem` inside the map pane.
+- [ ] Add hover expand animation: `max-height` / `opacity` transition (120 ms) previewing a ghost panel.
+- [ ] On click: panel fully open with drag-and-drop drop zone + file picker button.
+- [ ] Panel expands left and down; never obscures the upload button itself.
+- [ ] `dragover` on map pane (not just the panel) also opens the panel to guide the user.
+- [ ] Panel close: `×` button, or clicking outside the panel area, or `Escape`.
+- [ ] Write/update tests for new trigger states.
+
+Acceptance criteria
+
+- Upload button is visible in map pane top-right at all times.
+- Hovering shows a ghost expansion of the panel.
+- Clicking opens the full panel.
+- Dragging a file over the map pane triggers the panel open.
+- Panel opens left+down and does not clip off-screen.
+
+---
+
+## M-UI6: Photos Page
+
+Goal
+
+- A dedicated page (`/photos`) showing all of the authenticated user's uploaded images as a responsive thumbnail grid. Supports filtering and bulk selection.
+
+Layout
+
+```
+┌─────────────────────────────────────────┐
+│  [active filter chips strip]            │
+├─────────────────────────────────────────┤
+│  [filter panel — collapsed by default]  │
+├──────┬──────┬──────┬──────┬─────────────┤
+│ card │ card │ card │ card │  ...        │
+│ card │ card │ card │ card │             │
+└──────┴──────┴──────┴──────┴─────────────┘
+```
+
+Card content (from design.md): thumbnail, timestamp, location name, one primary tag — no more.
+
+Files
+
+- `apps/web/src/app/features/photos/photos.component.ts` (+ html, scss)
+- `apps/web/src/app/features/photos/photo-card/photo-card.component.ts` (+ html, scss)
+
+TODOs
+
+- [ ] Create `PhotosComponent`: responsive grid (auto-fill, min 180 px column), cursor-paginated scroll.
+- [ ] Create `PhotoCardComponent`: thumbnail (lazy-loaded), timestamp, metadata badge. Actions (checkbox, group-add, `⋯`) hidden at rest, revealed on hover (design.md §1.8).
+- [ ] Add inline filter chips strip (active filters visible at all times above grid).
+- [ ] Add collapsible filter panel (date range, project, metadata key/value).
+- [ ] Bulk-select mode: entering it via checkbox click shows a floating action bar (add to group, delete).
+- [ ] Empty state: "Nothing here yet — start by uploading your first site photo." with upload CTA.
+- [ ] Write unit tests.
+
+Acceptance criteria
+
+- All uploaded photos are shown in the grid.
+- Filter chips reflect active filters; removing a chip updates the grid.
+- Bulk-select mode shows action bar.
+- Empty state renders when no images exist.
+
+---
+
+## M-UI7: Groups Page
+
+Goal
+
+- A dedicated page (`/groups`) showing the user's saved groups (collections of images). Groups can be created, renamed, and deleted. Clicking a group shows its images in the same grid layout as the Photos page.
+
+Files
+
+- `apps/web/src/app/features/groups/groups.component.ts` (+ html, scss)
+- `apps/web/src/app/features/groups/group-detail/group-detail.component.ts` (+ html, scss)
+
+TODOs
+
+- [ ] Groups list view: card per group (cover thumbnail, name, image count, last updated).
+- [ ] Inline rename: clicking the group name activates an inline text input (Notion-style property edit, design.md §2.10).
+- [ ] Create group: "+ New group" button at top of list.
+- [ ] Delete group: context menu (`⋯`) with confirmation.
+- [ ] Group detail view: same thumbnail grid as Photos page, filtered to the group.
+- [ ] Empty state for groups list: "You haven't created any groups yet."
+- [ ] Empty state for group detail: "This group is empty — add images from the Photos page or the map."
+- [ ] Write unit tests.
+
+Acceptance criteria
+
+- Groups list shows all saved groups with cover thumbnail and count.
+- Rename and delete work inline without full-page navigation.
+- Group detail shows correct images from `saved_group_images`.
+
+---
+
+## M-UI8: Settings Page
+
+Goal
+
+- A dedicated page (`/settings`) for application preferences. MVP scope: theme toggle (light / dark / system), map tile style preference, and notification placeholders.
+
+Files
+
+- `apps/web/src/app/features/settings/settings.component.ts` (+ html, scss)
+
+TODOs
+
+- [ ] Theme toggle: light / dark / system — writes to `localStorage` and applies `[data-theme]` to `<html>`.
+- [ ] Map tile style preference (placeholder for now — only one style available in MVP).
+- [ ] Greyed-out placeholder sections for future settings (notifications, integrations) with "Coming soon" label.
+- [ ] Settings are persisted in `localStorage`; applied on `APP_INITIALIZER` before first render.
+- [ ] Write unit tests for theme toggle signal.
+
+Acceptance criteria
+
+- Theme toggle switches between light, dark, and system.
+- Preference persists across page reload.
+- Greyed-out future sections are present and non-interactive.
+
+---
+
+## M-UI9: Account Page
+
+Goal
+
+- A dedicated page (`/account`) showing the authenticated user's profile and providing account management actions: update email, update password, delete account.
+
+Files
+
+- `apps/web/src/app/features/account/account.component.ts` (+ html, scss)
+
+TODOs
+
+- [ ] Display current email and user metadata from `AuthService`.
+- [ ] "Change password" form: calls `AuthService.updatePassword()`.
+- [ ] "Change email" form: calls Supabase `updateUser` with new email; shows confirmation message.
+- [ ] "Delete account" button: two-step confirmation (inline, not modal), calls `AuthService.deleteAccount()`.
+- [ ] Write unit tests (mock `AuthService` with spies).
+
+Acceptance criteria
+
+- User can see their current email.
+- Password and email change flows work end-to-end.
+- Delete account requires explicit confirmation before calling the service.
+
+---
+
 ## AI-Friendly Readability Rules
 
 - Keep milestone headers stable: `## Mx: Name`.
