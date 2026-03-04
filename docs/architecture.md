@@ -181,10 +181,10 @@ interface AddressCandidate {
   label: string;
   lat: number;
   lng: number;
-  confidence: 'exact' | 'closest' | 'approximate';
-  source: 'database' | 'geocoder';
-  imageCount?: number;   // DB candidates: photos at this location
-  matchScore?: number;   // DB candidates: trigram similarity score (0–1)
+  confidence: "exact" | "closest" | "approximate";
+  source: "database" | "geocoder";
+  imageCount?: number; // DB candidates: photos at this location
+  matchScore?: number; // DB candidates: trigram similarity score (0–1)
   boundingBox?: LatLngBounds;
 }
 ```
@@ -259,12 +259,12 @@ interface ImageInputMetadata {
 
 ### Concrete Adapters
 
-| Adapter              | Status   | Description                                                                |
-| -------------------- | -------- | -------------------------------------------------------------------------- |
-| `LocalUploadAdapter` | MVP      | Wraps the browser `<input type="file">` API. Ships first.                  |
-| `FolderImportAdapter`| Planned  | Wraps the File System Access API (`showDirectoryPicker()`). Recursively scans a local folder; includes `FilenameLocationParser` for address extraction from paths. Requires a Chromium-based browser. See `folder-import.md`. |
-| `GoogleDriveAdapter` | Post-MVP | Fetches files via the Google Drive Picker API.                             |
-| _(future)_           | Post-MVP | Any source (Dropbox, FTP, camera API) that implements `ImageInputAdapter`. |
+| Adapter               | Status   | Description                                                                                                                                                                                                                   |
+| --------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `LocalUploadAdapter`  | MVP      | Wraps the browser `<input type="file">` API. Ships first.                                                                                                                                                                     |
+| `FolderImportAdapter` | Planned  | Wraps the File System Access API (`showDirectoryPicker()`). Recursively scans a local folder; includes `FilenameLocationParser` for address extraction from paths. Requires a Chromium-based browser. See `folder-import.md`. |
+| `GoogleDriveAdapter`  | Post-MVP | Fetches files via the Google Drive Picker API.                                                                                                                                                                                |
+| _(future)_            | Post-MVP | Any source (Dropbox, FTP, camera API) that implements `ImageInputAdapter`.                                                                                                                                                    |
 
 ### Invariants
 
@@ -711,17 +711,17 @@ GeoSite uses **Angular Signals** as the primary state management approach. No ex
 
 ### Service Responsibilities
 
-| Service                  | State Managed                                                | Persistence                                          |
-| ------------------------ | ------------------------------------------------------------ | ---------------------------------------------------- |
-| `AuthService`            | Current user, JWT, roles                                     | Supabase session (auto-managed)                      |
-| `ViewportQueryService`   | Current viewport bounds, debounce timer, abort controller    | In-memory only                                       |
-| `FilterService`          | Active filters (time, project, metadata, distance)           | `localStorage`                                       |
-| `SelectionService`       | Active selection circle (center, radius), selected image IDs | In-memory (ephemeral)                                |
-| `GroupService`           | Saved groups, group membership, active tab                   | Server (`saved_groups`) + `localStorage` (tab order) |
-| `ImageCacheService`      | Fetched image metadata, thumbnail URLs                       | In-memory `Map` with LRU eviction (max 5000 entries) |
-| `ThemeService`           | Light/dark mode                                              | `localStorage` key: `geosite-theme`                  |
-| `MapStateService`        | Last viewport center + zoom                                  | `localStorage` key: `geosite-map-state`              |
-| `AddressResolverService` | Result cache (query → `AddressCandidateGroup`, 5-min TTL, LRU max 200) | In-memory only; stateless across sessions  |
+| Service                  | State Managed                                                          | Persistence                                          |
+| ------------------------ | ---------------------------------------------------------------------- | ---------------------------------------------------- |
+| `AuthService`            | Current user, JWT, roles                                               | Supabase session (auto-managed)                      |
+| `ViewportQueryService`   | Current viewport bounds, debounce timer, abort controller              | In-memory only                                       |
+| `FilterService`          | Active filters (time, project, metadata, distance)                     | `localStorage`                                       |
+| `SelectionService`       | Active selection circle (center, radius), selected image IDs           | In-memory (ephemeral)                                |
+| `GroupService`           | Saved groups, group membership, active tab                             | Server (`saved_groups`) + `localStorage` (tab order) |
+| `ImageCacheService`      | Fetched image metadata, thumbnail URLs                                 | In-memory `Map` with LRU eviction (max 5000 entries) |
+| `ThemeService`           | Light/dark mode                                                        | `localStorage` key: `geosite-theme`                  |
+| `MapStateService`        | Last viewport center + zoom                                            | `localStorage` key: `geosite-map-state`              |
+| `AddressResolverService` | Result cache (query → `AddressCandidateGroup`, 5-min TTL, LRU max 200) | In-memory only; stateless across sessions            |
 
 ### Signal Pattern
 

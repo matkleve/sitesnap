@@ -24,7 +24,7 @@ Typical use cases:
 GeoSite uses the browser's **File System Access API** (`showDirectoryPicker()`) to give the user a native, OS-level folder picker. No file server or special backend is needed; reads happen entirely client-side with user consent.
 
 ```typescript
-const dirHandle = await window.showDirectoryPicker({ mode: 'read' });
+const dirHandle = await window.showDirectoryPicker({ mode: "read" });
 ```
 
 **Browser Support**  
@@ -32,7 +32,7 @@ The File System Access API is supported in Chromium-based browsers (Chrome 86+, 
 
 ```typescript
 const isFolderImportSupported = (): boolean =>
-  typeof window !== 'undefined' && 'showDirectoryPicker' in window;
+  typeof window !== "undefined" && "showDirectoryPicker" in window;
 ```
 
 If unsupported, the button is replaced by a notice:  
@@ -87,12 +87,12 @@ Because a folder scan may return hundreds or thousands of files, the scan runs i
 
 The workflow has four distinct phases:
 
-| Phase | What happens | UI |
-|---|---|---|
-| **1. Scan** | Traverse directory tree, collect `ImageInputRef` list | Counter: "142 images found" |
+| Phase             | What happens                                                             | UI                                  |
+| ----------------- | ------------------------------------------------------------------------ | ----------------------------------- |
+| **1. Scan**       | Traverse directory tree, collect `ImageInputRef` list                    | Counter: "142 images found"         |
 | **2. Resolution** | Parse filenames, read EXIF from each file, call `AddressResolverService` | Progress bar: "Resolving 142 / 142" |
-| **3. Review** | User reviews conflicts, needs-confirmation, and unresolved images | Review panel (§5) |
-| **4. Import** | Confirmed files enter the core ingestion pipeline | Batch progress bar |
+| **3. Review**     | User reviews conflicts, needs-confirmation, and unresolved images        | Review panel (§5)                   |
+| **4. Import**     | Confirmed files enter the core ingestion pipeline                        | Batch progress bar                  |
 
 Phases 1–3 happen entirely client-side before any data is sent to Supabase.
 
@@ -108,10 +108,10 @@ Phases 1–3 happen entirely client-side before any data is sent to Supabase.
 
 Every image must have geographic coordinates before it can be committed to the database. Folder imports have two information sources per image:
 
-| Source | Reliability | Priority |
-|---|---|---|
-| Filename / folder path | Human-entered; intentional | **Primary** |
-| EXIF GPS data | Automatic sensor; may drift | Secondary |
+| Source                 | Reliability                 | Priority    |
+| ---------------------- | --------------------------- | ----------- |
+| Filename / folder path | Human-entered; intentional  | **Primary** |
+| EXIF GPS data          | Automatic sensor; may drift | Secondary   |
 
 Filename data is preferred because it represents deliberate human intent — a technician who organized photos into a folder named `Burgstraße_7` knew where those photos were taken. EXIF data is automatic and can drift or be absent. However, EXIF GPS is more spatially precise when available, so the two sources are used together.
 
@@ -125,13 +125,13 @@ The `FilenameLocationParser` utility examines the following, in order of specifi
 
 **Recognized patterns (examples):**
 
-| Pattern | Example input | Extracted hint |
-|---|---|---|
-| Street + number | `Burgstraße_7` | "Burgstraße 7" |
-| Street + number + city | `Burgstr_7_Zürich` | "Burgstraße 7, Zürich" |
-| Decimal coordinates | `47.3769_8.5417_site.jpg` | lat 47.3769, lng 8.5417 (no resolver call needed) |
-| Pure timestamp | `20260101_120000.jpg` | No location hint |
-| Generic camera name | `IMG_001.jpg`, `DSC_4392.jpg` | No location hint |
+| Pattern                | Example input                 | Extracted hint                                    |
+| ---------------------- | ----------------------------- | ------------------------------------------------- |
+| Street + number        | `Burgstraße_7`                | "Burgstraße 7"                                    |
+| Street + number + city | `Burgstr_7_Zürich`            | "Burgstraße 7, Zürich"                            |
+| Decimal coordinates    | `47.3769_8.5417_site.jpg`     | lat 47.3769, lng 8.5417 (no resolver call needed) |
+| Pure timestamp         | `20260101_120000.jpg`         | No location hint                                  |
+| Generic camera name    | `IMG_001.jpg`, `DSC_4392.jpg` | No location hint                                  |
 
 **Normalization rules:**
 
@@ -154,14 +154,14 @@ Original EXIF coordinates follow the same immutability invariant as single-file 
 
 After comparing filename-derived and EXIF-derived locations, each image falls into one of four outcomes:
 
-| Filename hint | EXIF GPS | Outcome | Action |
-|---|---|---|---|
-| Address resolved, high confidence | GPS present, ≤50m from resolved address | ✅ **Concordant** | Use filename-resolved coordinates (confirmed by EXIF). Import without user review. |
-| Address resolved | GPS present, **>50m from resolved address** | ⚠️ **Conflict** | Surface to user — both candidates shown. User must choose. |
-| Address resolved, high confidence | GPS absent or invalid | ✅ **Resolved — filename only** | Use filename-resolved coordinates. `exif_latitude`/`exif_longitude` remain NULL. |
-| No hint found | GPS present | ✅ **Resolved — EXIF only** | Use EXIF GPS directly. Flagged with "Location from EXIF only" note. |
-| Address resolved, low confidence | Either | ❓ **Needs confirmation** | Top candidate shown; user must confirm or correct before import. |
-| No hint found | GPS absent or invalid | ❌ **Unresolved** | Added to manual review queue. |
+| Filename hint                     | EXIF GPS                                    | Outcome                         | Action                                                                             |
+| --------------------------------- | ------------------------------------------- | ------------------------------- | ---------------------------------------------------------------------------------- |
+| Address resolved, high confidence | GPS present, ≤50m from resolved address     | ✅ **Concordant**               | Use filename-resolved coordinates (confirmed by EXIF). Import without user review. |
+| Address resolved                  | GPS present, **>50m from resolved address** | ⚠️ **Conflict**                 | Surface to user — both candidates shown. User must choose.                         |
+| Address resolved, high confidence | GPS absent or invalid                       | ✅ **Resolved — filename only** | Use filename-resolved coordinates. `exif_latitude`/`exif_longitude` remain NULL.   |
+| No hint found                     | GPS present                                 | ✅ **Resolved — EXIF only**     | Use EXIF GPS directly. Flagged with "Location from EXIF only" note.                |
+| Address resolved, low confidence  | Either                                      | ❓ **Needs confirmation**       | Top candidate shown; user must confirm or correct before import.                   |
+| No hint found                     | GPS absent or invalid                       | ❌ **Unresolved**               | Added to manual review queue.                                                      |
 
 **Conflict threshold:** 50 metres. Two sources agreeing within 50m are treated as concordant. For concordant images, the EXIF coordinates (more spatially precise) are used as the effective coordinates; the filename-resolved address is stored as a human-readable reference label.
 
@@ -284,14 +284,14 @@ At the end of the import phase, a summary is shown on the map with newly importe
 
 ## 10. Cross-References
 
-| Topic | Document |
-|---|---|
-| `ImageInputAdapter` interface contract | `architecture.md` §5 |
-| `AddressResolverService` | `address-resolver.md` |
-| EXIF parsing and ingestion pipeline | `architecture.md` §5 |
-| Single-file upload flow | `use-cases.md` UC3 |
-| Batch metadata assignment | `features.md` §1.4 feature 18 |
-| Folder import use case | `use-cases.md` UC13 |
-| ADR: Filename-first resolution | `decisions.md` D16 |
-| ADR: Provider-agnostic image input | `decisions.md` D10 |
-| Marker lifecycle after upload | `audit-upload-map-interaction.md` Pattern 3 |
+| Topic                                  | Document                                    |
+| -------------------------------------- | ------------------------------------------- |
+| `ImageInputAdapter` interface contract | `architecture.md` §5                        |
+| `AddressResolverService`               | `address-resolver.md`                       |
+| EXIF parsing and ingestion pipeline    | `architecture.md` §5                        |
+| Single-file upload flow                | `use-cases.md` UC3                          |
+| Batch metadata assignment              | `features.md` §1.4 feature 18               |
+| Folder import use case                 | `use-cases.md` UC13                         |
+| ADR: Filename-first resolution         | `decisions.md` D16                          |
+| ADR: Provider-agnostic image input     | `decisions.md` D10                          |
+| Marker lifecycle after upload          | `audit-upload-map-interaction.md` Pattern 3 |

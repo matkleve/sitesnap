@@ -624,7 +624,7 @@ Import an entire folder of field photos in one operation, resolving their locati
 **Alternative Flow: Browser Unsupported**
 
 1a. User is on Firefox or Safari. The "From folder…" button is replaced by:  
-    _"Folder import requires Chrome or Edge. Select multiple files instead."_  
+ _"Folder import requires Chrome or Edge. Select multiple files instead."_  
 1b. User uses the standard multi-file picker to select files manually.
 
 **Alternative Flow: All Images Already Geo-Tagged**

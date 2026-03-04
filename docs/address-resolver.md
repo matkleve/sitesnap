@@ -37,7 +37,7 @@ See `decisions.md` D17 for rationale.
 ## 3. Interface Contract
 
 ```typescript
-@Injectable({ providedIn: 'root' })
+@Injectable({ providedIn: "root" })
 export class AddressResolverService {
   /**
    * Resolve an address query to a ranked list of candidates.
@@ -95,10 +95,10 @@ interface AddressCandidate {
   lng: number;
 
   /** How well this candidate matches the query. */
-  confidence: 'exact' | 'closest' | 'approximate';
+  confidence: "exact" | "closest" | "approximate";
 
   /** Where this candidate came from. */
-  source: 'database' | 'geocoder';
+  source: "database" | "geocoder";
 
   /**
    * DB candidates only: how many images in the database are
@@ -227,13 +227,13 @@ No separator line is needed in this view; instead DB results carry a "(N photos 
 
 Debounce and caching are implemented internally:
 
-| Concern | Implementation |
-|---|---|
-| Debounce | 300ms idle timer after the last character typed (for autocomplete calls). Folder import resolution calls are not debounced (they are batch operations). |
-| In-memory cache | Query string → `AddressCandidateGroup`, TTL 5 minutes. Keyed by `query + orgId`. Evicted on LRU after 200 entries. |
-| DB query abort | Each in-flight DB query is cancelled if a new input arrives before the debounce fires. |
-| Geocoder abort | Same — abort-previous-request pattern using `AbortController` or RxJS `switchMap`. |
-| Geocoder rate limiting | Nominatim (default provider): 1 req/sec. The `GeocodingAdapter` maintains a request queue to honour this. |
+| Concern                | Implementation                                                                                                                                          |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Debounce               | 300ms idle timer after the last character typed (for autocomplete calls). Folder import resolution calls are not debounced (they are batch operations). |
+| In-memory cache        | Query string → `AddressCandidateGroup`, TTL 5 minutes. Keyed by `query + orgId`. Evicted on LRU after 200 entries.                                      |
+| DB query abort         | Each in-flight DB query is cancelled if a new input arrives before the debounce fires.                                                                  |
+| Geocoder abort         | Same — abort-previous-request pattern using `AbortController` or RxJS `switchMap`.                                                                      |
+| Geocoder rate limiting | Nominatim (default provider): 1 req/sec. The `GeocodingAdapter` maintains a request queue to honour this.                                               |
 
 ---
 
@@ -260,14 +260,14 @@ Reverse geocoding (`AddressResolverService.reverse()`) can be used to back-fill 
 
 ## 8. Integration Points
 
-| Integration point | How `AddressResolverService` is used |
-|---|---|
-| **Map search bar** | `resolve(query)` on each debounced keystroke. Result group rendered as autocomplete dropdown. Selecting a candidate pans/zooms the map. |
-| **Upload panel — manual placement** | `resolve(query)` when user types in the address field before placing a marker. Same dropdown UI. |
+| Integration point                       | How `AddressResolverService` is used                                                                                                                                             |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Map search bar**                      | `resolve(query)` on each debounced keystroke. Result group rendered as autocomplete dropdown. Selecting a candidate pans/zooms the map.                                          |
+| **Upload panel — manual placement**     | `resolve(query)` when user types in the address field before placing a marker. Same dropdown UI.                                                                                 |
 | **Folder import — filename resolution** | `resolve(filenameHint)` called once per image during the resolution phase. Top-ranked candidate used for auto-import; low-confidence results go to the needs-confirmation queue. |
-| **Folder import — review UI** | Full candidate group rendered as a radio-group for user selection. |
-| **Marker correction (UC10)** | `resolve(query)` in the "Edit Location" address input. |
-| **Reverse geocode on detail view** | `reverse(lat, lng)` to display a human-readable address when `address_label` is NULL. |
+| **Folder import — review UI**           | Full candidate group rendered as a radio-group for user selection.                                                                                                               |
+| **Marker correction (UC10)**            | `resolve(query)` in the "Edit Location" address input.                                                                                                                           |
+| **Reverse geocode on detail view**      | `reverse(lat, lng)` to display a human-readable address when `address_label` is NULL.                                                                                            |
 
 ---
 
@@ -275,29 +275,35 @@ Reverse geocoding (`AddressResolverService.reverse()`) can be used to back-fill 
 
 All error states follow the GeoSite UI state contract (`architecture.md` §13):
 
-| Scenario | Behaviour |
-|---|---|
-| DB query fails | Show geocoder results only. Suppress DB tier silently (no error banner in the dropdown). Log warning to console. |
-| Geocoder times out or fails | Show DB results only. Display muted note: "External search unavailable." |
-| Both sources fail | Show error: "Address search unavailable. Try again or navigate manually." Retry button available. |
-| Query too short (<2 chars) | No query fired. Show hint: "Keep typing…" |
-| Zero results from both | Show: "No results for '[query]'. Try a different address." |
+| Scenario                    | Behaviour                                                                                                        |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| DB query fails              | Show geocoder results only. Suppress DB tier silently (no error banner in the dropdown). Log warning to console. |
+| Geocoder times out or fails | Show DB results only. Display muted note: "External search unavailable."                                         |
+| Both sources fail           | Show error: "Address search unavailable. Try again or navigate manually." Retry button available.                |
+| Query too short (<2 chars)  | No query fired. Show hint: "Keep typing…"                                                                        |
+| Zero results from both      | Show: "No results for '[query]'. Try a different address."                                                       |
 
 ---
 
 ## 10. Angular Service Structure
 
 ```typescript
-@Injectable({ providedIn: 'root' })
+@Injectable({ providedIn: "root" })
 export class AddressResolverService {
-  private readonly cache = new Map<string, { data: AddressCandidateGroup; expires: number }>();
+  private readonly cache = new Map<
+    string,
+    { data: AddressCandidateGroup; expires: number }
+  >();
 
   constructor(
     private readonly supabase: SupabaseService,
     private readonly geocoding: GeocodingAdapter,
   ) {}
 
-  resolve(query: string, options?: ResolverOptions): Observable<AddressCandidateGroup> {
+  resolve(
+    query: string,
+    options?: ResolverOptions,
+  ): Observable<AddressCandidateGroup> {
     if (!query || query.length < (options?.minQueryLength ?? 2)) {
       return of({ databaseCandidates: [], geocoderCandidates: [] });
     }
@@ -313,7 +319,12 @@ export class AddressResolverService {
       geo: from(this.geocoding.search(query)),
     }).pipe(
       map(({ db, geo }) => this.mergeAndDeduplicate(db, geo, options)),
-      tap(result => this.cache.set(cacheKey, { data: result, expires: Date.now() + 5 * 60_000 })),
+      tap((result) =>
+        this.cache.set(cacheKey, {
+          data: result,
+          expires: Date.now() + 5 * 60_000,
+        }),
+      ),
     );
   }
 
@@ -325,12 +336,12 @@ export class AddressResolverService {
 
 ## 11. Cross-References
 
-| Topic | Document |
-|---|---|
-| `GeocodingAdapter` interface | `architecture.md` §3 |
+| Topic                              | Document              |
+| ---------------------------------- | --------------------- |
+| `GeocodingAdapter` interface       | `architecture.md` §3  |
 | Folder import — address resolution | `folder-import.md` §4 |
-| Map search bar UX contract | `architecture.md` §3 |
-| Angular service table | `architecture.md` §14 |
-| ADR: DB-first address ranking | `decisions.md` D17 |
-| ADR: Provider-agnostic geocoding | `decisions.md` D6 |
-| Feature list entry | `features.md` §1.15 |
+| Map search bar UX contract         | `architecture.md` §3  |
+| Angular service table              | `architecture.md` §14 |
+| ADR: DB-first address ranking      | `decisions.md` D17    |
+| ADR: Provider-agnostic geocoding   | `decisions.md` D6     |
+| Feature list entry                 | `features.md` §1.15   |

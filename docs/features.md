@@ -216,20 +216,20 @@ See `architecture.md`, `database-schema.md`, and `security-boundaries.md`.
 
 ### 1.12 MVP Feature-to-Use-Case Mapping
 
-| MVP Feature Group                  | Feature IDs | Primary Use Cases  |
-| ---------------------------------- | ----------- | ------------------ |
-| Authentication and User Management | 1-3, 37     | UC1, UC2, UC3, UC4 |
-| Image Ingestion                    | 4-8, 30-33  | UC3                |
-| Spatial and Temporal Exploration   | 9-15        | UC1, UC2           |
-| Project and Metadata               | 16-18       | UC2, UC3           |
-| Distance and Spatial Selection     | 19-20       | UC1, UC2           |
-| Security and Performance           | 21-23       | UC1, UC2, UC3, UC4 |
-| Group-Based Workspace              | 24-27       | UC1, UC2           |
-| Filter Semantics                   | 28-29       | UC1, UC2           |
-| Upload Validation                  | 30-33       | UC3                |
-| Responsive Layout                  | 34-36       | UC1, UC2, UC3, UC4 |
-| UI and Theming                     | 38-40       | UC1, UC2, UC3, UC4 |
-| Folder-Based Bulk Import           | 41-43       | UC13               |
+| MVP Feature Group                  | Feature IDs | Primary Use Cases   |
+| ---------------------------------- | ----------- | ------------------- |
+| Authentication and User Management | 1-3, 37     | UC1, UC2, UC3, UC4  |
+| Image Ingestion                    | 4-8, 30-33  | UC3                 |
+| Spatial and Temporal Exploration   | 9-15        | UC1, UC2            |
+| Project and Metadata               | 16-18       | UC2, UC3            |
+| Distance and Spatial Selection     | 19-20       | UC1, UC2            |
+| Security and Performance           | 21-23       | UC1, UC2, UC3, UC4  |
+| Group-Based Workspace              | 24-27       | UC1, UC2            |
+| Filter Semantics                   | 28-29       | UC1, UC2            |
+| Upload Validation                  | 30-33       | UC3                 |
+| Responsive Layout                  | 34-36       | UC1, UC2, UC3, UC4  |
+| UI and Theming                     | 38-40       | UC1, UC2, UC3, UC4  |
+| Folder-Based Bulk Import           | 41-43       | UC13                |
 | Smart Address Resolution           | 44          | UC1, UC2, UC3, UC13 |
 
 MVP use cases are UC1-UC4. UC5 is post-MVP and does not gate MVP release. UC13 (folder import) is a planned extension; see `folder-import.md`.

@@ -125,6 +125,7 @@
   - The user can enter an address, use drag-to-map placement, assign a batch location, or skip.
   - Skipped images are stored with `location_unresolved = TRUE` and do not appear on the map.
   - See `folder-import.md` §5.3.
+
 ---
 
 ## Project & Metadata
