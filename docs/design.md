@@ -36,7 +36,7 @@ Show only what the user needs for the task at hand. Complexity surfaces on deman
 - Collapsed filter panel by default; expand on demand.
 - Detail metadata shown inline but collapsed; expand on tap.
 - Batch and advanced actions in context menus, not in primary toolbar.
-- **Zoom-level intelligence:** markers reveal progressively more detail as the user zooms in. At city scale (zoom ≤ 13), only clusters with counts are shown. At street scale (zoom 14–17), individual pins appear with project-badge color. At address scale (zoom ≥ 18), pins expand to show an inline thumbnail preview. Never render a detail that is invisible or unusable at the current zoom level.
+- **Proximity-first marker logic:** marker rendering and clustering are driven by spatial proximity, not by fixed zoom-level bands. Nearby photos may cluster at any zoom if density would hurt readability.
 
 ### 1.4 Legibility in All Conditions
 
@@ -376,29 +376,29 @@ Icon sizing conventions:
 
 All interactive icons must have a visible label or a `title` / `aria-label` attribute for accessibility.
 
-### 3.7 Map Visual Hierarchy and Zoom Levels
+### 3.7 Map Visual Hierarchy and Proximity Rules
 
-A well-designed map has four distinct visual layers, each lower in visual weight than the layer above it. This hierarchy must be enforced via tile styling, z-index management, and zoom-level logic:
+A well-designed map has four distinct visual layers, each lower in visual weight than the layer above it. This hierarchy must be enforced via tile styling, z-index management, and proximity/collision logic:
 
-| Layer                | Visual weight | Elements                                       | Design rule                                                                               |
-| -------------------- | ------------- | ---------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Base map             | Lowest        | Roads, buildings, water, terrain               | Muted — no POI clutter, desaturated fills, thin outlines                                  |
-| Data layer           | **Highest**   | Photo markers, clusters                        | Most visually prominent element on the map. `--color-primary` fill, white outline, shadow |
-| Interactive elements | Medium-high   | Radius circle, selection handles, hover states | Clearly distinct from base, does not compete with markers                                 |
-| UI chrome            | Medium        | Toolbar, filter panel, workspace pane          | Floats above map on `--color-bg-surface` background with shadow                           |
+| Layer                | Visual weight | Elements                                       | Design rule                                                                                             |
+| -------------------- | ------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Base map             | Lowest        | Roads, buildings, water, terrain               | Muted — no POI clutter, desaturated fills, thin outlines                                                |
+| Data layer           | **Highest**   | Photo markers, clusters                        | Most visually prominent element on the map. Square marker body with pointer tail, white outline, shadow |
+| Interactive elements | Medium-high   | Radius circle, selection handles, hover states | Clearly distinct from base, does not compete with markers                                               |
+| UI chrome            | Medium        | Toolbar, filter panel, workspace pane          | Floats above map on `--color-bg-surface` background with shadow                                         |
 
-Quoting Eleken's Head of Design: _"The challenge is balancing information density with readability. You need to decide what information is essential at each zoom level and how to present it without overwhelming the user."_
+Quoting Eleken's Head of Design: _"The challenge is balancing information density with readability. You need to decide what information is essential and how to present it without overwhelming the user."_
 
-**Zoom-level visibility rules:**
+**Marker and cluster behavior rules:**
 
-| Zoom level                | What is shown                                                                                   |
-| ------------------------- | ----------------------------------------------------------------------------------------------- |
-| ≤ 12 (city / region)      | Clusters only — numbered circle, `--color-bg-elevated` fill, count in `--text-caption`          |
-| 13–15 (district / street) | Individual pins — drop-shaped, `--color-primary` fill, white outline, no text                   |
-| 16–17 (block)             | Pin + project badge chip beneath the pin (short project name, `--color-accent` background)      |
-| ≥ 18 (address)            | Pin + project badge + inline thumbnail preview (64×64, `rounded-md`) for the nearest 1–3 images |
+| Situation                                      | What is shown                                                                                                   |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Single photo location                          | Square marker with small bottom pointer tail that anchors to the exact GPS/address coordinate                   |
+| Nearby markers overlap in screen space         | Markers separate with collision offsets so full square bodies remain visible; pointer tails still target origin |
+| Dense local area (proximity threshold reached) | Cluster marker with count badge                                                                                 |
+| Cluster selected                               | Open list/detail flow for contained photos (or zoom in), but clustering remains proximity-based                 |
 
-From the Eleken ReVeal case: objects are grouped by neighborhood to improve performance when viewing larger areas. At zoom ≤ 12, rendering individual pins for thousands of images would be both visually unreadable and technically prohibitive. The zoom-level transition from cluster → pin → pin+badge → pin+thumbnail is the solution.
+Clustering is proximity-based, not tied to fixed city/street/address zoom bands.
 
 ---
 
@@ -475,6 +475,7 @@ Marker tap/click area is extended to 48×48px via a transparent hit zone, regard
 - Background: `--color-bg-elevated`, border: `--color-border-strong`, 2px.
 - Count badge: `--text-caption`, `--color-text-primary`.
 - Cluster hover: scale 1.1, cursor pointer.
+- Triggered by proximity density, not by hard-coded zoom-level tiers.
 
 ### 5.2 Filter Panel
 
@@ -692,4 +693,4 @@ These are intentional deferrals, not oversights.
 6. **Heatmap / density overlay:** post-MVP. Map layer capability (tile swapping via `MapAdapter`) is already designed to support it.
 7. **Before/after slider component:** post-MVP feature but the full-image viewer layout anticipates it.
 8. **Brand color finalization:** `--color-primary: #2563EB` (blue) is a working default. The warm palette overall (Principle 1.5, Section 7) is confirmed as the design direction. The clay accent (`--color-clay: #CC7A4A`) is confirmed. Primary blue is the only open question before MVP launch.
-9. **Marker thumbnail overlay at high zoom:** the zoom-level visibility rule (Section 3.7) specifies a 64×64 thumbnail inline at zoom ≥ 18. This requires a hover/tap interaction model decision for desktop (does the thumbnail appear on hover, or always?). Defer to post-MVP; ship zoom ≥ 18 as pin + project badge only.
+9. **Marker overlap displacement and dynamic pointer tails:** when two or more square markers overlap in screen space, markers should separate so all squares are visible while tails still point to true coordinates. Defer to post-MVP if needed; MVP must keep square body + pointer shape and avoid hidden marker bodies.

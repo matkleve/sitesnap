@@ -918,7 +918,7 @@ TODOs
 - [ ] Pass selected marker data from `MapShellComponent` into the panel via `@Input` or signal.
 - [ ] Clicking a map marker: set selected marker signal → open panel.
 - [ ] Clicking the map background (not a marker): clear selected → close panel.
-- [ ] Cluster click: zoom in if at a zoom level that would separate markers; at max zoom, open panel with list view.
+- [ ] Cluster click: open panel with list view for clustered photos (optional zoom-in), using proximity-based clustering rules.
 - [ ] Show a correction indicator badge if `coordinate_corrections` entry exists for the image.
 - [ ] Panel header shows image count badge when cluster is selected.
 - [ ] Write unit tests for `ImageDetailPanelComponent`.
@@ -927,7 +927,7 @@ Acceptance criteria
 
 - Single marker click opens panel with correct metadata.
 - Map background click closes panel.
-- Cluster click at max zoom shows list view in panel.
+- Cluster click shows list view in panel for proximity clusters (independent of fixed zoom tiers).
 - Correction indicator appears when applicable.
 - Panel open/close preserves map zoom and position.
 

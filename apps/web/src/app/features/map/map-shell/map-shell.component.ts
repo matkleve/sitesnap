@@ -33,18 +33,7 @@ import { SupabaseService } from '../../../core/supabase.service';
 const RECENT_SEARCH_STORAGE_PREFIX = 'sitesnap_recent_searches_';
 const RECENT_SEARCH_STORAGE_LIMIT = 8;
 const RECENT_SEARCH_RENDER_LIMIT = 5;
-
-// Patch Leaflet default icon URLs so they resolve correctly from the Angular bundle.
-const iconDefault = L.icon({
-    iconUrl: 'assets/leaflet/marker-icon.png',
-    iconRetinaUrl: 'assets/leaflet/marker-icon-2x.png',
-    shadowUrl: 'assets/leaflet/marker-shadow.png',
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34],
-    shadowSize: [41, 41],
-});
-L.Marker.prototype.options.icon = iconDefault;
+const PHOTO_MARKER_CLUSTER_GRID_DECIMALS = 4;
 
 /** A single result from the Nominatim geocoding API. */
 export interface NominatimAddress {
@@ -728,20 +717,20 @@ export class MapShellComponent implements OnDestroy {
     private buildPhotoMarkerIcon(count: number, thumbnailUrl?: string): L.DivIcon {
         const hasSingleThumbnail = count === 1 && !!thumbnailUrl;
         const html = hasSingleThumbnail
-            ? `<div class="map-photo-marker map-photo-marker--single"><img src="${this.escapeHtmlAttribute(thumbnailUrl)}" alt="Uploaded photo marker" /></div>`
-            : `<div class="map-photo-marker map-photo-marker--count"><span>${count}</span></div>`;
+            ? `<div class="map-photo-marker map-photo-marker--single"><div class="map-photo-marker__body"><img src="${this.escapeHtmlAttribute(thumbnailUrl)}" alt="Uploaded photo marker" /></div><span class="map-photo-marker__tail" aria-hidden="true"></span></div>`
+            : `<div class="map-photo-marker map-photo-marker--count"><div class="map-photo-marker__body"><span>${count}</span></div><span class="map-photo-marker__tail" aria-hidden="true"></span></div>`;
 
         return L.divIcon({
             className: 'map-photo-marker-wrapper',
             html,
-            iconSize: [56, 56],
-            iconAnchor: [28, 28],
-            popupAnchor: [0, -32],
+            iconSize: [56, 66],
+            iconAnchor: [28, 66],
+            popupAnchor: [0, -66],
         });
     }
 
     private toMarkerKey(lat: number, lng: number): string {
-        return `${lat.toFixed(6)}:${lng.toFixed(6)}`;
+        return `${lat.toFixed(PHOTO_MARKER_CLUSTER_GRID_DECIMALS)}:${lng.toFixed(PHOTO_MARKER_CLUSTER_GRID_DECIMALS)}`;
     }
 
     private escapeHtmlAttribute(value?: string): string {

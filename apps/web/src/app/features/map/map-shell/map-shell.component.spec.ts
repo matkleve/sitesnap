@@ -21,7 +21,25 @@ function createJsonResponse(body: unknown, status = 200): Response {
     });
 }
 
+function createSupabaseQueryMock() {
+    const query = {
+        select: vi.fn(),
+        not: vi.fn(),
+        order: vi.fn(),
+        limit: vi.fn(),
+    };
+
+    query.select.mockReturnValue(query);
+    query.not.mockReturnValue(query);
+    query.order.mockReturnValue(query);
+    query.limit.mockResolvedValue({ data: [], error: null });
+
+    return query;
+}
+
 function buildTestBed() {
+    const imageQueryMock = createSupabaseQueryMock();
+
     return TestBed.configureTestingModule({
         imports: [MapShellComponent],
         providers: [
@@ -50,8 +68,15 @@ function buildTestBed() {
                             getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
                             onAuthStateChange: vi.fn().mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } }),
                         },
-                        from: vi.fn(),
-                        storage: { from: vi.fn() },
+                        from: vi.fn().mockReturnValue(imageQueryMock),
+                        storage: {
+                            from: vi.fn().mockReturnValue({
+                                createSignedUrl: vi.fn().mockResolvedValue({
+                                    data: { signedUrl: '' },
+                                    error: null,
+                                }),
+                            }),
+                        },
                     },
                 },
             },

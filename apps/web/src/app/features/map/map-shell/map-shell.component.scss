@@ -130,16 +130,37 @@
 }
 
 :host ::ng-deep .map-photo-marker {
+  position: relative;
   width: 3.5rem;
-  height: 3.5rem;
-  border-radius: 1rem;
-  overflow: hidden;
-  border: 2px solid var(--color-bg-surface);
-  box-shadow: var(--shadow-md);
+  height: 4.1rem;
+  filter: drop-shadow(0 2px 6px color-mix(in srgb, var(--color-text-primary) 24%, transparent));
+
+  .map-photo-marker__body {
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    border: 2px solid var(--color-bg-surface);
+    box-shadow: var(--shadow-md);
+  }
+
+  .map-photo-marker__tail {
+    position: absolute;
+    top: 3.45rem;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 0.4rem solid transparent;
+    border-right: 0.4rem solid transparent;
+    border-top: 0.6rem solid var(--color-bg-surface);
+  }
 }
 
 :host ::ng-deep .map-photo-marker--single {
-  background: var(--color-bg-surface);
+  .map-photo-marker__body {
+    background: var(--color-bg-surface);
+  }
 
   img {
     width: 100%;
@@ -150,13 +171,19 @@
 }
 
 :host ::ng-deep .map-photo-marker--count {
-  background: var(--color-clay);
-  color: var(--color-bg-surface);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 1rem;
+  .map-photo-marker__body {
+    background: var(--color-clay);
+    color: var(--color-bg-surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1rem;
+  }
+
+  .map-photo-marker__tail {
+    border-top-color: var(--color-clay);
+  }
 }
 
 // ── Floating search bar — top-center, unified expanding box ──────────────────
