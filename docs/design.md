@@ -3,7 +3,7 @@
 **Who this is for:** designers, frontend engineers, and anyone shaping how GeoSite looks and behaves.  
 **What you'll get:** a complete design reference — principles, visual language, layout system, component patterns, motion, and reference products.
 
-See `features.md` for capability scope, `use-cases.md` for user flows, and `architecture.md` for technical constraints that affect layout decisions.
+See `features.md` for capability scope, `use-cases.md` for user flows, `search-experience-spec.md` for the full search behavior contract, and `architecture.md` for technical constraints that affect layout decisions.
 
 ---
 

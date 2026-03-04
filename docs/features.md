@@ -3,6 +3,8 @@
 **Who this is for:** engineers and product owners deciding what to implement.  
 **What you'll get:** a numbered list of capabilities and constraints for GeoSite.
 
+See `search-experience-spec.md` for the detailed search UX, ranking, use-case expansion, and requirements breakdown.
+
 ---
 
 ## 1. MVP Features

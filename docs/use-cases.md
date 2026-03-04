@@ -3,7 +3,7 @@
 **Who this is for:** engineers and product people implementing and validating flows.  
 **What you’ll get:** concise narratives describing how technicians and clerks actually use GeoSite.
 
-See `project-description.md` for the high-level vision and `features.md` for the full capability list.
+See `project-description.md` for the high-level vision, `features.md` for the full capability list, and `search-experience-spec.md` for search-focused behavior and expanded search use cases.
 
 ---
 

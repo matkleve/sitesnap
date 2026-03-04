@@ -90,6 +90,9 @@ export class MapShellComponent implements OnDestroy {
     /** Whether GPS follow mode is currently enabled by the user. */
     readonly gpsTrackingEnabled = signal(false);
 
+    /** True while waiting for the first GPS fix after pressing the button. */
+    readonly gpsLocating = signal(false);
+
     // ── Search state ─────────────────────────────────────────────────────────
 
     /** Current search input value. */
@@ -172,6 +175,7 @@ export class MapShellComponent implements OnDestroy {
         }
 
         this.gpsTrackingEnabled.set(true);
+        this.gpsLocating.set(true);
         this.startGpsTracking();
     }
 
@@ -290,10 +294,12 @@ export class MapShellComponent implements OnDestroy {
             (pos) => {
                 const coords: [number, number] = [pos.coords.latitude, pos.coords.longitude];
                 this.userPosition.set(coords);
+                this.gpsLocating.set(false);
                 const zoom = Math.max(this.map?.getZoom() ?? 0, 15);
                 this.map?.setView(coords, zoom);
             },
             (error) => {
+                this.gpsLocating.set(false);
                 if (error.code === GeolocationPositionError.PERMISSION_DENIED) {
                     this.stopGpsTracking();
                 }
@@ -308,6 +314,7 @@ export class MapShellComponent implements OnDestroy {
         }
         this.gpsWatchId = null;
         this.gpsTrackingEnabled.set(false);
+        this.gpsLocating.set(false);
     }
 }
 

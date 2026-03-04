@@ -177,6 +177,11 @@ describe('MapShellComponent', () => {
         expect(fixture.componentInstance.gpsTrackingEnabled()).toBe(false);
     });
 
+    it('gpsLocating signal defaults to false', () => {
+        const fixture = TestBed.createComponent(MapShellComponent);
+        expect(fixture.componentInstance.gpsLocating()).toBe(false);
+    });
+
     it('userPosition signal defaults to null', () => {
         const fixture = TestBed.createComponent(MapShellComponent);
         expect(fixture.componentInstance.userPosition()).toBeNull();
@@ -197,6 +202,17 @@ describe('MapShellComponent', () => {
 
         const btn = (fixture.nativeElement as HTMLElement).querySelector('.map-gps-btn');
         expect(btn?.classList).toContain('map-gps-btn--tracking');
+    });
+
+    it('GPS button shows spinner while locating', () => {
+        const fixture = TestBed.createComponent(MapShellComponent);
+        fixture.detectChanges();
+
+        fixture.componentInstance.gpsLocating.set(true);
+        fixture.detectChanges();
+
+        const spinner = (fixture.nativeElement as HTMLElement).querySelector('.map-gps-btn__spinner');
+        expect(spinner).not.toBeNull();
     });
 
     it('goToUserPosition() toggles GPS tracking on and off', () => {

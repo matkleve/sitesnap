@@ -108,12 +108,29 @@
   <button
     class="map-gps-btn"
     type="button"
-    [attr.aria-label]="gpsTrackingEnabled() ? 'Stop following my location' : 'Go to my location'"
-    [title]="gpsTrackingEnabled() ? 'Stop following my location' : 'Go to my location'"
+    [attr.aria-label]="
+      gpsLocating()
+        ? 'Finding my location'
+        : gpsTrackingEnabled()
+          ? 'Stop following my location'
+          : 'Go to my location'
+    "
+    [title]="
+      gpsLocating()
+        ? 'Finding my location'
+        : gpsTrackingEnabled()
+          ? 'Stop following my location'
+          : 'Go to my location'
+    "
     [class.map-gps-btn--tracking]="gpsTrackingEnabled()"
+    [class.map-gps-btn--locating]="gpsLocating()"
     (click)="goToUserPosition()"
   >
-    <span class="material-icons" aria-hidden="true">my_location</span>
+    @if (gpsLocating()) {
+      <span class="map-gps-btn__spinner" aria-hidden="true"></span>
+    } @else {
+      <span class="material-icons" aria-hidden="true">my_location</span>
+    }
   </button>
 
   <!-- Placement mode banner -->
