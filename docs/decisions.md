@@ -369,6 +369,62 @@ See `architecture.md` §9 and `database-schema.md` §7.
 
 ---
 
+## D16 – Filename-First Location Resolution for Folder Import
+
+**Context**  
+When a user imports a folder of images, some images lack EXIF GPS data. Even images that have GPS may be from a device with poor accuracy. However, a technician who organized images into a folder named `Burgstraße_7/` has explicitly communicated the location — that folder name is human-entered, intentional data. EXIF data is automatic and can drift, be cached from a previous location, or be entirely absent. We needed a rule for which source to trust when both are available, and what to do when they disagree.
+
+**Decision**  
+Filename and folder-path data is the **primary** location source; EXIF GPS is the **secondary** (complementary) source.
+
+- The `FilenameLocationParser` utility extracts address hints from folder names and filenames (street + number, city, or decimal coordinates).
+- Address hints are validated and geocoded via `AddressResolverService`.
+- EXIF GPS is extracted in parallel and used to confirm or refine the filename-derived location.
+- If both sources are present and agree within 50m → import automatically (use EXIF coordinates for precision, filename address as the human-readable label).
+- If both sources are present but disagree by more than 50m → **surface the conflict to the user**. Never resolve silently.
+- If only one source is available → use it. Flag provenance accordingly.
+- If neither source is available → place in the manual review queue.
+
+**Consequences**
+
+- Users who organize folders by street address get near-zero-friction imports.
+- EXIF-only images are still handled gracefully; the EXIF path remains unchanged from single-file upload.
+- Conflicts are never hidden — the user is always in control of which source wins.
+- `FilenameLocationParser` is a pure, independently testable utility. It carries no side effects and can be improved incrementally without touching the ingestion pipeline.
+- The `images` table gains an `address_label` column to store the human-readable address resolved from the filename (or from user input during the review).
+- Images without any resolvable location gain a `location_unresolved = TRUE` flag and do not appear on the map until resolved.
+
+See `folder-import.md` and `features.md` §1.14.
+
+---
+
+## D17 – DB-First Address Ranking in AddressResolverService
+
+**Context**  
+GeoSite's main map search bar, upload panel, folder import review, and marker correction workflow all need address lookup with autocomplete. The underlying geocoding adapter (Nominatim by default, per D6) returns generic results from the full OpenStreetMap dataset. However, when a user at a construction company types "Burgs", they are almost certainly looking for "Burgstraße 7" — a site their organization has already documented — not a random Burgstraße in an unrelated city. Returning a neutral, alphabetically sorted list from the geocoder buries the most relevant results.
+
+**Decision**  
+Introduce `AddressResolverService` as an application-level service that sits on top of `GeocodingAdapter` and applies **database-first ranking**:
+
+- The service queries the GeoSite `images` database (org-scoped) for address labels already in the system, using fuzzy trigram similarity (`pg_trgm`), weighted by image count at each address.
+- It simultaneously calls `GeocodingAdapter.search()` for external candidates.
+- Results are returned as an `AddressCandidateGroup`: up to 3 DB candidates first, a visual separator, then up to 5 geocoder candidates.
+- Geocoder results within 30m of a DB candidate are deduplicated.
+- All application code that performs address lookup calls `AddressResolverService`, never `GeocodingAdapter` directly.
+
+**Consequences**
+
+- The most likely correct answers (known project locations) appear at the top of every address dropdown without any extra effort from the user.
+- The resolver is a single point of change: improving ranking, changing the DB query, or swapping the geocoder all happen in one place.
+- The external geocoder boundary (D6) is preserved: `GeocodingAdapter` remains provider-agnostic and `AddressResolverService` remains provider-agnostic above it.
+- A `pg_trgm` extension must be enabled on the Supabase PostgreSQL instance (or a `LIKE '%query%'` fallback must be accepted for environments where it is unavailable).
+- The `images` table requires an `address_label` column (non-nullable in future migrations; nullable for backward compatibility with existing rows).
+- Care must be taken with empty or very short queries: the service enforces a minimum query length of 2 characters before firing any DB or geocoder call.
+
+See `address-resolver.md` and `features.md` §1.15.
+
+---
+
 ## Adding New Decisions
 
 When you introduce a change that:

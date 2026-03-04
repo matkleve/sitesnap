@@ -7,10 +7,11 @@ See also: `project-description.md`, `architecture.md`, `security-boundaries.md`,
 
 Database: PostgreSQL (Supabase) with **PostGIS extension** enabled.
 
-Required extension:
+Required extensions:
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS postgis;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;  -- Trigram similarity for AddressResolverService DB-first search
 ```
 
 ---
@@ -166,6 +167,8 @@ Columns:
 - `created_at` (timestamptz, not null, default `now()`) — upload/record creation time
 - `updated_at` (timestamptz, not null, default `now()`)
 - `direction_degrees` (numeric(6,2), nullable) — stored for future use; not exposed in MVP UI
+- `address_label` (text, nullable) — human-readable address string for this image (e.g., "Burgstraße 7, 8001 Zürich"). Populated on upload from user input, filename resolution, or reverse geocoding. Used by `AddressResolverService` for DB-first autocomplete ranking. NULL for images imported before this column was introduced.
+- `location_unresolved` (boolean, nullable, default FALSE) — TRUE for images imported via `FolderImportAdapter` that were skipped during the review phase without a resolved location. Images with `location_unresolved = TRUE` are excluded from all viewport queries and do not appear on the map. See `folder-import.md` §6.
 
 **CHECK Constraints**
 

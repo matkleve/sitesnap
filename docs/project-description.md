@@ -39,6 +39,7 @@ Detailed flows are in `use-cases.md`.
 - **UC2 - Clerk preparing a quote**: filter by address, time, project, metadata, and distance.
 - **UC3 - Marker correction**: correct photo position while preserving original EXIF coordinates.
 - **UC4 - Admin role management**: grant/revoke elevated access.
+- **UC13 - Folder-based bulk import**: select a local folder; GeoSite resolves locations from folder names and filenames, surfaces conflicts, and imports the batch after a review step.
 
 ---
 
@@ -60,7 +61,8 @@ Full details are in `database-schema.md` and `glossary.md`.
   Each image belongs to exactly one user (`user_id`) and may be associated with one project (`project_id`).
 
 - **I2 - Every stored image has spatial and temporal context**  
-  Effective `latitude`/`longitude` are always present. Temporal context is represented by `captured_at` when available, otherwise `created_at`.
+  Effective `latitude`/`longitude` are always present for images visible on the map. Temporal context is represented by `captured_at` when available, otherwise `created_at`.
+  _Exception:_ Images imported via `FolderImportAdapter` that were skipped during the review phase may be stored without coordinates (`location_unresolved = TRUE`). These images do not appear on the map and are excluded from all viewport queries until their location is provided.
 
 - **I3 - Marker correction is additive, not destructive**  
   Corrected coordinates are stored separately. Original EXIF coordinates are never overwritten.

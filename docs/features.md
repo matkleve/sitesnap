@@ -229,8 +229,10 @@ See `architecture.md`, `database-schema.md`, and `security-boundaries.md`.
 | Upload Validation                  | 30-33       | UC3                |
 | Responsive Layout                  | 34-36       | UC1, UC2, UC3, UC4 |
 | UI and Theming                     | 38-40       | UC1, UC2, UC3, UC4 |
+| Folder-Based Bulk Import           | 41-43       | UC13               |
+| Smart Address Resolution           | 44          | UC1, UC2, UC3, UC13 |
 
-MVP use cases are UC1-UC4. UC5 is post-MVP and does not gate MVP release.
+MVP use cases are UC1-UC4. UC5 is post-MVP and does not gate MVP release. UC13 (folder import) is a planned extension; see `folder-import.md`.
 
 ---
 
@@ -252,6 +254,45 @@ MVP use cases are UC1-UC4. UC5 is post-MVP and does not gate MVP release.
 
 ---
 
+### 1.14 Folder-Based Bulk Import
+
+41. **`FolderImportAdapter` — folder as an image source**
+    - User selects a local folder from a native OS picker (File System Access API, `showDirectoryPicker()`).
+    - `FolderImportAdapter` implements `ImageInputAdapter` and plugs into the core ingestion pipeline without changes to pipeline logic.
+    - Supported in Chromium-based browsers (Chrome, Edge). Unsupported browsers receive a graceful fallback message and fall back to standard multi-file select.
+    - See `architecture.md` §5, `folder-import.md`, and `decisions.md` (D10, D16).
+42. **Recursive scan and location resolution**
+    - GeoSite recursively scans the selected folder for all supported image types (JPEG, PNG, WebP, HEIC, HEIF), without depth limit.
+    - Each image goes through the **location resolution algorithm**: (1) filename and folder-path parsing (`FilenameLocationParser`) to extract an address hint; (2) EXIF GPS extraction; (3) comparison and decision (concordant, conflict, filename-only, EXIF-only, or unresolved).
+    - Filename data is preferred over EXIF as the primary source — it is human-entered, intentional data. EXIF complements and can confirm the filename-derived location.
+    - When filename and EXIF coordinates differ by more than 50m, the **conflict is surfaced to the user** — GeoSite never resolves a conflict silently.
+    - Address hints extracted from filenames are resolved via `AddressResolverService` (Feature 44).
+    - See `folder-import.md` §4 for the full decision matrix and `decisions.md` (D16) for the rationale.
+43. **Manual review queue for unresolved imports**
+    - Images that cannot be auto-resolved (no filename hint, no EXIF GPS) are placed in a **manual review queue** before any data is written to the database.
+    - In the review queue the user can: enter an address (with AddressResolverService autocomplete), drag-to-map for placement, batch-assign a shared location to multiple images, or skip (import without coordinates, flagged with `location_unresolved = TRUE`).
+    - Skipped images are stored but excluded from all map viewport queries. They appear in a dedicated "Needs Location" filter view.
+    - Batch assignment: select multiple images in any review group and apply a shared location, project, or metadata value in one action.
+    - An import summary is shown before the batch upload begins: `✅ Ready: N  ⚠️ Conflicts: N  ❓ Needs confirmation: N  ❌ Unresolved: N`.
+    - See `folder-import.md` §5–§6.
+
+---
+
+### 1.15 Smart Address Resolution
+
+44. **`AddressResolverService` — application-wide, DB-first address resolver**
+    - A single, reusable Angular service used everywhere an address is searched or entered: the main map search bar, the upload panel (manual placement), the folder import review, and the marker correction workflow.
+    - **DB-first ranking:** the resolver queries GeoSite's own `images` database first for addresses already documented by the organization, and presents those results prominently before falling back to the external geocoding provider.
+    - Results are returned as an `AddressCandidateGroup`: `databaseCandidates` (up to 3 by default) followed by `geocoderCandidates` (up to 5), separated by a visual divider in the UI.
+    - DB candidates are ranked by fuzzy trigram similarity to the query and weighted by image count ("12 photos here").
+    - Geocoder candidates that are within 30m of an existing DB candidate are deduplicated (removed from the geocoder tier).
+    - Autocomplete uses a 300ms debounce. Results are cached in-memory per query string with a 5-minute TTL.
+    - The external geocoder remains the `GeocodingAdapter` from `architecture.md` §3 (default: Nominatim). `AddressResolverService` sits on top of it and does not replace it.
+    - The `images` table gains an `address_label` column to enable the DB search index.
+    - See `address-resolver.md` for the full interface contract, ranking algorithm, and UI presentation spec, and `decisions.md` (D17) for the rationale.
+
+---
+
 ## 2. Non-Goals (MVP) and Post-MVP Considerations
 
 The following items are out of scope for MVP and may be considered post-MVP:
@@ -264,7 +305,7 @@ The following items are out of scope for MVP and may be considered post-MVP:
 6. Offline mode (graceful degradation for intermittent connectivity IS in scope; full offline is not).
 7. Directional relevance (bearing data is stored and exposed via direction cone on markers — see `audit-upload-map-interaction.md` Pattern 2).
 8. Right-click map actions for upload/create marker here — UC5.
-9. `GoogleDriveAdapter` and other `ImageInputAdapter` implementations (local file upload is the MVP default).
+9. `GoogleDriveAdapter` and other `ImageInputAdapter` implementations beyond local upload and folder import. `FolderImportAdapter` (Feature 41–43) is planned. `GoogleDriveAdapter` and further remote sources are post-MVP.
 10. Alternative `MapAdapter` implementations (Google Maps, Mapbox, etc.); `LeafletOSMAdapter` is the MVP default.
 11. Lasso/polygon selection (right-click drag radius is MVP; freeform polygon is post-MVP).
 12. Image export (PDF reports, CSV, ZIP downloads).

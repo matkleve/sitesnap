@@ -89,6 +89,7 @@ These personas describe the primary human actors in GeoSite. Each use case refer
 
 - In scope for MVP: UC1, UC2, UC3, UC4.
 - Out of scope for MVP: UC5 (post-MVP, experimental).
+- Planned extension (not MVP gate): UC13 (Folder Import) — requires `FolderImportAdapter` and `AddressResolverService` (Features 41–44).
 
 ---
 
@@ -578,8 +579,78 @@ Reconstruct the documented sequence of events at a site to resolve a contractual
 
 ---
 
+## UC13 – Bulk Import from a Local Folder
+
+**Goal**  
+Import an entire folder of field photos in one operation, resolving their locations automatically from folder names and filenames, with a structured review step for any images that cannot be resolved automatically.
+
+**Actors**
+
+- Technician (role: `user`) — see [Persona: Technician](#persona-technician)
+- Admin (role: `admin`) — for organization-wide archive migrations
+
+**Preconditions**
+
+- User has a valid account and is logged in.
+- User is running Chrome or Edge (File System Access API required; see `folder-import.md` §2).
+- A folder of images exists on the local device, ideally organized with street addresses or location names in folder names (e.g., `Burgstraße_7/`, `Hauptstraße_12/`).
+
+**Main Flow**
+
+1. User opens the upload menu and selects "From folder…".
+2. The OS folder picker opens. User selects the root folder.
+3. GeoSite scans the folder recursively. A live counter shows: _"Scanning… 147 images found."_
+4. The **resolution phase** runs client-side:
+   - For each image, `FilenameLocationParser` extracts any address hint from the folder path and filename.
+   - EXIF GPS data is read from each file.
+   - `AddressResolverService` resolves each address hint against the organization's database and the external geocoder.
+   - Each image is classified: ✅ Ready / ⚠️ Conflict / ❓ Needs confirmation / ❌ Unresolved.
+5. An **import summary** is displayed:
+   ```
+   ✅  Ready to import:    108 images
+   ⚠️  Conflicts:           12 images   [Review →]
+   ❓  Needs confirmation:  18 images   [Review →]
+   ❌  Unresolved:           9 images   [Review →]
+   ```
+6. User reviews each non-ready group:
+   - **Conflicts:** Two candidates shown side-by-side (filename vs. EXIF). User chooses one, enters an address, or skips.
+   - **Needs confirmation:** Top-ranked `AddressResolverService` candidate shown with map preview. User confirms, selects an alternative from the DB-first dropdown, or corrects manually.
+   - **Unresolved:** User enters an address, drags to map, assigns a batch location, or skips (image stored without coordinates, flagged `location_unresolved = TRUE`).
+7. User optionally applies **batch assignment** (shared project, shared metadata key/value) to all images or a selected subset.
+8. User confirms the import. The batch upload begins (up to 10 parallel uploads).
+9. A consolidated progress bar and per-file status are shown.
+10. On completion: `108 uploaded, 0 failed`. Newly imported markers appear on the map with a green pulse animation.
+
+**Alternative Flow: Browser Unsupported**
+
+1a. User is on Firefox or Safari. The "From folder…" button is replaced by:  
+    _"Folder import requires Chrome or Edge. Select multiple files instead."_  
+1b. User uses the standard multi-file picker to select files manually.
+
+**Alternative Flow: All Images Already Geo-Tagged**
+
+4a. All 147 images have EXIF GPS and no conflicts.  
+5a. Summary shows `✅ Ready: 147`. User confirms directly without any review steps.
+
+**Postconditions**
+
+- All confirmed images are committed to the database with accurate coordinates and thumbnails.
+- Images with `location_unresolved = TRUE` are stored but hidden from the map until resolved.
+- A named group is optionally created from the batch (if the user chose "Save as Group" before confirming).
+
+**Key Invariants**
+
+- `FolderImportAdapter` implements `ImageInputAdapter`; the core ingestion pipeline is unchanged.
+- Filename-derived locations always go through `AddressResolverService`; raw text is never written to the database as coordinates.
+- EXIF coordinates are stored as immutable reference data, identical to single-file upload (see `decisions.md` D4).
+- Conflicts are never resolved automatically; the user always decides.
+- All images, including skipped ones, are subject to RLS.
+
+---
+
 ## Notes
 
 - Additional use cases (e.g., exporting data, advanced filtering) can be added here as the product evolves.
 - Any new use case should link back to relevant features and, if needed, trigger new decisions in `decisions.md`.
 - UC6–UC12 are not gated on MVP. UC6, UC7, UC10, UC11 are natural MVP extensions. UC8, UC9, UC12 are MVP-compatible but depend on group functionality (Feature 24–26) being complete.
+- UC13 (Folder Import) depends on `FolderImportAdapter` (Feature 41–43) and `AddressResolverService` (Feature 44). It requires a Chromium-based browser.

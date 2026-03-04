@@ -157,6 +157,40 @@ interface GeocodingResult {
 - If not: `confidence: 'exact'` → zoom 17 (street level). `confidence: 'closest'` → zoom 14 (neighborhood). `confidence: 'approximate'` → zoom 12 (city level).
 - Existing filters are preserved after a search-initiated map move.
 
+### Smart Address Resolver (AddressResolverService)
+
+`GeocodingAdapter` is a low-level provider boundary. Application code never calls `GeocodingAdapter` directly; it calls `AddressResolverService`, which layers **database-first ranking** on top of the geocoder.
+
+`AddressResolverService` is a reusable Angular service used at every address-input point in the application: the main map search bar, the upload panel, the folder import review phase, and the marker correction workflow.
+
+**Ranking model:**
+
+1. Query the GeoSite `images` database (org-scoped) for known address labels using fuzzy trigram similarity (`pg_trgm`). Matches are weighted by image count at each address — confirmed project locations appear first.
+2. In parallel, call `GeocodingAdapter.search()` for external candidates.
+3. Merge results: DB candidates first (up to 3), followed by a visual separator, then geocoder candidates (up to 5). Geocoder results within 30m of a DB candidate are deduplicated.
+
+**Response structure:**
+
+```typescript
+interface AddressCandidateGroup {
+  databaseCandidates: AddressCandidate[]; // Shown before separator
+  geocoderCandidates: AddressCandidate[]; // Shown after separator
+}
+
+interface AddressCandidate {
+  label: string;
+  lat: number;
+  lng: number;
+  confidence: 'exact' | 'closest' | 'approximate';
+  source: 'database' | 'geocoder';
+  imageCount?: number;   // DB candidates: photos at this location
+  matchScore?: number;   // DB candidates: trigram similarity score (0–1)
+  boundingBox?: LatLngBounds;
+}
+```
+
+See `address-resolver.md` for the full interface contract, UI presentation spec, and error states. See `decisions.md` (D17) for rationale.
+
 ---
 
 ## 4. Responsibility Boundaries
@@ -228,6 +262,7 @@ interface ImageInputMetadata {
 | Adapter              | Status   | Description                                                                |
 | -------------------- | -------- | -------------------------------------------------------------------------- |
 | `LocalUploadAdapter` | MVP      | Wraps the browser `<input type="file">` API. Ships first.                  |
+| `FolderImportAdapter`| Planned  | Wraps the File System Access API (`showDirectoryPicker()`). Recursively scans a local folder; includes `FilenameLocationParser` for address extraction from paths. Requires a Chromium-based browser. See `folder-import.md`. |
 | `GoogleDriveAdapter` | Post-MVP | Fetches files via the Google Drive Picker API.                             |
 | _(future)_           | Post-MVP | Any source (Dropbox, FTP, camera API) that implements `ImageInputAdapter`. |
 
@@ -676,16 +711,17 @@ GeoSite uses **Angular Signals** as the primary state management approach. No ex
 
 ### Service Responsibilities
 
-| Service                | State Managed                                                | Persistence                                          |
-| ---------------------- | ------------------------------------------------------------ | ---------------------------------------------------- |
-| `AuthService`          | Current user, JWT, roles                                     | Supabase session (auto-managed)                      |
-| `ViewportQueryService` | Current viewport bounds, debounce timer, abort controller    | In-memory only                                       |
-| `FilterService`        | Active filters (time, project, metadata, distance)           | `localStorage`                                       |
-| `SelectionService`     | Active selection circle (center, radius), selected image IDs | In-memory (ephemeral)                                |
-| `GroupService`         | Saved groups, group membership, active tab                   | Server (`saved_groups`) + `localStorage` (tab order) |
-| `ImageCacheService`    | Fetched image metadata, thumbnail URLs                       | In-memory `Map` with LRU eviction (max 5000 entries) |
-| `ThemeService`         | Light/dark mode                                              | `localStorage` key: `geosite-theme`                  |
-| `MapStateService`      | Last viewport center + zoom                                  | `localStorage` key: `geosite-map-state`              |
+| Service                  | State Managed                                                | Persistence                                          |
+| ------------------------ | ------------------------------------------------------------ | ---------------------------------------------------- |
+| `AuthService`            | Current user, JWT, roles                                     | Supabase session (auto-managed)                      |
+| `ViewportQueryService`   | Current viewport bounds, debounce timer, abort controller    | In-memory only                                       |
+| `FilterService`          | Active filters (time, project, metadata, distance)           | `localStorage`                                       |
+| `SelectionService`       | Active selection circle (center, radius), selected image IDs | In-memory (ephemeral)                                |
+| `GroupService`           | Saved groups, group membership, active tab                   | Server (`saved_groups`) + `localStorage` (tab order) |
+| `ImageCacheService`      | Fetched image metadata, thumbnail URLs                       | In-memory `Map` with LRU eviction (max 5000 entries) |
+| `ThemeService`           | Light/dark mode                                              | `localStorage` key: `geosite-theme`                  |
+| `MapStateService`        | Last viewport center + zoom                                  | `localStorage` key: `geosite-map-state`              |
+| `AddressResolverService` | Result cache (query → `AddressCandidateGroup`, 5-min TTL, LRU max 200) | In-memory only; stateless across sessions  |
 
 ### Signal Pattern
 
