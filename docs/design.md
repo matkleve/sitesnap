@@ -76,6 +76,17 @@ _Inspired by Anthropic's design philosophy._ Show the user what is true. Do not 
 - If an upload fails, show why (file too large, no GPS data, network error) — not just a generic failure badge.
 - If the system has not yet loaded all markers for the viewport, show a loading indicator. Do not present a map that appears complete but is not.
 
+### 1.8 Quiet Actions
+
+_Inspired by Notion's interaction design._ Controls that are always visible create visual noise and compete with the primary content. Actions should be present when needed and invisible when not. This complements Progressive Disclosure (1.3) at the micro-interaction level — where 1.3 governs what features are exposed, 1.8 governs when controls are visually present. Consequences:
+
+- Thumbnail card actions (checkbox, group-add, context menu `⋯`) are invisible at rest. They appear on hover via `opacity: 0 → 1` in 80ms with no layout shift. On mobile, selection checkboxes are always visible in bulk-select mode; at rest they are hidden.
+- Secondary and tertiary buttons render as **ghost buttons** — transparent background, no border — and receive a subtle background fill only on hover. Visual weight matches usage frequency: filled = primary action (e.g., "Confirm upload", "Save correction"), ghost = secondary (e.g., "Edit location", "Add to group"), text-only = tertiary (e.g., "Reset to EXIF").
+- Context menus are the preferred surface for item-level operations (rename group, delete image, copy coordinates). A permanently visible action bar is only used in bulk-select mode.
+- The floating micro-toolbar appears directly above a selected marker or highlighted thumbnail card. It never appears at the bottom of the screen where it competes with the bottom sheet, and never off to the side where it obscures adjacent content.
+- The sidebar panel does not display tooltips, hover labels, or animation hints when the user is not actively interacting with it.
+- Decorative dividers (horizontal rules between sections) are removed wherever background colour shift and spacing alone are sufficient to establish grouping.
+
 ---
 
 ## 2. Reference Products
@@ -185,6 +196,21 @@ These products solve adjacent problems with notable design decisions worth study
 - **"Info on demand," not "info always on."** Click any object for its detail; do not clutter the base map view. GeoSite's marker carries only a color-coded pin + optional project badge — all other metadata surfaces in the detail panel on tap.
 - **Context retention when navigating.** A selected marker stays highlighted and the workspace pane stays populated when the user pans or zooms. A "Return to selected" link in the search bar area restores context if the user has panned far away.
 - **Keep things simple at first glance, but make advanced features easily accessible.** The most successful map interfaces Eleken has built share this trait. GeoSite achieves this via the collapsed filter panel, the fixed Active Selection tab, and the hidden batch-action context menu.
+
+### 2.10 Notion (`notion.so`)
+
+**What it does:** workspace and knowledge management tool with a block-based page editor, database views, and a command palette.  
+**Why it is relevant:** Notion is the most refined production example of "quiet chrome" — an interface where controls hide until needed, letting content stay foreground at all times. Its micro-interaction patterns for hover-to-reveal actions, ghost buttons, compact toolbars, property-style editing, and command palettes are directly applicable to GeoSite's workspace pane, thumbnail grid, and image detail view.  
+**Design takeaways:**
+
+- **Hover-to-reveal inline actions.** In Notion, row-level controls (drag handle, checkbox, `⋯` menu) are `opacity: 0` at rest and animate to `opacity: 1` in ~80ms when the cursor enters the row. There is no layout shift — space for the controls is always reserved. This prevents visual noise in dense lists while keeping actions one hover away. GeoSite applies this to thumbnail cards, group tab rows, and metadata property rows: the checkbox, group-add icon, and context-menu button exist in the DOM but are invisible at rest, revealed on hover.
+- **Ghost buttons as the default.** Notion's toolbar buttons, sidebar actions, and secondary controls are all ghost-style: transparent background, no border, just an icon or label. A background fill appears on hover (`--color-bg-elevated` at ~40% opacity, 80ms fade). This reserves visual weight for the one or two actions per screen that genuinely need a filled button. GeoSite inherits this: every action button that is not a primary CTA (confirm upload, save correction) renders as a ghost button.
+- **28–32px compact element heights.** Notion's standard interactive height is 28px for inline controls (property chips, icon buttons in toolbars, command palette results) and 32px for dropdown items and panel buttons. This tightness creates breathing room around content without wasted chrome. GeoSite adopts three explicit heights: `compact` (28px) for workspace-inline micro-actions, `default` (32px) for panel buttons and filter chips, and `large` (40px) for primary CTAs. Desktop pointer targets meet 44px via padding extension, not by increasing visual height.
+- **Command palette (`Cmd/Ctrl + K`).** Notion's command palette is a floating, fuzzy-matched list of recent items and available actions — ranked, keyboard-navigable, dismissible with `Escape`. GeoSite implements this by extending the top-toolbar search bar: when focused via `Cmd/Ctrl + K`, it enters command mode and surfaces quick actions ("Upload photos", "Clear filters", "Go to my location", "Open group: [name]") above address search results. Recent searches and recently viewed groups are prioritised.
+- **Contextual micro-toolbar above selections.** When a block is selected in Notion, a compact floating toolbar appears directly above it with the most relevant formatting/action options. GeoSite uses this pattern for: (a) the selected marker on the map (micro-toolbar shows "View photos", "Edit location", "Deselect"); (b) a highlighted thumbnail card in the workspace pane (micro-toolbar shows "Add to group", "Edit metadata", "Delete").
+- **Property-style metadata rows.** Notion database properties render as two-column rows: property name on the left in `--color-text-secondary`, editable value on the right in `--color-text-primary`. Clicking the value activates an inline edit; no separate "Edit" button is required. GeoSite's image detail view adopts this model: the `[Edit]` button on the metadata block is replaced by clickable value cells that transition into inline inputs on click.
+- **Sidebar ghost-reveal on hover.** Notion's sidebar becomes more visible when the mouse enters its zone and fades when the mouse leaves. The expanded state uses a smooth `translateX` slide at 120ms. GeoSite applies a lighter version of this: the workspace pane has a pull-tab at the right map-edge that, on hover, previews the pane title and group count before the full pane opens. The pane itself does not reserve layout space when collapsed — it overlays the map.
+- **Spacing as the separator.** Notion uses almost no visible border lines inside panels. Section grouping is achieved through vertical spacing (`gap-3` / `gap-6`) and subtle background shifts. GeoSite removes decorative `<hr>` dividers and `--color-border` lines from inside the workspace pane and filter panel; section headers and `gap` spacing replace them.
 
 ---
 
@@ -298,6 +324,19 @@ Key layout dimensions:
 | Thumbnail size (list)            | 64×64px             |
 | Tap target minimum (mobile)      | 48×48px             |
 | Tap target minimum (desktop)     | 44×44px             |
+
+**Interactive element heights (Notion-inspired compact density):**
+
+Pointer targets always meet the 44×48px minimum via CSS `padding` — the _visual_ height of the element may be smaller. This lets the interface carry more information per row without sacrificing accessibility.
+
+| Size      | Visual height | Token class    | Usage                                                                      |
+| --------- | ------------- | -------------- | -------------------------------------------------------------------------- |
+| `compact` | 28px          | `.btn-compact` | Workspace pane inline micro-actions, command palette results, tab chips    |
+| `default` | 32px          | `.btn-default` | Filter panel controls, panel buttons, dropdown items                       |
+| `large`   | 40px          | `.btn-large`   | Primary CTAs ("Confirm upload", "Save correction"), toolbar action buttons |
+| FAB       | 56px          | `.btn-fab`     | Mobile upload trigger (fixed, bottom-right)                                |
+
+Ghost buttons (the default for secondary/tertiary actions) have no background or border at rest. A `--color-bg-elevated` fill at 35–45% opacity appears on hover over 80ms. Filled buttons (primary CTAs only) use `--color-primary` fill and `--color-text-on-primary` label.
 
 ### 3.4 Border Radius
 
@@ -464,14 +503,21 @@ Within each tab, the gallery is a responsive masonry or fixed-grid of thumbnail 
 
 **Thumbnail card:**
 
-- 128×128px thumbnail (object-cover).
+- 128×128px thumbnail (object-cover), `rounded-md` corners.
 - Bottom-left: capture date in `--text-caption` on a semi-transparent dark scrim.
 - Bottom-right: project badge (short name, colored chip in `--color-accent` or project-assigned color).
-- Top-right: metadata preview (single key=value shorthand, e.g., "Beton").
-- Selection checkbox (top-left): appears on hover (desktop) / always visible in bulk-select mode (mobile).
-- Correction dot: top-right corner, matches marker correction indicator.
+- Top-right: metadata preview (single key=value shorthand, e.g., "Beton") — visible at rest.
+- Correction dot: top-right edge, `--color-accent`, visible at rest. This is an honest state indicator (Principle 1.7) and is never hidden.
 
-Sorting controls (above the gallery): "Date ↓", "Date ↑", "Distance from map center", "Name". Compact segmented control.
+**Hover-to-reveal controls (Notion pattern — Principle 1.8):** The following appear via `opacity: 0 → 1` at 80ms on mouse-enter. No layout shift — space is always reserved.
+
+- **Selection checkbox** (top-left corner, 16px). Always visible in bulk-select mode.
+- **Context menu `⋯` button** (top-right, replaces the metadata preview on hover). A `.btn-compact` (28px) ghost button. Opens a popup with: "Add to group", "Edit metadata", "Delete", "Copy coordinates".
+- **Floating micro-toolbar** — appears centered directly above the card (4px gap): compact ghost buttons for "Add to group" and "View detail". Dismisses when cursor leaves the card.
+
+On mobile, hover states are replaced with a long-press (500ms haptic) that activates bulk-select mode and reveals the selection checkbox.
+
+Sorting controls (above the gallery): "Date ↓", "Date ↑", "Distance from map center", "Name". Compact segmented control, `.btn-compact` height.
 
 ### 5.4 Image Detail View
 
@@ -498,13 +544,18 @@ Layout:
 │    ↳ EXIF: 47.3770° N, 8.5419° E (12m off) │
 │    [Reset to EXIF]                          │
 │ ─────────────────────────────────           │
-│ Metadata                       [Edit]       │
-│  Material: Beton                            │
-│  Work stage: Pre-treatment                  │
+│ Metadata                                    │
+│  Material        Beton              (click) │
+│  Work stage      Pre-treatment      (click) │
+│  [+ Add property]                           │
 │ ─────────────────────────────────           │
 │ ◀  Previous image    Next image  ▶          │
 └─────────────────────────────────────────────┘
 ```
+
+**Metadata property rows (Notion pattern — Principle 1.8):** Each metadata entry is a two-column property row. The key is left-aligned in `--color-text-secondary` (`--text-small`); the value is right-aligned in `--color-text-primary` (`--text-body`). Clicking the value cell activates an inline text input in place — no separate "Edit" button or modal. Clicking outside commits the change. A `[+ Add property]` ghost row at the bottom creates a new key/value pair. The `[Edit]` button is removed entirely.
+
+**Coordinates are the exception:** the "Edit Location" link opens a dedicated map-picker modal rather than an inline input, because placing a pin on a map cannot be done in a text field. Inline editing applies only to free-text and enum metadata values.
 
 Actions menu (`⋯`): "Delete image", "Add to group", "Copy coordinates", "Download" (post-MVP).
 

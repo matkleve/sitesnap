@@ -369,13 +369,15 @@ Success condition
 
 These milestones track actual code delivery. They depend on design milestones M1–M7a being complete.
 
-| ID      | Name                     | Status  | Depends On       |
-| ------- | ------------------------ | ------- | ---------------- |
-| M-IMPL1 | Project Bootstrap        | ✅ Done | M1–M4            |
-| M-IMPL2 | Auth Layer               | ✅ Done | M-IMPL1, M2      |
-| M-IMPL3 | Map Shell                | ✅ Done | M-IMPL2, M5      |
-| M-IMPL4 | Photo Ingestion Pipeline | ✅ Done | M-IMPL3, M6      |
-| M-IMPL5 | Filter + Retrieval UI    | 🔲 Next | M-IMPL4, M7, M7a |
+| ID       | Name                              | Status  | Depends On        |
+| -------- | --------------------------------- | ------- | ----------------- |
+| M-IMPL1  | Project Bootstrap                 | ✅ Done | M1–M4             |
+| M-IMPL2  | Auth Layer                        | ✅ Done | M-IMPL1, M2       |
+| M-IMPL3  | Map Shell                         | ✅ Done | M-IMPL2, M5       |
+| M-IMPL4  | Photo Ingestion Pipeline          | ✅ Done | M-IMPL3, M6       |
+| M-IMPL4a | Upload Bug Fixes & Direction EXIF | ✅ Done | M-IMPL4           |
+| M-IMPL4b | Upload Polish                     | ✅ Done | M-IMPL4a          |
+| M-IMPL5  | Filter + Retrieval UI             | 🔲 Next | M-IMPL4b, M7, M7a |
 
 ---
 
@@ -567,6 +569,42 @@ Acceptance criteria
 
 ---
 
+## M-IMPL4b: Upload Polish ✅
+
+Goal
+
+- Eliminate performance waste and UX gaps in the upload pipeline: no double EXIF parse, direction surfaced to the map layer, retry for failures, thumbnail preview, and dismissal of stuck awaiting-placement items.
+
+Files
+
+- `apps/web/src/app/core/upload.service.ts`
+- `apps/web/src/app/features/upload/upload-panel/upload-panel.component.ts`
+- `apps/web/src/app/features/upload/upload-panel/upload-panel.component.html`
+- `apps/web/src/app/features/upload/upload-panel/upload-panel.component.scss`
+
+TODOs
+
+- [x] Eliminate double EXIF parse: add `parsedExif?: ParsedExif` to `uploadFile()`; `processFile()` caches result in `FileUploadState` and passes it through. (AI, 2026-03-04)
+- [x] Add `direction?: number` to `ImageUploadedEvent` so the map can render direction cones without a Supabase re-fetch. (AI, 2026-03-04)
+- [x] Add `retryFile(key)` method; add retry button (`↺ Retry`) in the HTML for error-state items. (AI, 2026-03-04)
+- [x] Show inline thumbnail preview (`URL.createObjectURL`) in each upload-queue row; revoke on dismiss / `ngOnDestroy`. (AI, 2026-03-04)
+- [x] Fix awaiting-placement items getting stuck when placement is cancelled: add dismiss button for `awaiting_placement` state. (AI, 2026-03-04)
+- [x] Update grid layout in SCSS to accommodate thumbnail column (5-column grid). (AI, 2026-03-04)
+- [x] Implement `OnDestroy` in `UploadPanelComponent` to revoke all object URLs. (AI, 2026-03-04)
+- [x] All 131 tests pass (`ng test --no-watch` exits 0). (AI, 2026-03-04)
+- [x] `ng build --configuration development` exits 0. (AI, 2026-03-04)
+
+Acceptance criteria
+
+- `UploadService.uploadFile()` never calls `parseExif()` when a `ParsedExif` result is supplied by the caller. ✅
+- `ImageUploadedEvent.direction` carries the EXIF direction value when available. ✅
+- Failed items show a retry button; clicking it resets to `pending` and re-queues. ✅
+- Each uploaded file shows a thumbnail preview immediately on enqueue. ✅
+- Awaiting-placement items can be dismissed (× button) and do not get permanently stuck in the panel. ✅
+- 131 tests pass, `ng build` clean. ✅
+
+---
+
 ## M-IMPL5: Filter + Retrieval UI 🔲
 
 Goal
@@ -591,6 +629,49 @@ Acceptance criteria
 - Filter combinations use AND semantics.
 - Pagination loads 50 markers per page via cursor.
 - Changing viewport or filters aborts the in-flight request.
+
+---
+
+## ⚠️ SESSION HANDOFF — Delete this section immediately when you start ⚠️
+
+> **First action of the next session:** Delete this entire "SESSION HANDOFF" section from milestones.md. It is a temporary briefing, not a permanent record.
+
+### Where we are
+
+- **M-IMPL1–4, M-IMPL4a, M-IMPL4b** ✅ — all complete, 131 tests passing, `ng build` clean.
+- The upload pipeline is fully polished: no double EXIF parse, thumbnail previews in-panel, retry button for failures, direction forwarded to parent, awaiting-placement items are dismissible.
+- `ImageUploadedEvent` now carries `direction?: number` — the map shell receives it but does not yet render a direction cone (that is M-IMPL4d).
+
+### What to do next (pick one track)
+
+**Track A — M-IMPL5: Filter + Retrieval UI (next full milestone)**
+See M-IMPL5 section below. Key steps:
+
+1. Create `ImagesService` with viewport-bounded PostGIS RPC, cursor pagination, and in-flight request abort.
+2. Create `FilterPanelComponent` (project, date range, metadata key/value filters).
+3. Wire filter state + viewport change into debounced query (300 ms).
+4. Write tests for `ImagesService` and `FilterPanelComponent`.
+
+**Track B — M-IMPL4c: Drag-to-map placement**
+Drag an awaiting-placement item from the upload panel directly onto the map using pointer events. Design spec in `docs/audit-upload-map-interaction.md` Pattern 1.
+
+**Track C — M-IMPL4d: Direction cone visualization**
+Render the `direction` value now forwarded via `ImageUploadedEvent`. Design spec in `docs/audit-upload-map-interaction.md` Pattern 2. The `direction` field on `ImageUploadedEvent` is already wired — the map shell just needs to render it.
+
+### Key files to read first
+
+- `apps/web/src/app/core/upload.service.ts` — upload pipeline (note: `uploadFile` now accepts optional `parsedExif`)
+- `apps/web/src/app/features/upload/upload-panel/upload-panel.component.ts` — state machine with thumbnail/retry/parsedExif caching
+- `apps/web/src/app/features/map/map-shell/map-shell.component.ts` — receives `ImageUploadedEvent` (direction now available)
+- `docs/audit-upload-map-interaction.md` — 100-issue UX audit with phased plan
+
+### Ground rules reminder
+
+- 131 tests must stay green after every change (`npx ng test --no-watch` from `apps/web`).
+- `ng build --configuration development` must exit 0.
+- No real Supabase calls in tests — `SupabaseService` is always faked.
+- Signals for UI state; errors as `{ error }`, never thrown.
+- Update docs when architecture decisions change.
 
 ---
 
