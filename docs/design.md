@@ -50,7 +50,7 @@ Outdoor light, dark basements, OLED phones, wide-gamut monitors — the product 
 
 ### 1.5 Warmth Over Sterility
 
-*Inspired by Anthropic's design philosophy.* Cold, clinical UIs communicate distance. GeoSite is a tool people use every day on job sites — it should feel grounded and human. Warmth is embedded in the palette (off-white rather than pure white, near-black with a warm tint rather than cold blue-black), the type system (generous line-height, readable body sizes), and the language used in labels and empty states (plain, direct, never corporate).
+_Inspired by Anthropic's design philosophy._ Cold, clinical UIs communicate distance. GeoSite is a tool people use every day on job sites — it should feel grounded and human. Warmth is embedded in the palette (off-white rather than pure white, near-black with a warm tint rather than cold blue-black), the type system (generous line-height, readable body sizes), and the language used in labels and empty states (plain, direct, never corporate).
 
 - Light-mode backgrounds use warm off-whites (`#F9F7F4`), not cold grays.
 - Dark-mode backgrounds use warm near-blacks (`#0F0E0C`), not cold blue-blacks.
@@ -59,7 +59,7 @@ Outdoor light, dark basements, OLED phones, wide-gamut monitors — the product 
 
 ### 1.6 Calm Confidence
 
-*Inspired by Anthropic's design philosophy.* The UI should never shout. A calm interface creates trust; a frantic one creates anxiety. Consequences:
+_Inspired by Anthropic's design philosophy._ The UI should never shout. A calm interface creates trust; a frantic one creates anxiety. Consequences:
 
 - No notification badges on the navigation sidebar unless an action genuinely requires urgent user attention.
 - Primary buttons are present and clear but visually understated — their weight comes from position and label, not from an overloaded fill color.
@@ -69,7 +69,7 @@ Outdoor light, dark basements, OLED phones, wide-gamut monitors — the product 
 
 ### 1.7 Honesty
 
-*Inspired by Anthropic's design philosophy.* Show the user what is true. Do not hide information to make the UI look cleaner, and do not present provisional data as final. Consequences:
+_Inspired by Anthropic's design philosophy._ Show the user what is true. Do not hide information to make the UI look cleaner, and do not present provisional data as final. Consequences:
 
 - If an image's location was manually corrected, indicate this at a glance (correction indicator on the marker and in the detail view). Do not silently replace the EXIF value.
 - If a filter is active and hiding results, make it obvious — the active filter chip strip is always visible.
@@ -196,35 +196,35 @@ Design tokens are CSS custom properties. All components use tokens — never raw
 
 #### Semantic token hierarchy
 
-| Token                    | Light value | Dark value | Usage                                                                            |
-| ------------------------ | ----------- | ---------- | -------------------------------------------------------------------------------- |
-| `--color-bg-base`        | `#F9F7F4`   | `#0F0E0C`  | Page/app background — warm off-white / warm near-black                           |
-| `--color-bg-surface`     | `#FFFFFF`   | `#1A1917`  | Panels, sidebar, workspace pane                                                  |
-| `--color-bg-elevated`    | `#FFFFFF`   | `#252320`  | Dropdowns, tooltips, modal overlays                                              |
-| `--color-bg-map`         | — (tile)    | — (tile)   | Map canvas; tile URL swaps on dark mode                                          |
-| `--color-border`         | `#E8E4DE`   | `#2E2B27`  | Panel borders, dividers — warm-tinted                                            |
-| `--color-border-strong`  | `#C8C1B8`   | `#3D3830`  | Inputs, focused borders                                                          |
-| `--color-text-primary`   | `#1A1714`   | `#EDEBE7`  | Headlines, body, labels — warm near-black / warm near-white                      |
-| `--color-text-secondary` | `#6B6259`   | `#908880`  | Subtext, timestamps, metadata labels                                             |
-| `--color-text-disabled`  | `#A89E95`   | `#4A4540`  | Disabled states                                                                  |
-| `--color-primary`        | `#2563EB`   | `#3B82F6`  | Primary actions, active markers, focus rings                                     |
-| `--color-primary-hover`  | `#1D4ED8`   | `#60A5FA`  | Hover state for primary                                                          |
-| `--color-success`        | `#16A34A`   | `#22C55E`  | Upload success, confirmed correction                                             |
-| `--color-warning`        | `#C2610A`   | `#F59E0B`  | Missing GPS, low-confidence EXIF                                                 |
-| `--color-danger`         | `#DC2626`   | `#EF4444`  | Upload error, deletion confirmation                                              |
-| `--color-accent`         | `#7C3AED`   | `#A78BFA`  | Named group tabs, badge accents                                                  |
+| Token                    | Light value | Dark value | Usage                                                                                  |
+| ------------------------ | ----------- | ---------- | -------------------------------------------------------------------------------------- |
+| `--color-bg-base`        | `#F9F7F4`   | `#0F0E0C`  | Page/app background — warm off-white / warm near-black                                 |
+| `--color-bg-surface`     | `#FFFFFF`   | `#1A1917`  | Panels, sidebar, workspace pane                                                        |
+| `--color-bg-elevated`    | `#FFFFFF`   | `#252320`  | Dropdowns, tooltips, modal overlays                                                    |
+| `--color-bg-map`         | — (tile)    | — (tile)   | Map canvas; tile URL swaps on dark mode                                                |
+| `--color-border`         | `#E8E4DE`   | `#2E2B27`  | Panel borders, dividers — warm-tinted                                                  |
+| `--color-border-strong`  | `#C8C1B8`   | `#3D3830`  | Inputs, focused borders                                                                |
+| `--color-text-primary`   | `#1A1714`   | `#EDEBE7`  | Headlines, body, labels — warm near-black / warm near-white                            |
+| `--color-text-secondary` | `#6B6259`   | `#908880`  | Subtext, timestamps, metadata labels                                                   |
+| `--color-text-disabled`  | `#A89E95`   | `#4A4540`  | Disabled states                                                                        |
+| `--color-primary`        | `#2563EB`   | `#3B82F6`  | Primary actions, active markers, focus rings                                           |
+| `--color-primary-hover`  | `#1D4ED8`   | `#60A5FA`  | Hover state for primary                                                                |
+| `--color-success`        | `#16A34A`   | `#22C55E`  | Upload success, confirmed correction                                                   |
+| `--color-warning`        | `#C2610A`   | `#F59E0B`  | Missing GPS, low-confidence EXIF                                                       |
+| `--color-danger`         | `#DC2626`   | `#EF4444`  | Upload error, deletion confirmation                                                    |
+| `--color-accent`         | `#7C3AED`   | `#A78BFA`  | Named group tabs, badge accents                                                        |
 | `--color-clay`           | `#CC7A4A`   | `#D9895A`  | Upload CTA, active selection emphasis — Anthropic-inspired warm accent; used sparingly |
 
 **Map marker colors (semantic):**
 
-| State          | Color token                                             | Meaning                                    |
-| -------------- | ------------------------------------------------------- | ------------------------------------------ |
-| Default        | `--color-primary`                                       | Normal EXIF-placed image                   |
-| Corrected      | `--color-accent`                                        | Marker has been manually corrected         |
-| Selected       | `#FFFFFF` with primary ring                             | Currently active/selected marker           |
-| Pending upload | `--color-clay`                                          | In upload queue, not yet saved             |
-| Error          | `--color-danger`                                        | Upload failed                              |
-| Cluster        | `--color-bg-elevated` with `--color-text-primary` badge | Aggregated cluster                         |
+| State          | Color token                                             | Meaning                            |
+| -------------- | ------------------------------------------------------- | ---------------------------------- |
+| Default        | `--color-primary`                                       | Normal EXIF-placed image           |
+| Corrected      | `--color-accent`                                        | Marker has been manually corrected |
+| Selected       | `#FFFFFF` with primary ring                             | Currently active/selected marker   |
+| Pending upload | `--color-clay`                                          | In upload queue, not yet saved     |
+| Error          | `--color-danger`                                        | Upload failed                      |
+| Cluster        | `--color-bg-elevated` with `--color-text-primary` badge | Aggregated cluster                 |
 
 All markers use a **2px solid white outline** (`stroke: #FFFFFF; stroke-width: 2`) and a `drop-shadow(0 1px 3px rgba(0,0,0,0.45))`. This ensures legibility on any tile background — street tiles, dark matter tiles, and satellite imagery alike (Eleken principle: always test markers against the darkest and brightest backgrounds you will encounter).
 
@@ -238,6 +238,7 @@ The default OSM tile is never shipped unstyled. Strip the following from the bas
 - Decorative park and landuse labels
 
 Keep:
+
 - Road network (all levels, muted stroke)
 - Building footprints (muted warm fill)
 - Water bodies, green areas (muted, desaturated)
@@ -340,23 +341,23 @@ All interactive icons must have a visible label or a `title` / `aria-label` attr
 
 A well-designed map has four distinct visual layers, each lower in visual weight than the layer above it. This hierarchy must be enforced via tile styling, z-index management, and zoom-level logic:
 
-| Layer | Visual weight | Elements | Design rule |
-|---|---|---|---|
-| Base map | Lowest | Roads, buildings, water, terrain | Muted — no POI clutter, desaturated fills, thin outlines |
-| Data layer | **Highest** | Photo markers, clusters | Most visually prominent element on the map. `--color-primary` fill, white outline, shadow |
-| Interactive elements | Medium-high | Radius circle, selection handles, hover states | Clearly distinct from base, does not compete with markers |
-| UI chrome | Medium | Toolbar, filter panel, workspace pane | Floats above map on `--color-bg-surface` background with shadow |
+| Layer                | Visual weight | Elements                                       | Design rule                                                                               |
+| -------------------- | ------------- | ---------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Base map             | Lowest        | Roads, buildings, water, terrain               | Muted — no POI clutter, desaturated fills, thin outlines                                  |
+| Data layer           | **Highest**   | Photo markers, clusters                        | Most visually prominent element on the map. `--color-primary` fill, white outline, shadow |
+| Interactive elements | Medium-high   | Radius circle, selection handles, hover states | Clearly distinct from base, does not compete with markers                                 |
+| UI chrome            | Medium        | Toolbar, filter panel, workspace pane          | Floats above map on `--color-bg-surface` background with shadow                           |
 
 Quoting Eleken's Head of Design: _"The challenge is balancing information density with readability. You need to decide what information is essential at each zoom level and how to present it without overwhelming the user."_
 
 **Zoom-level visibility rules:**
 
-| Zoom level | What is shown |
-|---|---|
-| ≤ 12 (city / region) | Clusters only — numbered circle, `--color-bg-elevated` fill, count in `--text-caption` |
-| 13–15 (district / street) | Individual pins — drop-shaped, `--color-primary` fill, white outline, no text |
-| 16–17 (block) | Pin + project badge chip beneath the pin (short project name, `--color-accent` background) |
-| ≥ 18 (address) | Pin + project badge + inline thumbnail preview (64×64, `rounded-md`) for the nearest 1–3 images |
+| Zoom level                | What is shown                                                                                   |
+| ------------------------- | ----------------------------------------------------------------------------------------------- |
+| ≤ 12 (city / region)      | Clusters only — numbered circle, `--color-bg-elevated` fill, count in `--text-caption`          |
+| 13–15 (district / street) | Individual pins — drop-shaped, `--color-primary` fill, white outline, no text                   |
+| 16–17 (block)             | Pin + project badge chip beneath the pin (short project name, `--color-accent` background)      |
+| ≥ 18 (address)            | Pin + project badge + inline thumbnail preview (64×64, `rounded-md`) for the nearest 1–3 images |
 
 From the Eleken ReVeal case: objects are grouped by neighborhood to improve performance when viewing larger areas. At zoom ≤ 12, rendering individual pins for thousands of images would be both visually unreadable and technically prohibitive. The zoom-level transition from cluster → pin → pin+badge → pin+thumbnail is the solution.
 

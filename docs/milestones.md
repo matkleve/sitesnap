@@ -582,6 +582,7 @@ Acceptance criteria
 
 **Track A — M-IMPL4b: Upload polish (recommended first)**
 Priority fixes from the audit (issues 5, 8, 9, 10, 21, 39, 61, 71):
+
 1. Eliminate double EXIF parse — `processFile()` parses EXIF, then `uploadFile()` parses again. Pass `ParsedExif` through instead. (audit #9, #61, #97)
 2. Add `direction` to `ImageUploadedEvent` so the map can render cones without re-fetching. (audit #39, #71)
 3. Add retry button for failed uploads. (audit #8)
@@ -590,6 +591,7 @@ Priority fixes from the audit (issues 5, 8, 9, 10, 21, 39, 61, 71):
 
 **Track B — M-IMPL4c: Drag-to-map placement**
 The user's vision: drag a no-GPS file from the panel onto the map with a smooth rectangle-to-marker morph animation. See `audit-upload-map-interaction.md` Pattern 1 for full design. Key steps:
+
 1. Implement pointer-events-based drag manager on `awaiting_placement` items.
 2. Disable Leaflet panning during drag.
 3. Show ghost marker at cursor position over the map.
@@ -598,6 +600,7 @@ The user's vision: drag a no-GPS file from the panel onto the map with a smooth 
 
 **Track C — M-IMPL4d: Direction cone visualization**
 Render the direction data that's now stored. See `audit-upload-map-interaction.md` Pattern 2. Key steps:
+
 1. Create a direction cone SVG overlay (L.SVGOverlay or custom layer) that renders on marker hover.
 2. Add a drag handle at the cone tip for direction editing.
 3. Persist direction changes via PATCH to Supabase.
