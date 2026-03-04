@@ -365,7 +365,7 @@ In dark mode, shadows are less visible — increase surface contrast (`--color-b
 
 ### 3.6 Iconography
 
-Use a single coherent icon set throughout. Default: **Lucide Icons** (MIT licensed, clean, consistent stroke width). The stroke-based style of Lucide aligns with the warm, restrained aesthetic — it reads well at small sizes without appearing heavy or aggressive.
+Use a single coherent icon set throughout. Standard for this project: **Material Icons / Material Symbols only**. Do not mix icon libraries.
 
 Icon sizing conventions:
 

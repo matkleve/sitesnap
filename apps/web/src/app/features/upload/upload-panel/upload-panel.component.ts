@@ -60,6 +60,8 @@ export interface ImageUploadedEvent {
     lng: number;
     /** Camera compass direction (0–360°), if available from EXIF. */
     direction?: number;
+    /** Object URL used for marker thumbnail previews on the map. */
+    thumbnailUrl?: string;
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
@@ -264,6 +266,7 @@ export class UploadPanelComponent implements OnDestroy {
                     lat: result.coords.lat,
                     lng: result.coords.lng,
                     direction: result.direction,
+                    thumbnailUrl: state.thumbnailUrl,
                 });
             }
         }
@@ -289,7 +292,7 @@ export class UploadPanelComponent implements OnDestroy {
     /** Remove a completed or errored file entry from the list. */
     dismissFile(key: string): void {
         const state = this.findState(key);
-        if (state?.thumbnailUrl) {
+        if (state?.thumbnailUrl && state.status !== 'complete') {
             URL.revokeObjectURL(state.thumbnailUrl);
         }
         this.fileStates.update((prev) => prev.filter((s) => s.key !== key));

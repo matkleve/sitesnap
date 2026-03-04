@@ -61,7 +61,7 @@
   display: none;
   flex-direction: column;
   width: min(340px, calc(100vw - var(--spacing-6)));
-  max-height: 66vh;
+  max-height: 46vh;
   overflow: hidden;
   border-radius: var(--radius-lg);
   background: color-mix(in srgb, var(--color-bg-surface) 95%, transparent);
@@ -122,6 +122,41 @@
   box-shadow:
     0 0 0 4px color-mix(in srgb, var(--color-clay) 30%, transparent),
     var(--shadow-sm);
+}
+
+:host ::ng-deep .map-photo-marker-wrapper {
+  background: none !important;
+  border: none !important;
+}
+
+:host ::ng-deep .map-photo-marker {
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 1rem;
+  overflow: hidden;
+  border: 2px solid var(--color-bg-surface);
+  box-shadow: var(--shadow-md);
+}
+
+:host ::ng-deep .map-photo-marker--single {
+  background: var(--color-bg-surface);
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+}
+
+:host ::ng-deep .map-photo-marker--count {
+  background: var(--color-clay);
+  color: var(--color-bg-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1rem;
 }
 
 // ── Floating search bar — top-center, unified expanding box ──────────────────

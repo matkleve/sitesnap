@@ -47,67 +47,83 @@
     <ul class="upload-panel__file-list" aria-label="Upload queue">
       @for (state of fileStates(); track trackByKey($index, state)) {
         <li class="upload-panel__file-item upload-panel__file-item--{{ state.status }}">
-          <!-- Thumbnail preview -->
-          @if (state.thumbnailUrl) {
-            <img
-              class="upload-panel__thumbnail"
-              [src]="state.thumbnailUrl"
-              [alt]="state.file.name"
-              aria-hidden="true"
-            />
-          }
+          <button
+            class="upload-panel__dismiss"
+            type="button"
+            aria-label="Dismiss {{ state.file.name }}"
+            (click)="dismissFile(state.key)"
+          >
+            <span class="material-icons" aria-hidden="true">close</span>
+          </button>
 
-          <span class="upload-panel__file-name" [title]="state.file.name">
-            {{ state.file.name }}
-          </span>
-
-          <!-- Status badge -->
-          <span class="upload-panel__file-status upload-panel__file-status--{{ state.status }}">
-            @switch (state.status) {
-              @case ('pending') {
-                Queued
-              }
-              @case ('parsing') {
-                Reading EXIF…
-              }
-              @case ('uploading') {
-                Uploading…
-              }
-              @case ('complete') {
-                ✓ Done
-              }
-              @case ('error') {
-                ✗ Error
-              }
-              @case ('awaiting_placement') {
-                📍 Place on map
-              }
+          <div class="upload-panel__file-content">
+            <!-- Thumbnail preview -->
+            @if (state.thumbnailUrl) {
+              <img
+                class="upload-panel__thumbnail"
+                [src]="state.thumbnailUrl"
+                [alt]="state.file.name"
+                aria-hidden="true"
+              />
+            } @else {
+              <div class="upload-panel__thumbnail upload-panel__thumbnail--placeholder" aria-hidden="true">
+                <span class="material-icons">image</span>
+              </div>
             }
-          </span>
 
-          <!-- Progress bar (shown while uploading) -->
-          @if (state.status === 'uploading') {
-            <progress
-              class="upload-panel__progress"
-              [value]="state.progress"
-              max="100"
-              [attr.aria-valuenow]="state.progress"
-              aria-valuemin="0"
-              aria-valuemax="100"
-            ></progress>
-          }
+            <div class="upload-panel__file-meta">
+              <span class="upload-panel__file-name" [title]="state.file.name">
+                {{ state.file.name }}
+              </span>
 
-          <!-- Inline error message -->
-          @if (state.status === 'error' && state.error) {
-            <p class="upload-panel__file-error" role="alert">{{ state.error }}</p>
-          }
+              <p class="upload-panel__file-status upload-panel__file-status--{{ state.status }}">
+                @switch (state.status) {
+                  @case ('pending') {
+                    Queued
+                  }
+                  @case ('parsing') {
+                    Reading EXIF…
+                  }
+                  @case ('uploading') {
+                    Uploading…
+                  }
+                  @case ('complete') {
+                    Uploaded
+                  }
+                  @case ('error') {
+                    Upload failed
+                  }
+                  @case ('awaiting_placement') {
+                    Place on map
+                  }
+                }
+              </p>
 
-          <!-- Missing-EXIF placement prompt -->
-          @if (state.status === 'awaiting_placement') {
-            <p class="upload-panel__placement-prompt" role="status">
-              No GPS data found — click the map to place this image at the correct location.
-            </p>
-          }
+              <!-- Inline error message -->
+              @if (state.status === 'error' && state.error) {
+                <p class="upload-panel__file-error" role="alert">{{ state.error }}</p>
+              }
+
+              <!-- Missing-EXIF placement prompt -->
+              @if (state.status === 'awaiting_placement') {
+                <p class="upload-panel__placement-prompt" role="status">
+                  No GPS data found — click the map to place this image at the correct location.
+                </p>
+              }
+
+              <!-- Progress bar (shown while uploading) -->
+              @if (state.status === 'uploading') {
+                <progress
+                  class="upload-panel__progress"
+                  [value]="state.progress"
+                  max="100"
+                  [attr.aria-valuenow]="state.progress"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                ></progress>
+              }
+            </div>
+          </div>
 
           <!-- Retry button for failed uploads -->
           @if (state.status === 'error') {
@@ -118,22 +134,6 @@
               (click)="retryFile(state.key)"
             >
               ↺ Retry
-            </button>
-          }
-
-          <!-- Dismiss button for terminal states + awaiting_placement (handles canceled placement) -->
-          @if (
-            state.status === 'complete' ||
-            state.status === 'error' ||
-            state.status === 'awaiting_placement'
-          ) {
-            <button
-              class="upload-panel__dismiss"
-              type="button"
-              aria-label="Dismiss {{ state.file.name }}"
-              (click)="dismissFile(state.key)"
-            >
-              ×
             </button>
           }
         </li>

@@ -6,7 +6,7 @@
 .upload-panel {
   position: relative;
   width: 100%;
-  max-height: 66vh;
+  max-height: 46vh;
   overflow-y: auto;
   background: var(--color-bg-surface);
   border-radius: var(--radius-md);
@@ -109,10 +109,9 @@
 
   &__file-item {
     display: grid;
-    grid-template-columns: 44px 1fr auto auto auto;
-    grid-template-rows: auto auto auto;
+    grid-template-columns: auto 1fr auto;
     column-gap: 8px;
-    align-items: center;
+    align-items: start;
     padding: 8px 10px;
     border-radius: var(--radius-sm);
     background: color-mix(in srgb, var(--color-bg-base) 88%, var(--color-bg-elevated));
@@ -131,51 +130,69 @@
   }
 
   &__thumbnail {
-    grid-column: 1;
-    grid-row: 1 / 3;
-    width: 40px;
-    height: 40px;
+    width: 48px;
+    height: 48px;
     object-fit: cover;
-    border-radius: 3px;
+    border-radius: var(--radius-sm);
     display: block;
     background: var(--color-border);
+
+    &--placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--color-text-disabled);
+
+      .material-icons {
+        font-size: 1.1rem;
+      }
+    }
+  }
+
+  &__file-content {
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+  }
+
+  &__file-meta {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
   }
 
   &__file-name {
+    margin: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     color: var(--color-text-primary);
-    grid-column: 2;
+    font-weight: 500;
   }
 
   &__file-status {
-    grid-column: 3;
-    white-space: nowrap;
+    margin: 0;
     color: var(--color-text-secondary);
     font-size: 0.75rem;
-    border-radius: var(--radius-full);
-    padding: 0.1rem 0.45rem;
-    border: 1px solid var(--color-border);
 
     &--complete {
       color: var(--color-success);
-      border-color: color-mix(in srgb, var(--color-success) 35%, var(--color-border));
     }
 
     &--error {
       color: var(--color-danger);
-      border-color: color-mix(in srgb, var(--color-danger) 35%, var(--color-border));
     }
 
     &--awaiting_placement {
       color: var(--color-warning);
-      border-color: color-mix(in srgb, var(--color-warning) 35%, var(--color-border));
     }
   }
 
   &__retry {
-    grid-column: 4;
+    grid-column: 3;
+    align-self: center;
     background: none;
     border: 1px solid var(--color-border-strong);
     border-radius: var(--radius-sm);
@@ -193,14 +210,22 @@
   }
 
   &__dismiss {
-    grid-column: 5;
+    grid-column: 1;
+    align-self: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
     background: none;
     border: none;
     cursor: pointer;
     color: var(--color-text-disabled);
-    font-size: 1.1rem;
-    line-height: 1;
-    padding: 0 2px;
+
+    .material-icons {
+      font-size: 1rem;
+      line-height: 1;
+    }
 
     &:hover {
       color: var(--color-text-primary);
@@ -208,12 +233,11 @@
   }
 
   &__progress {
-    grid-column: 2 / -1;
     width: 100%;
     height: 4px;
     border-radius: 2px;
     appearance: none;
-    margin-top: 4px;
+    margin-top: 2px;
 
     &::-webkit-progress-bar {
       background: var(--color-border);
@@ -230,15 +254,13 @@
   }
 
   &__file-error {
-    grid-column: 2 / -1;
-    margin: 4px 0 0;
+    margin: 0;
     color: var(--color-danger);
     font-size: 0.75rem;
   }
 
   &__placement-prompt {
-    grid-column: 2 / -1;
-    margin: 4px 0 0;
+    margin: 0;
     color: var(--color-warning);
     font-size: 0.75rem;
   }

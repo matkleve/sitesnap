@@ -2,7 +2,7 @@
  * MapShellComponent — the main application shell after authentication.
  *
  * Full-screen map with:
- *  - UploadButton: fixed top-left, hover-expands into UploadPanel.
+ *  - UploadButton: fixed top-right, click-toggles the UploadPanel.
  *  - SearchBar: floating top-center with Nominatim geocoding.
  *  - GPSButton: floating bottom-right, re-centres map on user position.
  *  - PhotoPanel: slides in from right (desktop) / bottom (mobile) on marker click.
@@ -20,7 +20,6 @@ import {
     ElementRef,
     OnDestroy,
     afterNextRender,
-    computed,
     inject,
     signal,
     viewChild,
@@ -91,16 +90,11 @@ export class MapShellComponent implements OnDestroy {
 
     // ── Upload / placement state ─────────────────────────────────────────────
 
-    /** True while pointer is over the upload button zone. */
-    readonly uploadPanelHover = signal(false);
-
     /** True when user explicitly opened the upload panel via click. */
     readonly uploadPanelPinned = signal(false);
 
-    /** Final visibility state: hover-preview OR click-pinned open. */
-    readonly uploadPanelOpen = computed(
-        () => this.uploadPanelHover() || this.uploadPanelPinned(),
-    );
+    /** Final visibility state: click-pinned open only. */
+    readonly uploadPanelOpen = this.uploadPanelPinned;
 
     /**
      * When non-null the map is in "placement mode": the next click places an
@@ -151,6 +145,10 @@ export class MapShellComponent implements OnDestroy {
     private searchLocationMarker: L.Marker | null = null;
     private activeSearchMarkerLabel: string | null = null;
     private latestSearchRequestId = 0;
+    private readonly uploadedPhotoMarkers = new Map<
+        string,
+        { marker: L.Marker; count: number; thumbnailUrl?: string }
+    >();
 
     constructor() {
         this.loadRecentSearches();
@@ -165,6 +163,7 @@ export class MapShellComponent implements OnDestroy {
     ngOnDestroy(): void {
         if (this.searchDebounceTimer) clearTimeout(this.searchDebounceTimer);
         this.gpsLocating.set(false);
+        this.uploadedPhotoMarkers.clear();
         this.userLocationMarker?.remove();
         this.userLocationMarker = null;
         this.clearSearchLocationMarker();
@@ -172,14 +171,6 @@ export class MapShellComponent implements OnDestroy {
     }
 
     // ── Upload panel ──────────────────────────────────────────────────────────
-
-    onUploadZoneEnter(): void {
-        this.uploadPanelHover.set(true);
-    }
-
-    onUploadZoneLeave(): void {
-        this.uploadPanelHover.set(false);
-    }
 
     toggleUploadPanel(): void {
         this.uploadPanelPinned.update((v) => !v);
@@ -191,9 +182,7 @@ export class MapShellComponent implements OnDestroy {
      */
     onImageUploaded(event: ImageUploadedEvent): void {
         if (!this.map) return;
-        L.marker([event.lat, event.lng])
-            .bindPopup(`Image uploaded (id: ${event.id})`)
-            .addTo(this.map);
+        this.upsertUploadedPhotoMarker(event);
     }
 
     /** Enters placement mode for a file with no GPS EXIF data. */
@@ -626,6 +615,64 @@ export class MapShellComponent implements OnDestroy {
         this.searchLocationMarker?.remove();
         this.searchLocationMarker = null;
         this.activeSearchMarkerLabel = null;
+    }
+
+    private upsertUploadedPhotoMarker(event: ImageUploadedEvent): void {
+        if (!this.map) return;
+
+        const markerKey = this.toMarkerKey(event.lat, event.lng);
+        const existing = this.uploadedPhotoMarkers.get(markerKey);
+
+        if (existing) {
+            const nextCount = existing.count + 1;
+            const nextThumb = existing.thumbnailUrl ?? event.thumbnailUrl;
+            existing.count = nextCount;
+            existing.thumbnailUrl = nextThumb;
+
+            existing.marker.setIcon(this.buildPhotoMarkerIcon(nextCount, nextThumb));
+            existing.marker.bindPopup(`${nextCount} images uploaded here`);
+            return;
+        }
+
+        const marker = L.marker([event.lat, event.lng], {
+            icon: this.buildPhotoMarkerIcon(1, event.thumbnailUrl),
+        })
+            .bindPopup(`Image uploaded (id: ${event.id})`)
+            .addTo(this.map);
+
+        this.uploadedPhotoMarkers.set(markerKey, {
+            marker,
+            count: 1,
+            thumbnailUrl: event.thumbnailUrl,
+        });
+    }
+
+    private buildPhotoMarkerIcon(count: number, thumbnailUrl?: string): L.DivIcon {
+        const hasSingleThumbnail = count === 1 && !!thumbnailUrl;
+        const html = hasSingleThumbnail
+            ? `<div class="map-photo-marker map-photo-marker--single"><img src="${this.escapeHtmlAttribute(thumbnailUrl)}" alt="Uploaded photo marker" /></div>`
+            : `<div class="map-photo-marker map-photo-marker--count"><span>${count}</span></div>`;
+
+        return L.divIcon({
+            className: 'map-photo-marker-wrapper',
+            html,
+            iconSize: [56, 56],
+            iconAnchor: [28, 28],
+            popupAnchor: [0, -32],
+        });
+    }
+
+    private toMarkerKey(lat: number, lng: number): string {
+        return `${lat.toFixed(6)}:${lng.toFixed(6)}`;
+    }
+
+    private escapeHtmlAttribute(value?: string): string {
+        if (!value) return '';
+        return value
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
     }
 
     private loadRecentSearches(): void {

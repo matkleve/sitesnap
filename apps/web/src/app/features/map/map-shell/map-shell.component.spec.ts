@@ -122,24 +122,17 @@ describe('MapShellComponent', () => {
         expect(fixture.componentInstance.uploadPanelOpen()).toBe(false);
     });
 
-    it('hover opens upload panel preview and leave closes it when not pinned', () => {
-        const fixture = TestBed.createComponent(MapShellComponent);
-        fixture.detectChanges();
-
-        fixture.componentInstance.onUploadZoneEnter();
-        expect(fixture.componentInstance.uploadPanelOpen()).toBe(true);
-
-        fixture.componentInstance.onUploadZoneLeave();
-        expect(fixture.componentInstance.uploadPanelOpen()).toBe(false);
-    });
-
-    it('click-pinned upload panel stays open after mouse leave', () => {
+    it('upload panel stays open until explicitly toggled closed', () => {
         const fixture = TestBed.createComponent(MapShellComponent);
         fixture.detectChanges();
 
         fixture.componentInstance.toggleUploadPanel();
-        fixture.componentInstance.onUploadZoneLeave();
+        expect(fixture.componentInstance.uploadPanelOpen()).toBe(true);
 
+        fixture.componentInstance.toggleUploadPanel();
+        expect(fixture.componentInstance.uploadPanelOpen()).toBe(false);
+
+        fixture.componentInstance.toggleUploadPanel();
         expect(fixture.componentInstance.uploadPanelOpen()).toBe(true);
     });
 
