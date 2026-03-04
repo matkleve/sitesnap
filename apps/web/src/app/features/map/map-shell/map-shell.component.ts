@@ -394,11 +394,40 @@ export class MapShellComponent implements OnDestroy {
             .map((token) => {
                 if (!token) return token;
 
-                if (token.endsWith('gass')) return `${token}e`;
                 if (token === 'g' || token === 'g.') return 'gasse';
                 if (token === 'str' || token === 'str.') return 'strasse';
-                if (token.endsWith('str')) return `${token}asse`;
-                if (token.endsWith('str.')) return `${token.slice(0, -1)}asse`;
+
+                if (token.endsWith('str.')) {
+                    return `${token.slice(0, -1)}asse`;
+                }
+
+                if (token.endsWith('gass') || token.endsWith('gasse')) {
+                    return token.endsWith('gasse') ? token : `${token}e`;
+                }
+
+                if (token.endsWith('gase')) {
+                    return `${token.slice(0, -4)}gasse`;
+                }
+
+                if (token.endsWith('gas')) {
+                    return `${token}se`;
+                }
+
+                if (token.endsWith('stras')) {
+                    return `${token}se`;
+                }
+
+                if (token.endsWith('strase')) {
+                    return `${token.slice(0, -6)}strasse`;
+                }
+
+                if (token.endsWith('strassee')) {
+                    return token.slice(0, -1);
+                }
+
+                if (token.endsWith('str')) {
+                    return `${token}asse`;
+                }
 
                 return token;
             })
@@ -410,23 +439,34 @@ export class MapShellComponent implements OnDestroy {
     }
 
     private buildFallbackQueries(normalizedQuery: string): string[] {
-        const candidates: string[] = [];
+        const candidates = new Set<string>();
         const correctedStreetHouse = this.applyStreetTokenCorrections(normalizedQuery);
 
         if (correctedStreetHouse && correctedStreetHouse !== normalizedQuery) {
-            candidates.push(correctedStreetHouse);
+            candidates.add(correctedStreetHouse);
         }
 
-        const streetOnly = this.toStreetOnlyQuery(correctedStreetHouse || normalizedQuery);
+        const streetOnlyBase = correctedStreetHouse || normalizedQuery;
+        const streetOnly = this.toStreetOnlyQuery(streetOnlyBase);
         if (
             streetOnly &&
             streetOnly !== normalizedQuery &&
             streetOnly !== correctedStreetHouse
         ) {
-            candidates.push(streetOnly);
+            candidates.add(streetOnly);
         }
 
-        return candidates;
+        const correctedStreetOnly = this.applyStreetTokenCorrections(streetOnly);
+        if (
+            correctedStreetOnly &&
+            correctedStreetOnly !== normalizedQuery &&
+            correctedStreetOnly !== correctedStreetHouse &&
+            correctedStreetOnly !== streetOnly
+        ) {
+            candidates.add(correctedStreetOnly);
+        }
+
+        return [...candidates];
     }
 
     private toStreetOnlyQuery(query: string): string {

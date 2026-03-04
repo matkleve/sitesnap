@@ -348,6 +348,29 @@ describe('MapShellComponent', () => {
         fetchSpy.mockRestore();
     });
 
+    it('normalizes multiple common typo variants (gase/str/strase)', async () => {
+        const fixture = TestBed.createComponent(MapShellComponent);
+        fixture.detectChanges();
+
+        const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(createJsonResponse([]));
+
+        const firstRequestUrlFor = async (input: string): Promise<string> => {
+            const before = fetchSpy.mock.calls.length;
+            await (
+                fixture.componentInstance as unknown as {
+                    fetchNominatim: (query: string) => Promise<void>;
+                }
+            ).fetchNominatim(input);
+            return String(fetchSpy.mock.calls[before]?.[0] ?? '');
+        };
+
+        expect(await firstRequestUrlFor('Denisgase 46')).toContain('q=denisgasse%2046');
+        expect(await firstRequestUrlFor('Hauptstr 12')).toContain('q=hauptstrasse%2012');
+        expect(await firstRequestUrlFor('Burgstrase 7')).toContain('q=burgstrasse%207');
+
+        fetchSpy.mockRestore();
+    });
+
     it('shows a suggestion when strict query misses and fallback street-only query returns results', async () => {
         const fixture = TestBed.createComponent(MapShellComponent);
         fixture.detectChanges();
@@ -383,6 +406,39 @@ describe('MapShellComponent', () => {
         fetchSpy.mockRestore();
     });
 
+    it('does not show a suggestion when strict query already returns matches', async () => {
+        const fixture = TestBed.createComponent(MapShellComponent);
+        fixture.detectChanges();
+
+        const strictResult = {
+            lat: '48.2082',
+            lon: '16.3738',
+            display_name: 'Denisgasse 46, Wien, Austria',
+            address: {
+                road: 'Denisgasse',
+                house_number: '46',
+                city: 'Wien',
+                country: 'Austria',
+            },
+        };
+
+        const fetchSpy = vi
+            .spyOn(globalThis, 'fetch')
+            .mockResolvedValueOnce(createJsonResponse([strictResult]));
+
+        await (
+            fixture.componentInstance as unknown as {
+                fetchNominatim: (query: string) => Promise<void>;
+            }
+        ).fetchNominatim('Denisgase 46');
+
+        expect(fixture.componentInstance.searchResults().length).toBe(1);
+        expect(fixture.componentInstance.searchSuggestion()).toBeNull();
+        expect(fetchSpy).toHaveBeenCalledTimes(1);
+
+        fetchSpy.mockRestore();
+    });
+
     it('applySearchSuggestion() sets query, clears suggestion, and reruns search once', async () => {
         const fixture = TestBed.createComponent(MapShellComponent);
         fixture.detectChanges();
@@ -405,6 +461,22 @@ describe('MapShellComponent', () => {
         expect(fetchNominatimSpy).toHaveBeenCalledWith('Denisgasse 46');
 
         fetchNominatimSpy.mockRestore();
+    });
+
+    it('renders "Did you mean …" row when a fallback suggestion is available', () => {
+        const fixture = TestBed.createComponent(MapShellComponent);
+        fixture.detectChanges();
+
+        fixture.componentInstance.searchQuery.set('Denisgase 46');
+        fixture.componentInstance.dropdownOpen.set(true);
+        fixture.componentInstance.searchSuggestion.set('Denisgasse 46');
+        fixture.detectChanges();
+
+        const suggestionRow = Array.from(
+            (fixture.nativeElement as HTMLElement).querySelectorAll('.search-dropdown__item-text'),
+        ).find((node) => (node.textContent ?? '').includes('Did you mean Denisgasse 46?'));
+
+        expect(suggestionRow).toBeTruthy();
     });
 
     it('dropdown is visible when dropdownOpen is true', () => {
