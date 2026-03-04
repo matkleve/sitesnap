@@ -337,6 +337,18 @@ describe('UploadService', () => {
             expect(result.error).toBeTruthy();
         });
 
+        it('maps bucket-not-found storage errors to an actionable message', async () => {
+            const { service } = setup({
+                storageUploadResult: { error: { message: 'Bucket not found' } },
+            });
+
+            const result = await service.uploadFile(makeFile());
+
+            expect(result.error).toBe(
+                'Storage bucket "images" is missing in this Supabase project. Create it (or run the storage migration) and retry.',
+            );
+        });
+
         it('returns an error when the DB insert fails', async () => {
             const { service } = setup({
                 insertResult: { data: null, error: new Error('db error') },

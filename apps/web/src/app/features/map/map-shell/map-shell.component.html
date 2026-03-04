@@ -17,8 +17,8 @@
 <div
   class="upload-btn-zone"
   [class.upload-btn-zone--open]="uploadPanelOpen()"
-  (mouseenter)="uploadPanelOpen.set(true)"
-  (mouseleave)="uploadPanelOpen.set(false)"
+  (mouseenter)="onUploadZoneEnter()"
+  (mouseleave)="onUploadZoneLeave()"
 >
   <!-- Icon button (always visible) -->
   <button

@@ -114,6 +114,27 @@ describe('MapShellComponent', () => {
         expect(fixture.componentInstance.uploadPanelOpen()).toBe(false);
     });
 
+    it('hover opens upload panel preview and leave closes it when not pinned', () => {
+        const fixture = TestBed.createComponent(MapShellComponent);
+        fixture.detectChanges();
+
+        fixture.componentInstance.onUploadZoneEnter();
+        expect(fixture.componentInstance.uploadPanelOpen()).toBe(true);
+
+        fixture.componentInstance.onUploadZoneLeave();
+        expect(fixture.componentInstance.uploadPanelOpen()).toBe(false);
+    });
+
+    it('click-pinned upload panel stays open after mouse leave', () => {
+        const fixture = TestBed.createComponent(MapShellComponent);
+        fixture.detectChanges();
+
+        fixture.componentInstance.toggleUploadPanel();
+        fixture.componentInstance.onUploadZoneLeave();
+
+        expect(fixture.componentInstance.uploadPanelOpen()).toBe(true);
+    });
+
     it('renders the app-upload-panel element', () => {
         const fixture = TestBed.createComponent(MapShellComponent);
         fixture.detectChanges();
@@ -246,6 +267,42 @@ describe('MapShellComponent', () => {
         fixture.componentInstance.goToUserPosition();
         expect(fixture.componentInstance.gpsTrackingEnabled()).toBe(false);
         expect(clearWatch).toHaveBeenCalledWith(7);
+
+        Object.defineProperty(navigator, 'geolocation', {
+            configurable: true,
+            value: originalGeolocation,
+        });
+    });
+
+    it('goToUserPosition() recenters immediately when userPosition is already known', () => {
+        const fixture = TestBed.createComponent(MapShellComponent);
+        fixture.detectChanges();
+
+        const mapStub = {
+            setView: vi.fn(),
+            getZoom: vi.fn().mockReturnValue(12),
+            remove: vi.fn(),
+        };
+        (fixture.componentInstance as unknown as { map: unknown }).map = mapStub;
+        fixture.componentInstance.userPosition.set([51.5, -0.12]);
+
+        const originalGeolocation = navigator.geolocation;
+        const watchPosition = vi.fn().mockReturnValue(9);
+
+        Object.defineProperty(navigator, 'geolocation', {
+            configurable: true,
+            value: {
+                getCurrentPosition: vi.fn(),
+                watchPosition,
+                clearWatch: vi.fn(),
+            },
+        });
+
+        fixture.componentInstance.goToUserPosition();
+
+        expect(mapStub.setView).toHaveBeenCalledWith([51.5, -0.12], 15);
+        expect(fixture.componentInstance.gpsLocating()).toBe(false);
+        expect(watchPosition).toHaveBeenCalledTimes(1);
 
         Object.defineProperty(navigator, 'geolocation', {
             configurable: true,

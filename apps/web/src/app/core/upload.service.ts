@@ -160,7 +160,7 @@ export class UploadService {
             .from('images')
             .createSignedUrl(storagePath, 3600);
 
-        if (error) return { error };
+        if (error) return { error: this.mapStorageError(error) };
         return { url: data.signedUrl, error: null };
     }
 
@@ -223,7 +223,7 @@ export class UploadService {
             .upload(storagePath, file, { contentType: file.type, upsert: false });
 
         if (storageError) {
-            return { error: storageError };
+            return { error: this.mapStorageError(storageError) };
         }
 
         // ── 5. Parse EXIF ──────────────────────────────────────────────────────
@@ -265,5 +265,20 @@ export class UploadService {
             direction,
             error: null,
         };
+    }
+
+    private mapStorageError(error: unknown): Error | string {
+        const message =
+            typeof error === 'string'
+                ? error
+                : typeof error === 'object' && error !== null && 'message' in error
+                    ? String((error as { message?: unknown }).message ?? '')
+                    : '';
+
+        if (/bucket\s+not\s+found/i.test(message)) {
+            return 'Storage bucket "images" is missing in this Supabase project. Create it (or run the storage migration) and retry.';
+        }
+
+        return (error as Error | string) ?? 'Storage error.';
     }
 }

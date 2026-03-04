@@ -83,28 +83,28 @@ export interface SearchResultSet {
 
 export type SearchCommitAction =
     | {
-          type: 'map-center';
-          query: string;
-          lat: number;
-          lng: number;
-      }
+        type: 'map-center';
+        query: string;
+        lat: number;
+        lng: number;
+    }
     | {
-          type: 'open-content';
-          query: string;
-          contentType: SearchContentType;
-          contentId: string;
-      }
+        type: 'open-content';
+        query: string;
+        contentType: SearchContentType;
+        contentId: string;
+    }
     | {
-          type: 'run-command';
-          query: string;
-          command: SearchCommandCandidate['command'];
-          payload?: string;
-      }
+        type: 'run-command';
+        query: string;
+        command: SearchCommandCandidate['command'];
+        payload?: string;
+    }
     | {
-          type: 'recent-selected';
-          query: string;
-          label: string;
-      };
+        type: 'recent-selected';
+        query: string;
+        label: string;
+    };
 
 export interface SearchOrchestratorOptions {
     debounceMs: number;

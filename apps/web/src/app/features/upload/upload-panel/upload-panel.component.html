@@ -4,6 +4,11 @@
   role="region"
   aria-label="Upload images"
 >
+  <header class="upload-panel__header">
+    <h3 class="upload-panel__title">Upload photos</h3>
+    <p class="upload-panel__subtitle">Add site images with EXIF location when available.</p>
+  </header>
+
   <!-- Drop zone / file picker trigger -->
   <div
     class="upload-panel__dropzone"
@@ -18,7 +23,7 @@
     (keydown.enter)="fileInput.click()"
     (keydown.space)="fileInput.click()"
   >
-    <span class="upload-panel__dropzone-icon" aria-hidden="true">📷</span>
+    <span class="upload-panel__dropzone-icon material-icons" aria-hidden="true">photo_camera</span>
     <p class="upload-panel__dropzone-label">
       Drag &amp; drop images here<br />
       <span class="upload-panel__dropzone-sub">or click to select files</span>
@@ -57,7 +62,7 @@
           </span>
 
           <!-- Status badge -->
-          <span class="upload-panel__file-status">
+          <span class="upload-panel__file-status upload-panel__file-status--{{ state.status }}">
             @switch (state.status) {
               @case ('pending') {
                 Queued

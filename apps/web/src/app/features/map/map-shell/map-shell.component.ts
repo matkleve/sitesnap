@@ -20,6 +20,7 @@ import {
     ElementRef,
     OnDestroy,
     afterNextRender,
+    computed,
     signal,
     viewChild,
 } from '@angular/core';
@@ -67,8 +68,16 @@ export class MapShellComponent implements OnDestroy {
 
     // ── Upload / placement state ─────────────────────────────────────────────
 
-    /** Controls upload panel visibility (hover + keyboard toggle). */
-    readonly uploadPanelOpen = signal(false);
+    /** True while pointer is over the upload button zone. */
+    readonly uploadPanelHover = signal(false);
+
+    /** True when user explicitly opened the upload panel via click. */
+    readonly uploadPanelPinned = signal(false);
+
+    /** Final visibility state: hover-preview OR click-pinned open. */
+    readonly uploadPanelOpen = computed(
+        () => this.uploadPanelHover() || this.uploadPanelPinned(),
+    );
 
     /**
      * When non-null the map is in "placement mode": the next click places an
@@ -130,8 +139,16 @@ export class MapShellComponent implements OnDestroy {
 
     // ── Upload panel ──────────────────────────────────────────────────────────
 
+    onUploadZoneEnter(): void {
+        this.uploadPanelHover.set(true);
+    }
+
+    onUploadZoneLeave(): void {
+        this.uploadPanelHover.set(false);
+    }
+
     toggleUploadPanel(): void {
-        this.uploadPanelOpen.update((v) => !v);
+        this.uploadPanelPinned.update((v) => !v);
     }
 
     /**
@@ -175,7 +192,8 @@ export class MapShellComponent implements OnDestroy {
         }
 
         this.gpsTrackingEnabled.set(true);
-        this.gpsLocating.set(true);
+        const hasKnownPosition = this.recenterOnKnownUserPosition();
+        this.gpsLocating.set(!hasKnownPosition);
         this.startGpsTracking();
     }
 
@@ -306,6 +324,14 @@ export class MapShellComponent implements OnDestroy {
             },
             { enableHighAccuracy: true, timeout: 10000, maximumAge: 2000 },
         );
+    }
+
+    private recenterOnKnownUserPosition(): boolean {
+        const coords = this.userPosition();
+        if (!coords) return false;
+        const zoom = Math.max(this.map?.getZoom() ?? 0, 15);
+        this.map?.setView(coords, zoom);
+        return true;
     }
 
     private stopGpsTracking(): void {

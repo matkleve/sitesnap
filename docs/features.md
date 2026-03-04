@@ -3,7 +3,8 @@
 **Who this is for:** engineers and product owners deciding what to implement.  
 **What you'll get:** a numbered list of capabilities and constraints for GeoSite.
 
-See `search-experience-spec.md` for the detailed search UX, ranking, use-case expansion, and requirements breakdown.
+See `search-experience-spec.md` for the detailed search UX, ranking, use-case expansion, and requirements breakdown.  
+See **`implementation-readiness.md`** for current implementation scores, gap analysis, and prioritized work items per feature group.
 
 ---
 
