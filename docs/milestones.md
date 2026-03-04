@@ -684,46 +684,47 @@ Acceptance criteria
 
 ---
 
-## ⚠️ SESSION HANDOFF — Delete this section immediately when you start ⚠️
+## M-IMPL6: Search Experience Implementation 🔲
 
-> **First action of the next session:** Delete this entire "SESSION HANDOFF" section from milestones.md. It is a temporary briefing, not a permanent record.
+Goal
 
-### Where we are
+- Implement the full search behavior contract from `docs/search-experience-spec.md` with DB-first ranking, mixed result families, keyboard-first interaction, and map/filter integration.
 
-- **M-IMPL1–4, M-IMPL4a, M-IMPL4b** ✅ — all complete, 131 tests passing, `ng build` clean.
-- The upload pipeline is fully polished: no double EXIF parse, thumbnail previews in-panel, retry button for failures, direction forwarded to parent, awaiting-placement items are dismissible.
-- `ImageUploadedEvent` now carries `direction?: number` — the map shell receives it but does not yet render a direction cone (that is M-IMPL4d).
+Files (planned)
 
-### What to do next (pick one track)
+- `docs/search-experience-spec.md`
+- `apps/web/src/app/core/search/search.models.ts`
+- `apps/web/src/app/core/search/search-orchestrator.service.ts`
+- `apps/web/src/app/core/address-resolver.service.ts`
+- `apps/web/src/app/core/geocoding.adapter.ts` (if extraction is needed)
+- `apps/web/src/app/features/map/map-shell/map-shell.component.ts`
+- `apps/web/src/app/features/map/map-shell/map-shell.component.html`
+- `apps/web/src/app/features/map/map-shell/map-shell.component.scss`
+- `apps/web/src/app/features/map/map-shell/map-shell.component.spec.ts`
 
-**Track A — M-IMPL5: Filter + Retrieval UI (next full milestone)**
-See M-IMPL5 section below. Key steps:
+TODOs
 
-1. Create `ImagesService` with viewport-bounded PostGIS RPC, cursor pagination, and in-flight request abort.
-2. Create `FilterPanelComponent` (project, date range, metadata key/value filters).
-3. Wire filter state + viewport change into debounced query (300 ms).
-4. Write tests for `ImagesService` and `FilterPanelComponent`.
+- [ ] Freeze open decisions in `docs/search-experience-spec.md` §12 (debounce, command visibility, MVP DB content scope, live marker highlight timing).
+- [ ] Add typed search contracts (`SearchQueryContext`, candidate families, commit actions, state enums).
+- [ ] Create `SearchOrchestratorService` for debounce, abort-previous, cache TTL, parallel source querying, and merged output.
+- [ ] Implement DB-first resolver path and external geocoder path via provider-agnostic adapter.
+- [ ] Implement ranking + dedupe rules (DB-first order, within-family ordering, geocoder dedupe within 30m).
+- [ ] Refactor map search UI to explicit states: `Idle`, `FocusedEmpty`, `Typing`, `ResultsPartial`, `ResultsComplete`, `Committed`.
+- [ ] Add recent searches persistence (deduped MRU list with cap) and clear/commit behavior.
+- [ ] Implement keyboard contract (`Cmd/Ctrl+K`, arrows, Enter, Escape, Backspace on empty committed query).
+- [ ] Implement accessibility contract (`listbox`/`option`, separator presentation roles, announcements).
+- [ ] Integrate search commit with map centering and distance-reference update without implicit filter resets.
+- [ ] Add telemetry events (query submit, selected family/type, zero-result recovery, source latency).
+- [ ] Add unit + integration tests for ranking, merge stability, keyboard interactions, and commit outcomes.
 
-**Track B — M-IMPL4c: Drag-to-map placement**
-Drag an awaiting-placement item from the upload panel directly onto the map using pointer events. Design spec in `docs/audit-upload-map-interaction.md` Pattern 1.
+Acceptance criteria
 
-**Track C — M-IMPL4d: Direction cone visualization**
-Render the `direction` value now forwarded via `ImageUploadedEvent`. Design spec in `docs/audit-upload-map-interaction.md` Pattern 2. The `direction` field on `ImageUploadedEvent` is already wired — the map shell just needs to render it.
-
-### Key files to read first
-
-- `apps/web/src/app/core/upload.service.ts` — upload pipeline (note: `uploadFile` now accepts optional `parsedExif`)
-- `apps/web/src/app/features/upload/upload-panel/upload-panel.component.ts` — state machine with thumbnail/retry/parsedExif caching
-- `apps/web/src/app/features/map/map-shell/map-shell.component.ts` — receives `ImageUploadedEvent` (direction now available)
-- `docs/audit-upload-map-interaction.md` — 100-issue UX audit with phased plan
-
-### Ground rules reminder
-
-- 131 tests must stay green after every change (`npx ng test --no-watch` from `apps/web`).
-- `ng build --configuration development` must exit 0.
-- No real Supabase calls in tests — `SupabaseService` is always faked.
-- Signals for UI state; errors as `{ error }`, never thrown.
-- Update docs when architecture decisions change.
+- Search returns sectioned results with deterministic DB-first ordering.
+- Place commits recenter/fit map and preserve query for refinement.
+- Keyboard-only flow works end-to-end with expected shortcut and navigation semantics.
+- Search respects active filters and does not reset them unless user explicitly clears.
+- No-result and slow/failing source states are non-blocking with recovery actions.
+- `ng build` exits 0 and affected tests pass.
 
 ---
 
