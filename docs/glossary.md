@@ -233,6 +233,241 @@
 
 ---
 
+## UI Structural Elements
+
+Canonical names for every visible piece of the interface. Use these in code, docs, and conversation.
+
+### Shell & Layout
+
+- **Map Shell**  
+  Top-level full-screen host component (`MapShellComponent`). Horizontal flex row containing all map-page children. Background: `--color-bg-base`.
+
+- **Map Zone**  
+  `flex: 1` container holding the Leaflet map and all floating controls (search bar, GPS button, placement banner). Fills remaining space after sidebar.
+
+- **Map Container**  
+  The `<div #mapContainer>` where Leaflet mounts. Gets a `--placing` modifier class for crosshair cursor during placement mode.
+
+- **Sidebar**  
+  Floating pill navigation rail on the left (48 px collapsed / 240 px expanded). Mobile (<768 px): fixed bottom tab bar. Contains nav links (Map, Photos, Groups, Settings) and bottom avatar slot.
+
+- **Sidebar Panel**  
+  Inner panel inside the sidebar holding the nav list, spacer, and avatar slot.
+
+- **Sidebar Pill**  
+  40×4 px visual pill affordance at 50 % height of the collapsed sidebar strip. Cues interactivity.
+
+- **Workspace Pane**  
+  Right-side collapsible, resizable panel (320 px default, 280–640 px range). Houses group tabs + thumbnail gallery + inline detail view. Desktop: slides in from right. Mobile: bottom sheet.
+
+- **Drag Divider**  
+  4 px vertical (desktop) / horizontal (mobile) separator between map and workspace pane. `cursor: col-resize`. Shown only when workspace pane is open.
+
+- **Bottom Sheet** *(mobile only)*  
+  Container replacing the workspace pane on small screens. Three snap points: minimized (64 px), half-screen (50 vh), full-screen (100 vh). Drag handle at top.
+
+### Search
+
+- **Search Bar**  
+  Pill-shaped input floating top-center over the map. Multi-intent surface: place search, evidence search, command palette (`Cmd/Ctrl+K`). Five states: Idle, Focused-empty, Typing, Results, Committed.
+
+- **Search Input**  
+  The `<input type="search">` inside the search bar. 40 px height.
+
+- **Search Dropdown**  
+  In-flow panel below the search input (not a separate overlay). Shows recent searches (focused-empty) or split DB results + geocoder results (typing). `role="listbox"`.
+
+- **Search Dropdown Section Label**  
+  Uppercase, small-text header labelling each section ("Recent searches", "Projects", "Places").
+
+- **Search Dropdown Item**  
+  Clickable row: icon + label. Used for recent searches, DB matches, geocoder results, and suggestions.
+
+- **Search Dropdown Divider**  
+  1 px horizontal line separating DB results from geocoder results.
+
+- **Search Clear Button**  
+  Inline `×` inside the input (right side) after a committed search. Clears query + committed target.
+
+- **Search Location Marker**  
+  20 px circle in `--color-clay` with white border. Placed on the map at the committed geocoded location.
+
+### Map Markers & Clusters
+
+- **Photo Marker**  
+  Square body (3.5 rem) with a small pointer tail that anchors to the GPS/address coordinate. 2 px white outline, drop shadow. Semantic fill colour per state. Never the default Leaflet blue pin.
+
+- **Photo Marker Body**  
+  The square part of the marker. `rounded-md`, `overflow: hidden`, 2 px `--color-bg-surface` border. Contains thumbnail image or cluster count.
+
+- **Photo Marker Tail**  
+  CSS triangle (0.6 rem) below the marker body pointing down to the exact coordinate. When markers separate due to overlap the tail dynamically points to the true origin.
+
+- **Single Photo Marker**  
+  Variant with `--color-bg-surface` body containing an `<img>` thumbnail.
+
+- **Count Marker (Cluster)**  
+  Variant with `--color-clay` background showing a count number. Triggered by proximity density, not by fixed zoom-level tiers.
+
+- **Correction Indicator Dot**  
+  Small dot in `--color-accent` at the top-right corner. Visible only for corrected markers.
+
+- **Pending Upload Indicator**  
+  Pulsing ring in `--color-warning` around a marker whose image is still uploading.
+
+- **User Location Marker**  
+  18 px circle in `--color-primary` with 3 px white border and outer glow. Appears on GPS fix.
+
+- **Direction Cone**  
+  30° semi-transparent cone on marker hover visualising the camera's compass bearing from EXIF.
+
+### Upload UI
+
+- **Upload Button**  
+  44 px circle in `--color-clay`, fixed top-right. Click toggles the upload panel. Mobile spec: 56 px FAB bottom-right.
+
+- **Upload Button Zone**  
+  Fixed-position container (top-right) holding the upload button + expanded panel in a column layout.
+
+- **Upload Panel**  
+  Slides down from upload button. Glassmorphic background (95 % surface + blur). Contains header, drop zone, and file list.
+
+- **Drop Zone**  
+  Dashed-border area inside the upload panel. Camera icon + drag-and-drop prompt + accepted-types hint.
+
+- **File List**  
+  `<ul>` of per-file items showing upload progress.
+
+- **File Item**  
+  Grid row: dismiss button, thumbnail + meta, retry. Status-dependent background tint (green / red / amber).
+
+- **File Thumbnail**  
+  48×48 px `object-fit: cover` preview (object URL).
+
+- **File Status Label**  
+  Per-file text reflecting state: "Queued", "Reading EXIF…", "Uploading…", "Uploaded", "Upload failed", "Place on map".
+
+- **Upload Progress Bar**  
+  Per-file `<progress>` element shown while uploading.
+
+- **Dismiss Button**  
+  `×` icon button removing a file entry from the upload queue.
+
+- **Retry Button**  
+  "↺ Retry" ghost button for failed uploads.
+
+- **Placement Prompt**  
+  Inline warning: "No GPS data found — click the map to place this image."
+
+### Placement Mode
+
+- **Placement Banner**  
+  Bottom-center floating pill. Pin-drop icon + instructional text + Cancel button. `role="status"`.
+
+- **Placement Cancel Button**  
+  Ghost pill button inside the placement banner.
+
+- **Placement Crosshair Cursor**  
+  `cursor: crosshair` applied to the map container while placement mode is active.
+
+### Workspace & Group Tabs
+
+- **Group Tab Bar**  
+  Scrollable horizontal row of group tabs inside the workspace pane.
+
+- **Active Selection Tab**  
+  Pinned leftmost tab. Ephemeral, cannot be renamed/closed. Populated by radius selection or marker clicks.
+
+- **Named Group Tab**  
+  User-created persistent tab. Long-press → rename / delete context menu.
+
+- **"+" New Group Button**  
+  Button at the right end of the tab row to create a new group.
+
+- **Thumbnail Grid**  
+  Scrollable grid of 128×128 thumbnail cards within each group tab. Virtual scrolling.
+
+- **Thumbnail Card**  
+  128×128 px thumbnail: bottom-left capture date, bottom-right project badge, top-right metadata preview / correction dot. Hover-to-reveal controls.
+
+- **Sorting Controls**  
+  Compact segmented control above the gallery: Date ↓, Date ↑, Distance, Name.
+
+### Panels & Detail Views
+
+- **Filter Panel**  
+  Grouped accordion panel. Desktop: slides in from top-right. Mobile: bottom modal. Contains time range, project, metadata, max distance groups, and applied-filters summary.
+
+- **Active Filter Chips Strip**  
+  Compact chip row above the map search bar. Each chip has a `×` to remove inline. Visible when any filter is active.
+
+- **Filter Chip**  
+  Individual pill showing one active filter constraint.
+
+- **Image Detail View**  
+  Desktop: inline in workspace pane (replaces gallery, back arrow to return). Mobile: full-screen overlay. Shows full-res image, metadata rows, coordinates, correction history, actions menu.
+
+- **Metadata Property Row**  
+  Two-column row: key left, editable value right. Click value → inline text input.
+
+### Controls & Buttons
+
+- **GPS Button**  
+  44 px circle, bottom-right of map zone. `my_location` icon. Locating state: spinner replaces icon.
+
+- **Theme Toggle**  
+  Toolbar button cycling light → dark → system. `--color-clay` fill accent.
+
+- **Ghost Button**  
+  Default non-primary button style. Transparent background, fill on hover.
+
+- **Filled Button**  
+  Primary CTA. `--color-primary` fill, 40 px height.
+
+- **Compact Button**  
+  28 px visual height. Workspace inline micro-actions, tab chips, command palette results.
+
+### Spatial Selection
+
+- **Radius Selection Circle**  
+  Semi-transparent circle drawn via right-click + drag (desktop) or long-press + drag (mobile).
+
+- **Radius Label**  
+  Floating chip above the circle showing radius in metres.
+
+- **Radius Drag Handles**  
+  Draggable handles on cardinal points for resizing after initial draw.
+
+### Navigation Items
+
+- **Nav Link**  
+  Icon + label pair in the sidebar. Active state via `routerLinkActive`.
+
+- **Nav Icon**  
+  Material icon within each nav link, 20 px.
+
+- **Nav Label**  
+  Text label next to the nav icon. Visible when sidebar is expanded.
+
+- **Avatar Slot**  
+  Bottom of sidebar. Circle showing user's initial letter. Links to `/account`.
+
+### Empty States
+
+- **No Images in Viewport:** "Nothing here yet" + "Try adjusting filters" + "Clear filters" button.
+- **Empty Group:** "This group is empty" + "Add images from the map" + "Go to map" button.
+- **No Search Results:** "No address found" + "Try a different address or pin manually" + "Drop pin" button.
+- **First Login / Welcome:** "Welcome to GeoSite" + "Start by uploading photos" + "Upload photos" button.
+
+### Page-Level Components (placeholder)
+
+- **Photos Page** — responsive thumbnail grid + empty state + cursor pagination.
+- **Groups Page** — groups list + detail + create / rename / delete.
+- **Settings Page** — theme control (light / dark / system) with persisted preference.
+- **Account Page** — email / password change + delete-account flow.
+
+---
+
 ## Usage Notes
 
 - Prefer these terms in code, UI, and docs to avoid ambiguity.
