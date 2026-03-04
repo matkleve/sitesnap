@@ -12,16 +12,16 @@
   background: var(--color-bg-base);
 }
 
-// ── Upload button zone — fixed top-left, expands into panel ──────────────────
+// ── Upload button zone — fixed top-right, expands into panel ─────────────────
 
 .upload-btn-zone {
   position: fixed;
   top: var(--spacing-3);
-  left: var(--spacing-3);
+  right: var(--spacing-3);
   z-index: var(--z-upload-button);
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: flex-end;
   gap: var(--spacing-2);
 }
 

@@ -2,7 +2,7 @@
   MapShellComponent — full-screen map shell.
 
   Layout (left→right):
-    UploadButton (fixed, top-left, z-upload-button)
+    UploadButton (fixed, top-right, z-upload-button)
     MapZone (flex-fill)
       LeafletMap
       SearchBar (floating, top-center)
@@ -13,7 +13,7 @@
     PhotoPanel (slides in from right / bottom)
 -->
 
-<!-- Upload button — top-left corner FAB that hover-expands into UploadPanel -->
+<!-- Upload button — top-right corner FAB that hover-expands into UploadPanel -->
 <div
   class="upload-btn-zone"
   [class.upload-btn-zone--open]="uploadPanelOpen()"
