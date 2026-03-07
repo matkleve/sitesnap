@@ -27,9 +27,10 @@ argument-hint: "Element spec name or path (e.g., search-bar)"
 
 1. Check whether the element is already partially or fully implemented
 2. Compare the current files against the spec's File Map, Actions, State, Wiring, and Acceptance Criteria
-3. Mark what is already done, what is missing, and what is incorrect
-4. Preserve correct existing work; only change what is needed to bring code back in line with the spec
-5. Treat the spec as the source of truth if code and spec disagree
+3. Check the spec's Acceptance Criteria checkboxes and identify which items are already verified as done, which are incomplete, and which need re-verification
+4. Mark what is already done, what is missing, and what is incorrect
+5. Preserve correct existing work; only change what is needed to bring code back in line with the spec
+6. Treat the spec as the source of truth if code and spec disagree
 
 ### Step 3: Plan
 
@@ -64,6 +65,8 @@ Run through the [implementation checklist](./references/implementation-checklist
 - Loading/error/empty states present
 - Accessibility attributes as specified
 - Build/test/runtime checks from the checklist pass when applicable
+- Update the spec's Acceptance Criteria checkboxes for items that were verified as complete during this pass
+- Leave unchecked any item that is incomplete, unverified, or blocked
 
 ### Step 6: Fix and Repeat
 
@@ -78,3 +81,4 @@ Run through the [implementation checklist](./references/implementation-checklist
 2. A short list of missing or incorrect spec items
 3. The code changes required to close those gaps
 4. A final verification summary stating what was checked and what remains, if anything
+5. Updated Acceptance Criteria checkboxes in the spec for verified-complete items
