@@ -6,7 +6,7 @@ The main navigation rail. Desktop: a frosted-glass floating panel on the left th
 
 ## What It Looks Like
 
-**Desktop (≥ 48rem / 768px):** Collapsed = `3rem` wide compact rail, left edge, vertically centered. The outer sidebar surface uses the shared container geometry system (`.ui-container`) with panel radius, light inset, and frosted-glass background. At rest, nav items render as centered square icon buttons inside the rail. On hover or keyboard focus, the rail expands to `15rem` and labels reveal without the icons jumping sideways.
+**Desktop (≥ 48rem / 768px):** Collapsed = `3rem` wide compact rail, left edge, vertically centered. The outer sidebar surface uses the shared container geometry system (`.ui-container`) with panel radius, light inset, and frosted-glass background. At rest, nav items render as centered square icon buttons inside the rail. On hover or keyboard focus, the rail expands to `15rem`; rows stay the same height, align from a shared leading column, and reveal labels without the icons or account badge jumping sideways.
 
 **Mobile (< 48rem / 768px):** Fixed bottom bar spanning full width, `3.5rem` tall. Icons only, evenly spaced. No avatar (avatar moves to account page).
 
@@ -41,12 +41,12 @@ Every nav link has these visual states. Agents must implement **all** of them �
 
 **Avatar states:**
 
-| State               | Visual                                                                   |
-| ------------------- | ------------------------------------------------------------------------ |
-| User loaded         | Circle with first letter of email, `--color-clay` background, white text |
-| User null / loading | Circle with `?` placeholder, `--color-bg-elevated` background            |
-| Hover               | `ring-2 ring-offset-2 --color-primary`                                   |
-| Focus-visible       | Same as hover + 2px `--color-primary` focus ring                         |
+| State               | Visual                                                                                         |
+| ------------------- | ---------------------------------------------------------------------------------------------- |
+| User loaded         | Avatar image if available; otherwise circle with first letter of display name, clay background |
+| User null / loading | `?` placeholder, fallback account label, muted elevated surface                                |
+| Hover               | Follows the same row hover surface as other nav links                                          |
+| Focus-visible       | Same as other nav links + 2px `--color-primary` focus ring                                     |
 
 ## Spacing & Sizing
 
@@ -60,15 +60,16 @@ All values from the `0.25rem` (4px) base unit scale (`docs/design/tokens.md` §3
 | Expanded width                | `15rem` (240px)             | `w-60`                       |
 | Container padding             | `0.25rem` (4px) all sides   | token-based                  |
 | Container radius              | `0.75rem` (12px)            | panel token                  |
-| Gap between nav items         | `0`                         | —                            |
+| Gap between nav items         | `0.25rem` (4px)             | token-based                  |
 | Collapsed NavLink size        | `2.5rem × 2.5rem` (40×40px) | token-based                  |
-| Expanded NavLink min-height   | `2.75rem` (44px)            | token-based                  |
+| Expanded NavLink min-height   | `2.5rem` (40px)             | token-based                  |
 | Expanded NavLink inline inset | `0.5rem` (8px)              | token-based                  |
 | NavLink border-radius         | `0.5rem` (8px)              | `rounded-lg`                 |
 | Icon size                     | `1.25rem` (20px)            | `text-xl` (Material Symbols) |
+| Shared leading media column   | `2rem` (32px)               | token-based                  |
 | Icon-to-label gap (expanded)  | `0.75rem` (12px)            | `gap-3`                      |
 | Label font size               | `0.8125rem` (13px)          | `text-sm`                    |
-| Avatar diameter               | `2.25rem` (36px)            | token-based                  |
+| Avatar diameter               | `2rem` (32px)               | token-based                  |
 | Expand/collapse transition    | `180ms`                     | `duration-180`               |
 | Expand easing                 | `ease-out`                  | `ease-out`                   |
 | Sidebar left offset from edge | `0.75rem` (12px)            | `left-3`                     |
@@ -95,7 +96,25 @@ The desktop sidebar surface is a standard panel container, not a capsule. It mus
 - Container radius: `--container-radius-panel`
 - Container padding: `--ui-container-padding-inline` / `--ui-container-padding-block`
 - Child rows align to the container boundary in expanded state
+- Nav rows and account row share the same leading media column and inline padding
 - Collapsed state centers square icon buttons without shifting the icon column on expand
+
+### Desktop NavRow contract
+
+Every desktop row uses the same shell and that shell does not change between collapsed and expanded states.
+
+```
+NavRow
+├── MediaColumn   ← fixed width, icon or avatar
+└── LabelColumn   ← flexible, clipped when collapsed
+```
+
+- Nav links and the account row use the same DOM structure and row wrapper
+- The media column width stays fixed at `2rem` (32px)
+- Row height stays fixed at `2.5rem` (40px)
+- Row padding, row alignment, row margins, and icon-to-label gap do not change during expand/collapse
+- Expansion animation only affects sidebar width plus label opacity/visibility
+- Labels stay mounted in the DOM; they are hidden by clipping and opacity, not added or removed on expand
 
 ## Keyboard Contract
 
@@ -121,7 +140,7 @@ The desktop sidebar surface is a standard panel container, not a capsule. It mus
 | 2   | Mouse leaves sidebar        | Sidebar collapses to centered square icon buttons with no sideways jump | CSS transition 180ms ease-out |
 | 3   | Clicks nav link             | Navigates to route                                                      | Angular Router                |
 | 4   | Clicks disabled nav link    | Nothing (pointer-events: none)                                          | —                             |
-| 5   | Clicks avatar slot          | Navigates to `/account`                                                 | Angular Router                |
+| 5   | Clicks account row          | Navigates to `/account`                                                 | Angular Router                |
 | 6   | Resizes below `48rem`       | Sidebar becomes bottom tab bar                                          | CSS media query               |
 | 7   | Focuses nav link (keyboard) | Sidebar expands (same as hover)                                         | Focus-within trigger          |
 | 8   | Focus leaves sidebar        | Sidebar collapses (if not hovered)                                      | Focus-out                     |
@@ -135,20 +154,26 @@ Sidebar                                    ← nav element, fixed/absolute left,
 │   ├── NavLink "Photos"                   ← icon: photo_camera, route: /photos
 │   ├── NavLink "Groups"                   ← icon: folder, route: /groups
 │   ├── NavLink "Settings"                 ← icon: settings, route: /settings
-│   ├── Spacer                             ← flex-1 pushes avatar to bottom
-│   └── AvatarSlot                         ← circle with user initial, links to /account
+│   ├── SpacerRow                          ← flex-1 pushes account row to bottom
+│   └── AccountRow                         ← avatar image or initial + account name, links to /account
 ```
 
 ### NavLink (repeated child)
 
-Each link: Material Icon (`1.25rem` / 20px) + label text. Active state via `routerLinkActive`. Disabled items get `aria-disabled="true"` and muted styling.
+Each link: shared leading media column (`2rem` / 32px) + label text. Active state via `routerLinkActive`. Disabled items get `aria-disabled="true"` and muted styling.
+
+### AccountRow
+
+Uses the same row shell as NavLink. The leading media column contains either the user avatar image or a circular initial badge. The label reveals the user's display name on expand. If no signed-in user exists, the row falls back to `Account` with a `?` badge.
 
 ## Data
 
-| Field                           | Source                 | Type           |
-| ------------------------------- | ---------------------- | -------------- |
-| User email (for avatar initial) | `AuthService.user()`   | `User \| null` |
-| Nav items                       | Hardcoded in component | `NavItem[]`    |
+| Field             | Source                                                                    | Type             |
+| ----------------- | ------------------------------------------------------------------------- | ---------------- |
+| User display name | `AuthService.user().user_metadata.full_name` fallback to email local-part | `string`         |
+| User avatar image | `AuthService.user().user_metadata.avatar_url`                             | `string \| null` |
+| User auth record  | `AuthService.user()`                                                      | `User \| null`   |
+| Nav items         | Hardcoded in component                                                    | `NavItem[]`      |
 
 ## State
 
@@ -168,7 +193,7 @@ Each link: Material Icon (`1.25rem` / 20px) + label text. Active state via `rout
 
 - Imported directly in `MapShellComponent` template
 - Uses `RouterLink` and `RouterLinkActive` for navigation
-- `AuthService` injected for avatar initial
+- `AuthService` injected for account display name and avatar content
 
 ## Acceptance Criteria
 
@@ -188,17 +213,23 @@ Each link: Material Icon (`1.25rem` / 20px) + label text. Active state via `rout
 - [ ] NavLink focus-visible: 2px `--color-primary` ring, 2px offset
 - [ ] NavLink pressed: `--color-bg-elevated` at 55%
 - [ ] NavLink disabled: `--color-text-disabled`, `opacity: 0.6`, `pointer-events: none`, `aria-disabled`
-- [ ] Avatar loaded: first letter of email, `--color-clay` bg
-- [ ] Avatar null/loading: `?` placeholder, `--color-bg-elevated` bg
-- [ ] Avatar hover: `ring-2 --color-primary`
+- [ ] Account row uses the same row shell as nav items
+- [ ] Expanded desktop account row shows avatar image or initial and visible account name
+- [ ] Avatar loaded: avatar image when available, otherwise first letter of display name on `--color-clay` bg
+- [ ] Avatar null/loading: `?` placeholder with `Account` label fallback
 - [ ] Dark mode: frosted glass readable against `#0F0E0C` base
 
 ### Spacing (no ad-hoc values)
 
 - [ ] Desktop container uses `.ui-container` with panel radius and token-driven padding
 - [ ] Collapsed desktop nav items are square and icon-centered
+- [ ] Expanded desktop rows keep the same height as collapsed rows
+- [ ] Expanded desktop rows have visible token-based gaps between items
 - [ ] Expanded desktop nav items reveal labels without the icon shifting sideways
+- [ ] Expanded desktop account row aligns to the same leading column as nav items
 - [ ] Expanded desktop icon-to-label gap uses `0.75rem` (12px)
+- [ ] Desktop expand/collapse only animates sidebar width and label opacity/visibility
+- [ ] Desktop rows keep the same padding, alignment, margins, and media-column width in both states
 - [ ] Mobile: `h-14 px-4 justify-around` + `env(safe-area-inset-bottom)`
 
 ### Keyboard

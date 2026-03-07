@@ -18,6 +18,16 @@
 // ── LeftSidebar — trigger zone ───────────────────────────────────────────────
 
 .sidebar {
+  --sidebar-width-collapsed: var(--layout-sidebar-width-collapsed);
+  --sidebar-width-expanded: var(--layout-sidebar-width-expanded);
+  --sidebar-row-padding-inline: var(--layout-sidebar-row-padding-inline);
+  --sidebar-row-padding-block: var(--layout-sidebar-row-padding-block);
+  --sidebar-row-gap: var(--layout-sidebar-row-gap);
+  --sidebar-row-height: var(--layout-sidebar-row-height);
+  --sidebar-media-size: var(--layout-sidebar-media-size);
+  --sidebar-icon-size: var(--layout-sidebar-icon-size);
+  --sidebar-label-size: var(--layout-sidebar-label-size);
+
   position: fixed;
   z-index: var(--z-panel);
 
@@ -25,7 +35,7 @@
     top: 50%;
     left: var(--container-inset);
     transform: translateY(-50%);
-    width: 3rem; // 48px collapsed
+    width: var(--sidebar-width-collapsed);
     height: auto; // fit content
     max-height: 80vh;
     border-radius: var(--container-radius-panel);
@@ -36,23 +46,12 @@
 
     &:hover,
     &:focus-within {
-      width: 15rem; // 240px expanded per design spec
-
-      .nav__link {
-        max-width: 100%;
-        min-height: 2.75rem;
-        padding-inline: var(--spacing-2);
-        gap: var(--spacing-3);
-      }
+      width: var(--sidebar-width-expanded);
 
       .nav__label {
-        max-width: 10rem; // enough for any label text
         opacity: 1;
-        transform: translateX(0);
-      }
-
-      .sidebar__avatar-slot {
-        justify-content: flex-start;
+        visibility: visible;
+        transition-delay: 0s;
       }
     }
   }
@@ -115,8 +114,10 @@
   @media (min-width: 768px) {
     display: flex;
     flex-direction: column;
-    gap: 0;
+    gap: var(--container-gap-tight);
     width: 100%;
+    min-height: 0;
+    flex: 1 1 auto;
   }
 
   @media (max-width: 767px) {
@@ -141,38 +142,50 @@
   }
 }
 
+.sidebar__item--spacer {
+  @media (min-width: 768px) {
+    flex: 1 1 auto;
+    min-height: var(--spacing-2);
+  }
+
+  @media (max-width: 767px) {
+    display: none;
+  }
+}
+
+.sidebar__item--account {
+  @media (max-width: 767px) {
+    display: none;
+  }
+}
+
 // ── Nav link — ghost button pattern (Notion-inspired) ────────────────────────
 
 .nav__link {
-  display: flex;
-  flex-direction: row;
+  display: grid;
+  grid-template-columns: var(--sidebar-media-size) minmax(0, 1fr);
   align-items: center;
+  column-gap: var(--sidebar-row-gap);
   text-decoration: none;
   color: var(--color-text-secondary);
   border-radius: var(--container-radius-control);
   white-space: nowrap;
   cursor: pointer;
+  margin: 0;
   transition:
     background 80ms ease-out,
-    color 80ms ease-out,
-    max-width 180ms ease-out,
-    min-height 180ms ease-out,
-    padding 180ms ease-out,
-    gap 180ms ease-out;
+    color 80ms ease-out;
 
   @media (min-width: 768px) {
     width: 100%;
-    max-width: 2.5rem;
-    min-height: 2.5rem; // square icon rail at rest
-    min-width: 2.5rem;
-    justify-content: center;
-    padding-block: 0;
-    padding-inline: 0;
-    gap: 0;
-    margin-inline: auto;
+    min-height: var(--sidebar-row-height);
+    padding-block: var(--sidebar-row-padding-block);
+    padding-inline: var(--sidebar-row-padding-inline);
+    overflow: hidden;
   }
 
   @media (max-width: 767px) {
+    display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
@@ -213,95 +226,83 @@
 // ── Material Icon ─────────────────────────────────────────────────────────────
 
 .nav__icon {
-  font-size: 1.25rem; // 20px
+  font-size: var(--sidebar-icon-size);
   line-height: 1;
   flex-shrink: 0;
-  width: 1.25rem; // 20px — icon column
   text-align: center;
+}
+
+.nav__media {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--sidebar-media-size);
+  block-size: var(--sidebar-media-size);
+  min-inline-size: var(--sidebar-media-size);
 }
 
 // ── Label text ────────────────────────────────────────────────────────────────
 
 .nav__label {
-  font-size: 0.8125rem; // 13px
+  font-size: var(--sidebar-label-size);
   font-weight: 500;
   letter-spacing: 0.01em;
   line-height: 1;
   color: inherit;
-
-  // Collapsed: removed from flow so icon centres perfectly.
-  // Expanded: slides in via max-width + opacity (ghost-reveal).
-  max-width: 0;
+  min-width: 0;
   opacity: 0;
+  visibility: hidden;
   overflow: hidden;
-  transform: translateX(-0.25rem);
+  text-overflow: ellipsis;
   transition:
-    max-width 180ms ease-out,
     opacity 120ms ease-out,
-    transform 120ms ease-out;
+    visibility 0s linear 120ms;
 
   @media (max-width: 767px) {
     display: none; // icons only on mobile bottom bar
   }
 }
 
-// ── Spacer + Avatar ───────────────────────────────────────────────────────────
-
-.sidebar__spacer {
-  @media (min-width: 768px) {
-    flex: 1 1 auto;
-    min-height: 0.5rem;
-  }
-
-  @media (max-width: 767px) {
-    display: none;
-  }
+.nav__account-link {
+  color: var(--color-text-primary);
 }
 
-.sidebar__avatar-slot {
-  @media (min-width: 768px) {
-    width: 100%;
-    display: flex;
-    justify-content: center;
-    padding-block: 0;
-  }
-
-  @media (max-width: 767px) {
-    flex: 1 1 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-}
-
-// Avatar — 2.25rem (36px), uses clay accent
-.nav__avatar {
+.nav__avatar-badge {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 2.25rem; // 36px
-  height: 2.25rem;
+  width: var(--sidebar-media-size);
+  height: var(--sidebar-media-size);
   flex-shrink: 0;
   border-radius: var(--radius-full);
   background: var(--color-clay, var(--color-primary));
   color: #fff;
-  font-size: 0.8125rem;
+  font-size: var(--sidebar-label-size);
   font-weight: 600;
-  text-decoration: none;
   transition:
     background 80ms ease-out,
     transform 80ms ease-out;
   user-select: none;
 
-  &:hover {
+  .nav__account-link:hover & {
     background: color-mix(in srgb, var(--color-clay, var(--color-primary)) 85%, #000);
-    transform: scale(1.06);
+    transform: scale(1.03);
   }
+}
 
-  &--active {
-    outline: 2px solid var(--color-clay, var(--color-primary));
-    outline-offset: 2px;
-  }
+.nav__avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+
+.nav__avatar-initial {
+  line-height: 1;
+}
+
+.nav__account-name {
+  color: var(--color-text-primary);
 }
 
 // ── Screen-reader only ────────────────────────────────────────────────────────

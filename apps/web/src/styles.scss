@@ -83,6 +83,19 @@
   --container-radius-control: var(--radius-md);
   --container-radius-panel: var(--radius-lg);
   --container-radius-pill: var(--radius-full);
+
+  // Sidebar layout dimensions — standardized from docs/design/tokens.md.
+  --layout-sidebar-width-collapsed: var(--spacing-7);
+  --layout-sidebar-width-expanded: 15rem;
+  --layout-sidebar-row-padding-inline: var(--spacing-1);
+  --layout-sidebar-row-padding-block: var(--spacing-1);
+  --layout-sidebar-row-gap: var(--spacing-3);
+  --layout-sidebar-media-size: var(--spacing-6);
+  --layout-sidebar-row-height: calc(
+    var(--layout-sidebar-media-size) + (var(--layout-sidebar-row-padding-block) * 2)
+  );
+  --layout-sidebar-icon-size: 1.25rem;
+  --layout-sidebar-label-size: 0.8125rem;
 }
 
 // ── Dark-mode tokens — explicit attribute (set by theme script / toggle) ─────

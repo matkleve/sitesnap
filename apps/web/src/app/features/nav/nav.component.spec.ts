@@ -22,9 +22,60 @@ import { signal } from '@angular/core';
 import { NavComponent } from './nav.component';
 import { AuthService } from '../../core/auth.service';
 
-function buildTestBed(emailOverride: string | null = null) {
+function collectCssRules(): CSSStyleRule[] {
+    const rules: CSSStyleRule[] = [];
+
+    const appendRules = (cssRules: CSSRuleList | CSSRule[]) => {
+        for (const rule of Array.from(cssRules)) {
+            if (rule instanceof CSSStyleRule) {
+                rules.push(rule);
+                continue;
+            }
+
+            if ('cssRules' in rule) {
+                appendRules((rule as CSSGroupingRule).cssRules);
+            }
+        }
+    };
+
+    for (const styleSheet of Array.from(document.styleSheets)) {
+        try {
+            appendRules(styleSheet.cssRules);
+        } catch {
+            // Ignore cross-origin or inaccessible stylesheets from the test runner.
+        }
+    }
+
+    return rules;
+}
+
+function findCssRule(selectorFragment: string): CSSStyleRule | undefined {
+    return collectCssRules().find(rule => rule.selectorText?.includes(selectorFragment));
+}
+
+function findCssRuleByPredicate(
+    predicate: (rule: CSSStyleRule) => boolean,
+): CSSStyleRule | undefined {
+    return collectCssRules().find(predicate);
+}
+
+function createMockUser(emailOverride: string | null, metadata: Record<string, unknown> = {}) {
+    if (!emailOverride) {
+        return null;
+    }
+
+    return {
+        email: emailOverride,
+        user_metadata: metadata,
+    } as any;
+}
+
+function buildTestBed(
+    emailOverride: string | null = null,
+    metadata: Record<string, unknown> = {},
+) {
     const mockUser = signal(
-        emailOverride ? { email: emailOverride } : null as any,
+        createMockUser(emailOverride, metadata),
     );
 
     return TestBed.configureTestingModule({
@@ -142,7 +193,7 @@ describe('NavComponent', () => {
         const fixture = TestBed.createComponent(NavComponent);
         fixture.detectChanges();
 
-        const avatar = fixture.nativeElement.querySelector('.nav__avatar') as HTMLElement;
+        const avatar = fixture.nativeElement.querySelector('.nav__avatar-initial') as HTMLElement;
         expect(avatar?.textContent?.trim()).toBe('J');
     });
 
@@ -153,8 +204,30 @@ describe('NavComponent', () => {
         const fixture = TestBed.createComponent(NavComponent);
         fixture.detectChanges();
 
-        const avatar = fixture.nativeElement.querySelector('.nav__avatar') as HTMLElement;
+        const avatar = fixture.nativeElement.querySelector('.nav__avatar-initial') as HTMLElement;
         expect(avatar?.textContent?.trim()).toBe('?');
+    });
+
+    it('shows the full name in the expanded account label when available', async () => {
+        TestBed.resetTestingModule();
+        await buildTestBed('john@example.com', { full_name: 'John Doe' });
+
+        const fixture = TestBed.createComponent(NavComponent);
+        fixture.detectChanges();
+
+        const accountName = fixture.nativeElement.querySelector('.nav__account-name') as HTMLElement;
+        expect(accountName?.textContent?.trim()).toBe('John Doe');
+    });
+
+    it('uses the full name for the avatar initial when available', async () => {
+        TestBed.resetTestingModule();
+        await buildTestBed('john@example.com', { full_name: 'Jane Doe' });
+
+        const fixture = TestBed.createComponent(NavComponent);
+        fixture.detectChanges();
+
+        const avatar = fixture.nativeElement.querySelector('.nav__avatar-initial') as HTMLElement;
+        expect(avatar?.textContent?.trim()).toBe('J');
     });
 
     it('nav has aria-label "Main navigation"', () => {
@@ -194,5 +267,80 @@ describe('NavComponent', () => {
         fixture.detectChanges();
         const panel = fixture.nativeElement.querySelector('.sidebar__panel') as HTMLElement;
         expect(panel).not.toBeNull();
+    });
+
+    it('renders nav links and the account row with the same row shell', () => {
+        const fixture = TestBed.createComponent(NavComponent);
+        fixture.detectChanges();
+
+        const rowLinks = Array.from<HTMLElement>(
+            fixture.nativeElement.querySelectorAll('.nav__list > .sidebar__item:not(.sidebar__item--spacer) > .nav__link'),
+        );
+
+        expect(rowLinks.length).toBe(5);
+
+        for (const rowLink of rowLinks) {
+            expect(rowLink.children.length).toBe(2);
+            expect((rowLink.children[0] as HTMLElement).classList.contains('nav__media')).toBe(true);
+            expect((rowLink.children[1] as HTMLElement).classList.contains('nav__label')).toBe(true);
+        }
+    });
+
+    it('places the account row in the shared nav list structure', () => {
+        const fixture = TestBed.createComponent(NavComponent);
+        fixture.detectChanges();
+
+        const accountItem = fixture.nativeElement.querySelector(
+            '.nav__list > .sidebar__item--account',
+        ) as HTMLElement | null;
+
+        expect(accountItem).not.toBeNull();
+        expect(fixture.nativeElement.querySelector('.sidebar__avatar-slot')).toBeNull();
+    });
+
+    it('keeps row geometry out of the sidebar expansion selectors', () => {
+        const fixture = TestBed.createComponent(NavComponent);
+        fixture.detectChanges();
+
+        const hoverRowRule = findCssRuleByPredicate(rule => {
+            const selector = rule.selectorText ?? '';
+            return selector.includes('.sidebar') && selector.includes('.nav__link') && selector.includes(':hover');
+        });
+        const focusRowRule = findCssRuleByPredicate(rule => {
+            const selector = rule.selectorText ?? '';
+            return selector.includes('.sidebar') && selector.includes('.nav__link') && selector.includes(':focus-within');
+        });
+        const labelRule = findCssRuleByPredicate(rule => {
+            const selector = rule.selectorText ?? '';
+            return selector.includes('.sidebar') && selector.includes('.nav__label') && selector.includes(':hover');
+        });
+
+        expect(hoverRowRule).toBeUndefined();
+        expect(focusRowRule).toBeUndefined();
+        expect(labelRule).toBeDefined();
+        expect(labelRule?.style.getPropertyValue('opacity')).toBe('1');
+        expect(labelRule?.style.getPropertyValue('visibility')).toBe('visible');
+    });
+
+    it('uses a fixed media column and avoids animating row layout properties', () => {
+        const fixture = TestBed.createComponent(NavComponent);
+        fixture.detectChanges();
+
+        const rowRule = findCssRule('.nav__link');
+        const mediaRule = findCssRule('.nav__media');
+        const labelRule = findCssRule('.nav__label');
+        const rowTransition = rowRule?.style.getPropertyValue('transition') ?? '';
+        const labelTransition = labelRule?.style.getPropertyValue('transition') ?? '';
+
+        expect(rowRule?.style.getPropertyValue('grid-template-columns')).toContain('var(--sidebar-media-size)');
+        expect(rowRule?.style.getPropertyValue('column-gap')).toBe('var(--sidebar-row-gap)');
+        expect(mediaRule?.style.getPropertyValue('inline-size')).toBe('var(--sidebar-media-size)');
+        expect(mediaRule?.style.getPropertyValue('min-inline-size')).toBe('var(--sidebar-media-size)');
+        expect(rowTransition).not.toContain('padding');
+        expect(rowTransition).not.toContain('gap');
+        expect(rowTransition).not.toContain('max-width');
+        expect(rowTransition).not.toContain('min-height');
+        expect(labelTransition).not.toContain('transform');
+        expect(labelTransition).not.toContain('max-width');
     });
 });

@@ -48,10 +48,31 @@ export class NavComponent {
         { icon: 'settings', label: 'Settings', route: '/settings' },
     ];
 
-    /** First letter of the authenticated user's email, upper-cased.
+    readonly displayName = computed<string>(() => {
+        const user = this.authService.user();
+        const fullName = user?.user_metadata?.['full_name'];
+
+        if (typeof fullName === 'string' && fullName.trim().length > 0) {
+            return fullName.trim();
+        }
+
+        const email = user?.email;
+        if (typeof email === 'string' && email.includes('@')) {
+            return email.split('@')[0];
+        }
+
+        return 'Account';
+    });
+
+    readonly avatarUrl = computed<string | null>(() => {
+        const avatarUrl = this.authService.user()?.user_metadata?.['avatar_url'];
+        return typeof avatarUrl === 'string' && avatarUrl.trim().length > 0 ? avatarUrl : null;
+    });
+
+    /** First letter of the authenticated user's display name, upper-cased.
      *  Falls back to '?' if no user is signed in. */
     readonly avatarInitial = computed<string>(() => {
-        const email = this.authService.user()?.email;
-        return email ? email[0].toUpperCase() : '?';
+        const name = this.displayName();
+        return name === 'Account' ? '?' : name[0].toUpperCase();
     });
 }

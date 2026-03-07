@@ -21,7 +21,9 @@
               [title]="'Coming soon: ' + item.label"
               [attr.aria-describedby]="'nav-disabled-tip'"
             >
-              <span class="nav__icon material-icons" aria-hidden="true">{{ item.icon }}</span>
+              <span class="nav__media" aria-hidden="true">
+                <span class="nav__icon material-icons">{{ item.icon }}</span>
+              </span>
               <span class="nav__label">{{ item.label }}</span>
             </span>
           } @else {
@@ -33,29 +35,38 @@
               [attr.aria-current]="null"
               [title]="item.label"
             >
-              <span class="nav__icon material-icons" aria-hidden="true">{{ item.icon }}</span>
+              <span class="nav__media" aria-hidden="true">
+                <span class="nav__icon material-icons">{{ item.icon }}</span>
+              </span>
               <span class="nav__label">{{ item.label }}</span>
             </a>
           }
         </li>
       }
+
+      <li class="sidebar__item sidebar__item--spacer" aria-hidden="true"></li>
+
+      <li class="sidebar__item sidebar__item--account">
+        <a
+          class="nav__link nav__account-link"
+          routerLink="/account"
+          routerLinkActive="nav__link--active"
+          title="Account"
+          aria-label="Go to Account page"
+        >
+          <span class="nav__media" aria-hidden="true">
+            <span class="nav__avatar-badge">
+              @if (avatarUrl(); as avatarImage) {
+                <img class="nav__avatar-image" [src]="avatarImage" alt="" />
+              } @else {
+                <span class="nav__avatar-initial">{{ avatarInitial() }}</span>
+              }
+            </span>
+          </span>
+          <span class="nav__label nav__account-name">{{ displayName() }}</span>
+        </a>
+      </li>
     </ul>
-
-    <!-- Spacer pushes avatar to bottom -->
-    <div class="sidebar__spacer" aria-hidden="true"></div>
-
-    <!-- Avatar slot -->
-    <div class="sidebar__avatar-slot">
-      <a
-        class="nav__avatar"
-        routerLink="/account"
-        routerLinkActive="nav__avatar--active"
-        title="Account"
-        aria-label="Go to Account page"
-      >
-        {{ avatarInitial() }}
-      </a>
-    </div>
   </div>
 
   <span id="nav-disabled-tip" class="nav__sr-only">This feature is coming soon.</span>
