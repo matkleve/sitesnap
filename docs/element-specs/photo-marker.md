@@ -215,20 +215,20 @@ These rules exist to prevent marker lag during map pan/zoom interactions.
 - [ ] Server-side clustering via `ST_SnapToGrid` with zoom-dependent grid cell size
 - [ ] Cluster grid cell size adapts to zoom level (large cells at low zoom, small cells at high zoom)
 - [ ] Clusters expand into individual markers when user zooms past the cluster's grid threshold
-- [ ] At max zoom, cluster click opens all contained images in Workspace Pane selection (fallback when zoom cannot expand further)
+- [x] At max zoom, cluster click opens all contained images in Workspace Pane selection (fallback when zoom cannot expand further)
 - [ ] Collision offsets prevent overlapping marker bodies when nearby but not clustered
 
 ### Performance
 
-- [ ] No marker DOM work during zoom animation — all updates fire on `moveend` only
-- [ ] DivIcon HTML is not regenerated when rendered state has not changed
+- [x] No marker DOM work during zoom animation — all updates fire on `moveend` only
+- [x] DivIcon HTML is not regenerated when rendered state has not changed
 - [ ] `refreshAllPhotoMarkers()` on `zoomend` is replaced by viewport-query-driven reconciliation
 - [ ] Thumbnail signed-URL requests are batched, not issued per-marker
 
 ### State Affordances
 
-- [ ] Correction dot visible only for corrected markers — `corrected` flag must be passed from `map-shell.component.ts` to `buildPhotoMarkerHtml()`
+- [x] Correction dot visible only for corrected markers — `corrected` flag passed from `map-shell.component.ts` to `buildPhotoMarkerHtml()`
 - [ ] Pending upload ring pulses during upload — `uploading` flag must be passed from `map-shell.component.ts` to `buildPhotoMarkerHtml()`
 - [x] Direction cone appears on hover when bearing data exists — CSS `:hover` rule works; bearing flows from `ImageUploadedEvent`
 - [ ] Direction cone appears on long press when bearing data exists on touch devices — needs pointer-event listener (~500 ms)
-- [ ] Direction cone rendered for database-loaded markers — viewport query must select `direction` column
+- [x] Direction cone rendered for database-loaded markers — `direction` column included in initial load query

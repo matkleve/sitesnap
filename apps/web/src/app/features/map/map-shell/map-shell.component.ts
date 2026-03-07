@@ -117,10 +117,28 @@ export class MapShellComponent implements OnDestroy {
             lng: number;
             thumbnailUrl?: string;
             direction?: number;
+            corrected?: boolean;
+            uploading?: boolean;
+            /** Snapshot of the last rendered state for dirty-checking. */
+            lastRendered?: {
+                count: number;
+                thumbnailUrl?: string;
+                direction?: number;
+                corrected?: boolean;
+                uploading?: boolean;
+                selected: boolean;
+                zoomLevel: PhotoMarkerZoomLevel;
+            };
         }
     >();
 
     private readonly initialPhotoMarkerLimit = 500;
+
+    /** Timer handle for the moveend debounce. */
+    private moveEndDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+    /** Tracks the last zoom level to detect threshold crossings. */
+    private lastZoomLevel: PhotoMarkerZoomLevel = 'mid';
 
     constructor() {
         afterNextRender(() => {
@@ -132,6 +150,10 @@ export class MapShellComponent implements OnDestroy {
 
     ngOnDestroy(): void {
         this.gpsLocating.set(false);
+        if (this.moveEndDebounceTimer) {
+            clearTimeout(this.moveEndDebounceTimer);
+            this.moveEndDebounceTimer = null;
+        }
         this.uploadedPhotoMarkers.clear();
         this.userLocationMarker?.remove();
         this.userLocationMarker = null;
@@ -241,7 +263,10 @@ export class MapShellComponent implements OnDestroy {
         // Map click handler: closes upload panel and, when active, places images
         // that had no GPS EXIF data.
         this.map.on('click', (e: L.LeafletMouseEvent) => this.handleMapClick(e));
-        this.map.on('zoomend', () => this.refreshAllPhotoMarkers());
+
+        // Debounced moveend: refreshes markers only when zoom-level threshold changes.
+        // No marker DOM work during zoom animation — all updates fire after moveend.
+        this.map.on('moveend', () => this.handleMoveEnd());
 
     }
 
@@ -387,7 +412,7 @@ export class MapShellComponent implements OnDestroy {
 
         const { data, error } = await this.supabaseService.client
             .from('images')
-            .select('id, latitude, longitude, thumbnail_path, storage_path, created_at')
+            .select('id, latitude, longitude, exif_latitude, exif_longitude, direction, thumbnail_path, storage_path, created_at')
             .not('latitude', 'is', null)
             .not('longitude', 'is', null)
             .order('created_at', { ascending: false })
@@ -399,6 +424,9 @@ export class MapShellComponent implements OnDestroy {
             id: string;
             latitude: number;
             longitude: number;
+            exif_latitude: number | null;
+            exif_longitude: number | null;
+            direction: number | null;
             thumbnail_path: string | null;
             storage_path: string;
             created_at: string;
@@ -437,10 +465,23 @@ export class MapShellComponent implements OnDestroy {
                 }
             }
 
+            // Direction from the first row that has one.
+            const direction = group.rows.find((r) => r.direction != null)?.direction ?? undefined;
+
+            // Corrected = coordinates differ from immutable EXIF originals.
+            const corrected =
+                count === 1 &&
+                group.rows[0].exif_latitude != null &&
+                group.rows[0].exif_longitude != null &&
+                (group.rows[0].latitude !== group.rows[0].exif_latitude ||
+                    group.rows[0].longitude !== group.rows[0].exif_longitude);
+
             const marker = L.marker([group.lat, group.lng], {
                 icon: this.buildPhotoMarkerIcon(key, {
                     count,
                     thumbnailUrl,
+                    direction,
+                    corrected,
                 }),
             }).addTo(this.map);
 
@@ -452,6 +493,8 @@ export class MapShellComponent implements OnDestroy {
                 lat: group.lat,
                 lng: group.lng,
                 thumbnailUrl,
+                direction,
+                corrected,
             });
         }
     }
@@ -462,12 +505,16 @@ export class MapShellComponent implements OnDestroy {
             count: number;
             thumbnailUrl?: string;
             direction?: number;
+            corrected?: boolean;
+            uploading?: boolean;
         }>,
     ): L.DivIcon {
         const markerState = this.uploadedPhotoMarkers.get(markerKey);
         const count = override?.count ?? markerState?.count ?? 1;
         const thumbnailUrl = override?.thumbnailUrl ?? markerState?.thumbnailUrl;
         const direction = override?.direction ?? markerState?.direction;
+        const corrected = override?.corrected ?? markerState?.corrected;
+        const uploading = override?.uploading ?? markerState?.uploading;
 
         return L.divIcon({
             className: 'map-photo-marker-wrapper',
@@ -476,6 +523,8 @@ export class MapShellComponent implements OnDestroy {
                 thumbnailUrl,
                 bearing: direction,
                 selected: markerKey === this.selectedMarkerKey(),
+                corrected,
+                uploading,
                 zoomLevel: this.getPhotoMarkerZoomLevel(),
             }),
             iconSize: PHOTO_MARKER_ICON_SIZE,
@@ -491,9 +540,16 @@ export class MapShellComponent implements OnDestroy {
         }
 
         if (markerState.count > 1) {
+            const currentZoom = this.map.getZoom();
+            if (currentZoom >= 18) {
+                // At max zoom, expand cluster into workspace pane.
+                this.setSelectedMarker(markerKey);
+                this.photoPanelOpen.set(true);
+                return;
+            }
             this.setSelectedMarker(null);
             this.photoPanelOpen.set(false);
-            this.map.setView([markerState.lat, markerState.lng], Math.min(this.map.getZoom() + 2, 18));
+            this.map.setView([markerState.lat, markerState.lng], Math.min(currentZoom + 2, 18));
             return;
         }
 
@@ -518,6 +574,26 @@ export class MapShellComponent implements OnDestroy {
         }
     }
 
+    /**
+     * Debounced handler for the Leaflet `moveend` event.
+     * Only refreshes all marker icons when the zoom-level threshold
+     * (far / mid / near) has changed, avoiding unnecessary DOM churn.
+     */
+    private handleMoveEnd(): void {
+        if (this.moveEndDebounceTimer) {
+            clearTimeout(this.moveEndDebounceTimer);
+        }
+
+        this.moveEndDebounceTimer = setTimeout(() => {
+            this.moveEndDebounceTimer = null;
+            const currentZoom = this.getPhotoMarkerZoomLevel();
+            if (currentZoom !== this.lastZoomLevel) {
+                this.lastZoomLevel = currentZoom;
+                this.refreshAllPhotoMarkers();
+            }
+        }, 300);
+    }
+
     private refreshAllPhotoMarkers(): void {
         for (const markerKey of this.uploadedPhotoMarkers.keys()) {
             this.refreshPhotoMarker(markerKey);
@@ -529,6 +605,34 @@ export class MapShellComponent implements OnDestroy {
         if (!markerState) {
             return;
         }
+
+        const selected = markerKey === this.selectedMarkerKey();
+        const zoomLevel = this.getPhotoMarkerZoomLevel();
+        const last = markerState.lastRendered;
+
+        // Skip DOM update when nothing visual has changed.
+        if (
+            last &&
+            last.count === markerState.count &&
+            last.thumbnailUrl === markerState.thumbnailUrl &&
+            last.direction === markerState.direction &&
+            last.corrected === markerState.corrected &&
+            last.uploading === markerState.uploading &&
+            last.selected === selected &&
+            last.zoomLevel === zoomLevel
+        ) {
+            return;
+        }
+
+        markerState.lastRendered = {
+            count: markerState.count,
+            thumbnailUrl: markerState.thumbnailUrl,
+            direction: markerState.direction,
+            corrected: markerState.corrected,
+            uploading: markerState.uploading,
+            selected,
+            zoomLevel,
+        };
 
         markerState.marker.setIcon(this.buildPhotoMarkerIcon(markerKey));
     }
