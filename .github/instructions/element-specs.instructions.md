@@ -27,5 +27,9 @@ Every UI element must have a spec before implementation. Follow the template exa
 - Update specs BEFORE modifying features
 - Use canonical names from [glossary](../../docs/glossary.md)
 - Keep "What It Is" and "What It Looks Like" short — detail goes in Actions and Hierarchy
+- Use `rem` as the primary unit for accessibility-sensitive UI dimensions: touch targets, button heights, interactive sizes, spacing, and layout dimensions. Include px as an annotation when the exact reference size matters.
+- Use `em` only for component-internal spacing that should scale with the component's own font size.
+- Use `px` only for precision details that should not scale with font size: borders, outlines, shadows, image display sizes, and pixel-resolution thresholds.
+- Use `vh` / `vw` only for viewport-relative layout behavior.
 
 Full template: [docs/agent-workflows/element-spec-format.md](../../docs/agent-workflows/element-spec-format.md)

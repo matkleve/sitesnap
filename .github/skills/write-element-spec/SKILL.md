@@ -42,6 +42,13 @@ Create `docs/element-specs/{element-name}.md` following the [element spec format
 9. **Wiring** — parent integration
 10. **Acceptance Criteria** — testable checklist
 
+Unit rules for every new spec:
+
+- Use `rem` as the primary unit for accessibility-sensitive UI dimensions: touch targets, button heights, interactive sizes, spacing, and layout dimensions. Include px as an annotation when the exact reference size matters.
+- Use `em` only for component-internal spacing that should scale with the component's own font size.
+- Use `px` only for precision details that should not scale with font size: borders, outlines, shadows, image display sizes, and pixel-resolution thresholds.
+- Use `vh` / `vw` only for viewport-relative layout behavior.
+
 ### Step 4: Validate
 
 - Every Actions row is testable

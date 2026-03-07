@@ -154,3 +154,7 @@ ElementRoot ← positioning, size, role
 - Specs are the **source of truth** — code must match spec, not the other way around
 - Update specs BEFORE asking agents to modify features
 - Keep "What It Is" and "What It Looks Like" short — detail goes in Actions and Hierarchy
+- Use `rem` as the primary unit for accessibility-sensitive UI dimensions: touch targets, button heights, interactive sizes, spacing, and layout dimensions. Include the px equivalent as an annotation when the exact reference size matters.
+- Use `em` only for component-internal spacing that should scale with the component's own font size.
+- Use `px` only for precision details that should not scale with font size: borders, outlines, shadows, image display sizes, and pixel-resolution thresholds.
+- Use `vh` / `vw` only for viewport-relative layout behavior.

@@ -15,7 +15,7 @@ These principles filter every design decision. When choices conflict, this order
 
 The technician using this app in direct sunlight, with dirty gloves, at arm's length is the hardest user to serve. If a UI element works for them, it works for everyone. Consequences:
 
-- Tap targets ≥ 48 × 48 px on mobile, ≥ 44 × 44 px on desktop.
+- Tap targets ≥ 3rem × 3rem (48×48px) on mobile, 2.75rem × 2.75rem (44×44px) on desktop.
 - High-contrast labels; do not rely on color alone to convey state.
 - Critical actions (confirm upload, save correction) require only one tap after review — no buried confirmation flows.
 
@@ -305,36 +305,36 @@ Minimum rendered text size: **12px / 0.75rem** (caption only). Body text is neve
 
 ### 3.3 Spacing and Grid
 
-GeoSite uses a **4px base unit** with a Tailwind-standard scale (4, 8, 12, 16, 20, 24, 32, 40, 48, 64, 80, 96px).
+GeoSite uses a **0.25rem (4px) base unit** with a Tailwind-standard scale (0.25rem, 0.5rem, 0.75rem, 1rem, 1.25rem, 1.5rem, 2rem, 2.5rem, 3rem, 4rem, 5rem, 6rem).
 
 Key layout dimensions:
 
-| Element                          | Value               |
-| -------------------------------- | ------------------- |
-| Sidebar width (collapsed)        | 48px                |
-| Sidebar width (expanded)         | 240px               |
-| Workspace pane width (default)   | 360px               |
-| Workspace pane width (min)       | 280px               |
-| Workspace pane width (max)       | 640px               |
-| Top toolbar height               | 56px                |
-| Bottom sheet (min / half / full) | 64px / 50vh / 100vh |
-| Map padding (viewport pre-fetch) | 10% on each edge    |
-| Filter panel width (desktop)     | 280px               |
-| Thumbnail size (grid)            | 128×128px           |
-| Thumbnail size (list)            | 64×64px             |
-| Tap target minimum (mobile)      | 48×48px             |
-| Tap target minimum (desktop)     | 44×44px             |
+| Element                          | Value                                                                      |
+| -------------------------------- | -------------------------------------------------------------------------- |
+| Sidebar width (collapsed)        | 48px (3rem)                                                                |
+| Sidebar width (expanded)         | 240px (15rem)                                                              |
+| Workspace pane width (default)   | 360px (22.5rem)                                                            |
+| Workspace pane width (min)       | 280px (17.5rem)                                                            |
+| Workspace pane width (max)       | 640px (40rem)                                                              |
+| Top toolbar height               | 56px (3.5rem)                                                              |
+| Bottom sheet (min / half / full) | 64px (4rem) / 50vh / 100vh                                                 |
+| Map padding (viewport pre-fetch) | 10% on each edge                                                           |
+| Filter panel width (desktop)     | 280px (17.5rem)                                                            |
+| Thumbnail size (grid)            | 128×128px (px intentional — image display size should not scale with font) |
+| Thumbnail size (list)            | 64×64px (px intentional — image display size should not scale with font)   |
+| Tap target minimum (mobile)      | 3rem × 3rem (48×48px)                                                      |
+| Tap target minimum (desktop)     | 2.75rem × 2.75rem (44×44px)                                                |
 
 **Interactive element heights (Notion-inspired compact density):**
 
-Pointer targets always meet the 44×48px minimum via CSS `padding` — the _visual_ height of the element may be smaller. This lets the interface carry more information per row without sacrificing accessibility.
+Pointer targets always meet the 2.75rem × 3rem (44×48px) minimum via CSS `padding` — the _visual_ height of the element may be smaller. This lets the interface carry more information per row without sacrificing accessibility.
 
-| Size      | Visual height | Token class    | Usage                                                                      |
-| --------- | ------------- | -------------- | -------------------------------------------------------------------------- |
-| `compact` | 28px          | `.btn-compact` | Workspace pane inline micro-actions, command palette results, tab chips    |
-| `default` | 32px          | `.btn-default` | Filter panel controls, panel buttons, dropdown items                       |
-| `large`   | 40px          | `.btn-large`   | Primary CTAs ("Confirm upload", "Save correction"), toolbar action buttons |
-| FAB       | 56px          | `.btn-fab`     | Mobile upload trigger (fixed, bottom-right)                                |
+| Size      | Visual height  | Token class    | Usage                                                                      |
+| --------- | -------------- | -------------- | -------------------------------------------------------------------------- |
+| `compact` | 1.75rem (28px) | `.btn-compact` | Workspace pane inline micro-actions, command palette results, tab chips    |
+| `default` | 2rem (32px)    | `.btn-default` | Filter panel controls, panel buttons, dropdown items                       |
+| `large`   | 2.5rem (40px)  | `.btn-large`   | Primary CTAs ("Confirm upload", "Save correction"), toolbar action buttons |
+| FAB       | 3.5rem (56px)  | `.btn-fab`     | Mobile upload trigger (fixed, bottom-right)                                |
 
 Ghost buttons (the default for secondary/tertiary actions) have no background or border at rest. A `--color-bg-elevated` fill at 35–45% opacity appears on hover over 80ms. Filled buttons (primary CTAs only) use `--color-primary` fill and `--color-text-on-primary` label.
 
@@ -369,9 +369,9 @@ Use a single coherent icon set throughout. Standard for this project: **Material
 
 Icon sizing conventions:
 
-- Toolbar / navigation: 20px
-- Inline with text: 16px
-- Large actions (FAB, empty states): 32–40px
+- Toolbar / navigation: 1.25rem (20px)
+- Inline with text: 1rem (16px)
+- Large actions (FAB, empty states): 2rem–2.5rem (32–40px)
 - Map markers: custom SVG (not icon font)
 
 All interactive icons must have a visible label or a `title` / `aria-label` attribute for accessibility.
@@ -434,37 +434,37 @@ Clustering is proximity-based, not tied to fixed city/street/address zoom bands.
 
 ```mermaid
 flowchart TB
-    subgraph Desktop["Desktop ≥ 1024px"]
+    subgraph Desktop["Desktop ≥ 1024px (64rem)"]
         direction LR
-        DS["Sidebar\n48–240px"] --- DM["Map Pane\n(fills remaining)"]
-        DM --- DW["Workspace Pane\n360px (resizable)"]
-        DT["Top Toolbar 56px"] -.-> DM
+        DS["Sidebar\n48px (3rem)–240px (15rem)"] --- DM["Map Pane\n(fills remaining)"]
+        DM --- DW["Workspace Pane\n360px (22.5rem, resizable)"]
+        DT["Top Toolbar 56px (3.5rem)"] -.-> DM
         DF["Filter Panel\nSlides from top-right\nOver map"] -.-> DM
     end
 
-    subgraph Tablet["Tablet 768–1023px"]
+    subgraph Tablet["Tablet 768–1023px (48rem–63.9375rem)"]
         direction LR
-        TS["Icon-only\nSidebar 48px"] --- TM["Map\n(full width)"]
+        TS["Icon-only\nSidebar 48px (3rem)"] --- TM["Map\n(full width)"]
         TM --- TW["Workspace\nSlide-over drawer"]
         TF["Filter sheet\nFull-width from top"] -.-> TM
     end
 
-    subgraph Mobile["Mobile < 768px"]
+    subgraph Mobile["Mobile < 768px (48rem)"]
         direction TB
         MSB["Search bar — always top"] --- MM["Map — full bleed"]
-        MM --- MFAB["Upload FAB\n56px, bottom-right"]
-        MM --- MBS["Bottom Sheet\nmin 64px · half 50vh · full 100vh\n(drag handle)"]
+        MM --- MFAB["Upload FAB\n3.5rem (56px), bottom-right"]
+        MM --- MBS["Bottom Sheet\nmin 4rem (64px) · half 50vh · full 100vh\n(drag handle)"]
     end
 ```
 
-### 4.1 Desktop Layout (≥ 1024px)
+### 4.1 Desktop Layout (≥ 1024px / 64rem)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│  Sidebar (48px collapsed / 240px expanded)  │  Top Toolbar (56px)       │
+│  Sidebar (48px / 3rem collapsed, 240px / 15rem expanded)  │  Top Toolbar (56px / 3.5rem)       │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                              │                           │
-│                                              │  Workspace Pane (360px)   │
+│                                              │  Workspace Pane (360px / 22.5rem)   │
 │           Map Pane (fills remaining space)   │  [Group Tabs]             │
 │                                              │  [Thumbnail Gallery]      │
 │                                              │  [Detail View - inline]   │
@@ -477,14 +477,14 @@ flowchart TB
 - The filter panel slides in over the map from the top-right (below the toolbar), pushing the workspace pane down by its height. It does not push the map.
 - The workspace pane is resizable (drag handle on the left edge), collapsible (chevron toggle).
 
-### 4.2 Tablet Layout (768–1023px)
+### 4.2 Tablet Layout (768–1023px / 48rem–63.9375rem)
 
-- Sidebar collapses to icon-only (48px). Long-press or swipe-right reveals a temporary overlay sidebar.
+- Sidebar collapses to icon-only (48px / 3rem). Long-press or swipe-right reveals a temporary overlay sidebar.
 - Workspace pane becomes a slide-over drawer (right edge), triggered by a FAB or tab at the right edge of the screen.
 - Filter panel opens as a full-width sheet from the top.
 - Map occupies full width when workspace is dismissed.
 
-### 4.3 Mobile Layout (< 768px)
+### 4.3 Mobile Layout (< 768px / 48rem)
 
 ```
 ┌────────────────────────────────┐
@@ -505,7 +505,7 @@ flowchart TB
 - Bottom sheet contains the Active Selection tab and named groups.
 - Filter access: tapping the filter icon in the search bar opens a modal bottom sheet (does not compete with the workspace bottom sheet).
 - Image detail: tapping a marker expands the bottom sheet to half-height, showing thumbnail + core metadata. Tapping again or swiping up goes full-screen detail.
-- The Upload FAB is a 56px circle, fixed to the bottom-right, above the bottom sheet handle.
+- The Upload FAB is a 3.5rem (56px) circle, fixed to the bottom-right, above the bottom sheet handle.
 
 ---
 
@@ -558,17 +558,17 @@ stateDiagram-v2
 
 ```mermaid
 flowchart TD
-    subgraph MarkerAnatomy["Map Marker Anatomy (32×40px visual, 48×48px hit zone)"]
+    subgraph MarkerAnatomy["Map Marker Anatomy (2rem × 2.5rem / 32×40px visual, 3rem × 3rem / 48×48px hit zone)"]
         direction TB
-        HZ["Transparent hit zone 48×48px"] --- PB["Pin body: drop shape\nFilled with semantic color"]
-        PB --- II["Inner icon: 16×16 photo icon\nCentered in pin body"]
+        HZ["Transparent hit zone 3rem × 3rem (48×48px)"] --- PB["Pin body: drop shape\nFilled with semantic color"]
+        PB --- II["Inner icon: 1rem × 1rem (16×16px) photo icon\nCentered in pin body"]
         PB --- PT["Pointer tail: anchors to\nexact GPS coordinate"]
         PB --- CI["Correction indicator: small dot\n--color-accent, top-right\n(visible only if corrected)"]
         PB --- PI["Pending indicator: pulsing ring\n--color-warning\n(visible only during upload)"]
         PB --- OL["2px white outline + drop shadow\n(always present for legibility)"]
     end
 
-    subgraph ClusterAnatomy["Cluster Marker (20–36px radius)"]
+    subgraph ClusterAnatomy["Cluster Marker (1.25rem–2.25rem / 20–36px radius)"]
         direction TB
         CB["Circle body\n--color-bg-elevated"] --- CBR["Border: --color-border-strong, 2px"]
         CB --- CNT["Count badge\n--text-caption, --color-text-primary"]
@@ -582,11 +582,11 @@ A custom SVG pin, not a default Leaflet marker. Anatomy:
 - **Correction indicator:** a small dot in `--color-accent` at the top-right corner, visible only for corrected markers.
 - **Pending indicator:** a pulsing ring in `--color-warning` for images in the upload queue.
 
-Marker tap/click area is extended to 48×48px via a transparent hit zone, regardless of the visual pin size (32×40px). On desktop, a hover state elevates the marker (scale 1.15, `transition: transform 120ms ease-out`).
+Marker tap/click area is extended to 3rem × 3rem (48×48px) via a transparent hit zone, regardless of the visual pin size (2rem × 2.5rem / 32×40px). On desktop, a hover state elevates the marker (scale 1.15, `transition: transform 120ms ease-out`).
 
 **Cluster:**
 
-- A circle of radius 20–36px (scales logarithmically with cluster size).
+- A circle of radius 1.25rem–2.25rem (20–36px) (scales logarithmically with cluster size).
 - Background: `--color-bg-elevated`, border: `--color-border-strong`, 2px.
 - Count badge: `--text-caption`, `--color-text-primary`.
 - Cluster hover: scale 1.1, cursor pointer.
@@ -643,7 +643,7 @@ flowchart TD
         TH --> GN["… more groups"]
         TH --> PLUS["+  New Group"]
 
-        AS --> GALLERY["Thumbnail Gallery\n128×128px grid"]
+        AS --> GALLERY["Thumbnail Gallery\n128×128px grid (px intentional — image display size should not scale with font)"]
         GALLERY --> SORT["Sort: Date ↓ · Date ↑\nDistance · Name"]
     end
 
@@ -657,8 +657,8 @@ flowchart TD
 
     subgraph HoverReveals["Hover-to-Reveal Controls (Notion pattern)"]
         direction LR
-        CB["☑ Selection checkbox\ntop-left, 16px"] --- CTX["⋯ Context menu\ntop-right, .btn-compact"]
-        CTX --- MICRO["Floating micro-toolbar\nabove card, 4px gap\n'Add to group' · 'View detail'"]
+        CB["☑ Selection checkbox\ntop-left, 1rem (16px)"] --- CTX["⋯ Context menu\ntop-right, .btn-compact"]
+        CTX --- MICRO["Floating micro-toolbar\nabove card, 0.25rem (4px) gap\n'Add to group' · 'View detail'"]
     end
 ```
 
@@ -673,7 +673,7 @@ Within each tab, the gallery is a responsive masonry or fixed-grid of thumbnail 
 
 **Thumbnail card:**
 
-- 128×128px thumbnail (object-cover), `rounded-md` corners.
+- 128×128px thumbnail (px intentional — image display size should not scale with font), `rounded-md` corners.
 - Bottom-left: capture date in `--text-caption` on a semi-transparent dark scrim.
 - Bottom-right: project badge (short name, colored chip in `--color-accent` or project-assigned color).
 - Top-right: metadata preview (single key=value shorthand, e.g., "Beton") — visible at rest.
@@ -681,9 +681,9 @@ Within each tab, the gallery is a responsive masonry or fixed-grid of thumbnail 
 
 **Hover-to-reveal controls (Notion pattern — Principle 1.8):** The following appear via `opacity: 0 → 1` at 80ms on mouse-enter. No layout shift — space is always reserved.
 
-- **Selection checkbox** (top-left corner, 16px). Always visible in bulk-select mode.
-- **Context menu `⋯` button** (top-right, replaces the metadata preview on hover). A `.btn-compact` (28px) ghost button. Opens a popup with: "Add to group", "Edit metadata", "Delete", "Copy coordinates".
-- **Floating micro-toolbar** — appears centered directly above the card (4px gap): compact ghost buttons for "Add to group" and "View detail". Dismisses when cursor leaves the card.
+- **Selection checkbox** (top-left corner, 1rem / 16px). Always visible in bulk-select mode.
+- **Context menu `⋯` button** (top-right, replaces the metadata preview on hover). A `.btn-compact` (1.75rem / 28px) ghost button. Opens a popup with: "Add to group", "Edit metadata", "Delete", "Copy coordinates".
+- **Floating micro-toolbar** — appears centered directly above the card (0.25rem / 4px gap): compact ghost buttons for "Add to group" and "View detail". Dismisses when cursor leaves the card.
 
 On mobile, hover states are replaced with a long-press (500ms haptic) that activates bulk-select mode and reveals the selection checkbox.
 
@@ -770,7 +770,7 @@ stateDiagram-v2
     UploadProgress --> [*] : Done
 ```
 
-Upload entry: a FAB on mobile (56px circle, upload icon), a button in the top toolbar on desktop, or via drag-and-drop onto the map pane.
+Upload entry: a FAB on mobile (3.5rem / 56px circle, upload icon), a button in the top toolbar on desktop, or via drag-and-drop onto the map pane.
 
 Upload sheet / modal:
 
@@ -781,7 +781,7 @@ Step 1: SELECT FILES
   │   or [Browse files]                  │
   │   JPEG, PNG, WebP, HEIC · max 25 MB  │
   └──────────────────────────────────────┘
-  Selected: 14 files (3 exceed 4096px and will be resized)
+    Selected: 14 files (3 exceed 4096px and will be resized; px intentional — image resolution threshold, not UI size)
 
 Step 2: REVIEW LOCATIONS
   [Map with pending markers]
@@ -907,11 +907,11 @@ Dark mode is inspired directly by Anthropic's approach to Claude: **warm, not co
 
 ## 9. Responsive Behavior Quick Reference
 
-| Breakpoint          | Map                        | Workspace                     | Filters            | Sidebar                    | Upload             |
-| ------------------- | -------------------------- | ----------------------------- | ------------------ | -------------------------- | ------------------ |
-| Mobile `< 768px`    | Full bleed                 | Bottom sheet (3 snaps)        | Bottom modal       | Hamburger                  | FAB (bottom-right) |
-| Tablet `768–1023px` | Full width                 | Slide-over drawer             | Sheet              | Icon-only sidebar          | Toolbar button     |
-| Desktop `≥ 1024px`  | Left pane, fills remaining | Right pane (360px, resizable) | Drops from toolbar | Left sidebar (collapsible) | Toolbar button     |
+| Breakpoint          | Map                        | Workspace                       | Filters            | Sidebar                    | Upload             |
+| ------------------- | -------------------------- | ------------------------------- | ------------------ | -------------------------- | ------------------ |
+| Mobile `< 768px`    | Full bleed                 | Bottom sheet (3 snaps)          | Bottom modal       | Hamburger                  | FAB (bottom-right) |
+| Tablet `768–1023px` | Full width                 | Slide-over drawer               | Sheet              | Icon-only sidebar          | Toolbar button     |
+| Desktop `≥ 1024px`  | Left pane, fills remaining | Right pane (22.5rem, resizable) | Drops from toolbar | Left sidebar (collapsible) | Toolbar button     |
 
 ---
 
