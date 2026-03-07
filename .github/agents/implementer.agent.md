@@ -24,6 +24,7 @@ Your job is to build UI elements exactly as specified in element specs.
 8. Follow the **Wiring** section for parent integration and routing
 9. Use glossary names from `docs/glossary.md` for all components
 10. Provide loading, error, and empty states as described
+11. Mark the corresponding spec checklist items as done in the element spec file when the implementation is complete
 
 ## Constraints
 
