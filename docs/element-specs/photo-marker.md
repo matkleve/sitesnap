@@ -84,19 +84,40 @@ Markers are stateless DOM elements. State is held in services or the map shell a
 
 ## Acceptance Criteria
 
-- [x] Never shows default Leaflet blue pin
-- [x] Marker geometry derives from `--ui-item-media-size`
-- [x] Single markers show thumbnail
-- [x] Cluster markers show count badge
-- [x] Cluster markers reuse the same base geometry as single markers
-- [x] All markers have 2px white outline + drop shadow
-- [x] Tail points to exact coordinate
-- [x] Selected markers have a clear visual state
-- [ ] Correction dot visible only for corrected markers
-- [ ] Pending upload ring pulses during upload
-- [x] Direction cone appears on hover when bearing data exists
-- [ ] Direction cone appears on long press when bearing data exists on touch devices
-- [ ] Click selects image and opens workspace pane
-- [x] Cluster click zooms in or expands selection
-- [x] Zoom modifier classes adjust prominence without changing marker structure
-- [x] Readable on both light and dark map tiles
+### Marker Rendering
+
+- [x] Never shows default Leaflet blue pin — `marker-factory.ts` uses `L.divIcon()` with custom HTML
+- [x] Marker geometry derives from `--ui-item-media-size` — `styles.scss` defines `--photo-marker-body-size: calc(var(--ui-item-media-size-default) * 1.25)`
+- [x] Single markers show thumbnail — `marker-factory.ts` renders `<img>` for `count === 1` with thumbnail URL
+- [x] Cluster markers show count badge — `marker-factory.ts` renders `<span>` with count on `--color-clay` background
+- [x] Cluster markers reuse the same base geometry as single markers — both share `.map-photo-marker__body` sizing
+- [x] All markers have 2px white outline + drop shadow — `map-shell.component.scss` applies `border: 2px solid var(--color-bg-surface)` + `box-shadow`
+- [x] Tail points to exact coordinate — CSS border-trick triangle + `iconAnchor: [32, 60]`
+- [x] Readable on both light and dark map tiles — full dark-mode token coverage in `styles.scss`
+
+### Selection & Interaction
+
+- [x] Click selects image and opens workspace pane — `handlePhotoMarkerClick()` calls `setSelectedMarker()` + `photoPanelOpen.set(true)`
+- [x] Selected markers have a clear visual state — `.map-photo-marker--selected` applies accent ring + `scale(1.05)`
+- [ ] Ctrl+click adds to Active Selection without clearing previous selection (multi-select not implemented)
+- [ ] Right-click opens context menu (view detail, edit location, add to group) — no contextmenu handler
+- [ ] Drag marker in correction mode to update coordinates — correction flow not implemented
+
+### Clustering
+
+- [x] Cluster click zooms in — `map.setView()` with `zoom + 2` when `count > 1`
+- [x] Zoom modifier classes adjust prominence without changing marker structure — `.map-photo-marker--zoom-far/mid/near` CSS classes applied
+- [x] Client-side clustering via coordinate rounding to 4 decimal places (`toMarkerKey()`)
+- [ ] Server-side clustering via `ST_SnapToGrid` for viewport queries — only client-side grid rounding is used; no PostGIS clustering integration
+- [ ] Cluster count updates dynamically on viewport pan/zoom — markers are loaded once at init, not re-queried on viewport change
+- [ ] Cluster markers expand into individual markers when zooming in beyond proximity threshold
+- [ ] Cluster click can alternatively open all contained images in selection (only zoom-in is implemented)
+- [ ] Collision offsets prevent overlapping marker bodies when nearby but not clustered
+
+### State Affordances
+
+- [ ] Correction dot visible only for corrected markers — HTML generation exists in `marker-factory.ts` but `corrected` flag is never passed from `map-shell.component.ts`
+- [ ] Pending upload ring pulses during upload — HTML + CSS animation exist but `uploading` flag is never passed from `map-shell.component.ts`
+- [x] Direction cone appears on hover when bearing data exists — CSS `:hover` rule works; bearing flows from `ImageUploadedEvent`
+- [ ] Direction cone appears on long press when bearing data exists on touch devices — no touch event handler
+- [ ] Direction cone rendered for initial-load markers — `loadInitialPhotoMarkers()` query does not select `direction` column from database
