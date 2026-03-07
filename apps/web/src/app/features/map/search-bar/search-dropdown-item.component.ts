@@ -50,7 +50,7 @@ import { SearchCandidate } from '../../../core/search/search.models';
                 --ui-item-media-size: var(--search-dropdown-item-media-size, var(--spacing-6));
                 --ui-item-content-gap: var(
                     --search-dropdown-item-content-gap,
-                    var(--container-gap-tight)
+                    var(--container-gap-panel)
                 );
 
                 width: 100%;
