@@ -59,7 +59,8 @@ src/app/
 
 ## References
 
-- Design system: `docs/design.md`
+- Always-load design context: `docs/design/constitution.md`, `docs/design.md`
+- Task-specific design files: `docs/design/tokens.md`, `docs/design/layout.md`, `docs/design/motion.md`, `docs/design/map-system.md`, `docs/design/components/`
 - Glossary: `docs/glossary.md`
 - Architecture: `docs/architecture.md`
 - Element specs: `docs/element-specs/`

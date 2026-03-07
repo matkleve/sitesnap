@@ -22,10 +22,11 @@ argument-hint: "Element name and brief description"
 
 ### Step 2: Research Context
 
-1. Read `docs/design.md` for visual conventions and design tokens
-2. Read `docs/architecture.md` for layer constraints and adapter patterns
-3. Review related specs in `docs/element-specs/` for consistency
-4. Check `docs/database-schema.md` for available data sources
+1. Read `docs/design/constitution.md` and `docs/design.md` for always-load design rules
+2. Load the relevant task-specific design files from `docs/design/` (`tokens.md`, `layout.md`, `motion.md`, `map-system.md`, `components/*.md`)
+3. Read `docs/architecture.md` for layer constraints and adapter patterns
+4. Review related specs in `docs/element-specs/` for consistency
+5. Check `docs/database-schema.md` for available data sources
 
 ### Step 3: Write the Spec
 

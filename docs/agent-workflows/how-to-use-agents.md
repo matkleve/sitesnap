@@ -70,7 +70,7 @@ We ran into this with search. Root causes:
 1. Check `docs/glossary.md` for the element's canonical name
 2. Create `docs/element-specs/[element].md` using the template in `element-spec-format.md`
 3. Fill in: What It Is, hierarchy, actions, state, data, file map, acceptance criteria
-4. Read `docs/design.md` and related element specs to lock visual patterns before coding
+4. Read `docs/design/constitution.md`, `docs/design.md`, and the relevant task-specific files in `docs/design/` to lock visual patterns before coding
 5. Query Context7 MCP for external library usage details (Angular, Leaflet, Supabase, Tailwind)
 6. If Context7 and project docs conflict, follow project docs first
 7. If unsure about structure, ask the agent: _"Review this spec — what's missing?"_

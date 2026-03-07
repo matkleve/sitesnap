@@ -38,4 +38,11 @@ applyTo: "**/*.scss, **/*.component.html"
 - Hover-to-reveal for card actions (Quiet Actions principle)
 - Dark mode via `[data-theme="dark"]` on ancestor — use token-based colors, not hardcoded
 
-Full reference: [docs/design.md](../../docs/design.md)
+Load order:
+
+- Always: [docs/design/constitution.md](../../docs/design/constitution.md), [docs/design.md](../../docs/design.md)
+- Styling/sizing: [docs/design/tokens.md](../../docs/design/tokens.md)
+- Layout: [docs/design/layout.md](../../docs/design/layout.md)
+- Motion: [docs/design/motion.md](../../docs/design/motion.md)
+- Map hierarchy: [docs/design/map-system.md](../../docs/design/map-system.md)
+- Component-specific rules: [docs/design/components/](../../docs/design/components/)

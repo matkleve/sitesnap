@@ -752,7 +752,7 @@ These milestones cover the full visual design and front-end layout work. They ru
 
 Goal
 
-- Replace ad-hoc styles with a single source of truth: CSS custom properties for every color, spacing, radius, and shadow token from `docs/design.md §3`.
+- Replace ad-hoc styles with a single source of truth: CSS custom properties for every color, spacing, radius, and shadow token from `docs/design/tokens.md`.
 
 Files
 
@@ -761,7 +761,7 @@ Files
 
 TODOs
 
-- [x] Define all `--color-*` tokens (light + dark) from design.md §3.1 in `:root` and `[data-theme="dark"]`. (AI, 2026-03-04)
+- [x] Define all `--color-*` tokens (light + dark) from `docs/design/tokens.md` in `:root` and `[data-theme="dark"]`. (AI, 2026-03-04)
 - [x] Define `--radius-*`, `--shadow-*`, `--spacing-*`, and `--font-*` scale tokens. (AI, 2026-03-04)
 - [x] Add `prefers-color-scheme` media-query fallback alongside `[data-theme]` selector. (AI, 2026-03-04)
 - [x] Audit existing component `.scss` files and replace raw hex values with tokens. (AI, 2026-03-04)
@@ -771,7 +771,7 @@ Acceptance criteria
 
 - No raw hex colour values remain in any component stylesheet.
 - Dark mode applies automatically from system preference and via `[data-theme="dark"]` on `<html>`.
-- Token names match exactly the names used in `design.md` so they are cross-referenceable.
+- Token names match exactly the names used in `docs/design/tokens.md` so they are cross-referenceable.
 
 ---
 
@@ -914,7 +914,7 @@ Files
 
 TODOs
 
-- [ ] Create `ImageDetailPanelComponent`: thumbnail, metadata rows (property-style from design.md §2.10), action buttons.
+- [ ] Create `ImageDetailPanelComponent`: thumbnail, metadata rows (property-style from `docs/design/components/image-detail.md`), action buttons.
 - [ ] Pass selected marker data from `MapShellComponent` into the panel via `@Input` or signal.
 - [ ] Clicking a map marker: set selected marker signal → open panel.
 - [ ] Clicking the map background (not a marker): clear selected → close panel.
@@ -941,7 +941,7 @@ Goal
 
 Button + panel behavior:
 
-- At rest: compact icon button (upload icon, `--color-clay` fill per design.md).
+- At rest: compact icon button (upload icon, `--color-clay` fill per `docs/design/tokens.md`).
 - On hover: panel previews at reduced opacity (ghost expand) — button stays rendered.
 - On click / drag-over: panel animates fully open (expands left and down from button anchor).
 - Upload panel stays open after files are added; close button or clicking away dismisses it.
@@ -990,7 +990,7 @@ Layout
 └──────┴──────┴──────┴──────┴─────────────┘
 ```
 
-Card content (from design.md): thumbnail, timestamp, location name, one primary tag — no more.
+Card content (from `docs/design/components/workspace-pane.md`): thumbnail, timestamp, location name, one primary tag — no more.
 
 Files
 
@@ -1030,7 +1030,7 @@ Files
 TODOs
 
 - [ ] Groups list view: card per group (cover thumbnail, name, image count, last updated).
-- [ ] Inline rename: clicking the group name activates an inline text input (Notion-style property edit, design.md §2.10).
+- [ ] Inline rename: clicking the group name activates an inline text input (Notion-style property edit, `docs/design/reference-products.md` §2.10).
 - [ ] Create group: "+ New group" button at top of list.
 - [ ] Delete group: context menu (`⋯`) with confirmation.
 - [ ] Group detail view: same thumbnail grid as Photos page, filtered to the group.

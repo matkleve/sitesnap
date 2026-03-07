@@ -9,11 +9,12 @@ Write an element spec for the described UI element.
 ## Instructions
 
 1. Check `docs/glossary.md` — does this element have a canonical name?
-2. Read `docs/design.md` for visual conventions and tokens
-3. Read `docs/architecture.md` for layer constraints
-4. Review related specs in `docs/element-specs/` for consistency
-5. Check `docs/database-schema.md` for available data sources
-6. Create `docs/element-specs/{element-name}.md` with ALL 10 sections:
+2. Read `docs/design/constitution.md` and `docs/design.md`
+3. Load the relevant task-specific design files from `docs/design/`
+4. Read `docs/architecture.md` for layer constraints
+5. Review related specs in `docs/element-specs/` for consistency
+6. Check `docs/database-schema.md` for available data sources
+7. Create `docs/element-specs/{element-name}.md` with ALL 10 sections:
    - What It Is
    - What It Looks Like
    - Where It Lives

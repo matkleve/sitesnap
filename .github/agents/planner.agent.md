@@ -17,8 +17,9 @@ Your job is to create a detailed implementation plan from an element spec — **
 1. Read the element spec from `docs/element-specs/`
 2. Read `docs/architecture.md` for layer constraints and adapter patterns
 3. Read `docs/glossary.md` for canonical component names
-4. Read `docs/design.md` for visual conventions and design tokens
-5. Check existing code in `apps/web/src/app/` for related components and services
+4. Read `docs/design/constitution.md` and `docs/design.md`
+5. Load the relevant task-specific design files from `docs/design/`
+6. Check existing code in `apps/web/src/app/` for related components and services
 
 ## Output Format
 

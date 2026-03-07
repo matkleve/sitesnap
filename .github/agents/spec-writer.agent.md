@@ -16,10 +16,11 @@ Your job is to create structured element specs that agents can implement precise
 
 1. Understand the feature requirements from the user
 2. Check `docs/glossary.md` for canonical element names — reuse existing, or propose new entries
-3. Read `docs/design.md` for visual conventions and design tokens
-4. Read `docs/architecture.md` for layer constraints
-5. Review related element specs in `docs/element-specs/` for consistency
-6. Write the spec following the template in `docs/agent-workflows/element-spec-format.md`
+3. Read `docs/design/constitution.md` and `docs/design.md`
+4. Load the relevant task-specific design files from `docs/design/`
+5. Read `docs/architecture.md` for layer constraints
+6. Review related element specs in `docs/element-specs/` for consistency
+7. Write the spec following the template in `docs/agent-workflows/element-spec-format.md`
 
 ## Required Sections (in this order)
 

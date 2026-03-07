@@ -13,7 +13,7 @@ The project has a strong token foundation in `src/styles.scss` and a well-struct
 The largest issues are:
 
 1. Tailwind is present but effectively unused.
-2. Design tokens are partially implemented (missing map/type token layers from `design.md`).
+2. Design tokens are partially implemented (missing map/type token layers from `docs/design/tokens.md` and `docs/design/map-system.md`).
 3. Component SCSS frequently bypasses tokens with raw values.
 4. Accessibility-focused interaction styles (`:focus-visible`, minimum hit targets) are inconsistent.
 5. Some design dimensions in implementation diverge from documented design constraints.
@@ -46,14 +46,14 @@ The largest issues are:
 
 ---
 
-## 2) Design token coverage is incomplete vs `docs/design.md`
+## 2) Design token coverage is incomplete vs `docs/design/tokens.md`
 
 **Severity:** High  
-**Evidence:** `docs/design.md`, `apps/web/src/styles.scss`, `apps/web/tailwind.config.js`  
+**Evidence:** `docs/design/tokens.md`, `docs/design/map-system.md`, `apps/web/src/styles.scss`, `apps/web/tailwind.config.js`  
 **What was found:**
 
 - Core color tokens exist and are consistent.
-- `design.md` includes additional semantic surface/type guidance (e.g. map-specific and typography token model), but implementation does not fully expose these as global tokens/utilities.
+- `docs/design/tokens.md` includes additional semantic surface/type guidance (e.g. map-specific and typography token model), but implementation does not fully expose these as global tokens/utilities.
 - `--color-bg-map` is documented but not present in `styles.scss`.
 
 **Impact:**
@@ -63,7 +63,7 @@ The largest issues are:
 
 **Recommendation:**
 
-- Add missing semantic tokens from `design.md` to `styles.scss`.
+- Add missing semantic tokens from `docs/design/tokens.md` to `styles.scss`.
 - Mirror those tokens into Tailwind only when the team will actually consume utility classes.
 
 ---
@@ -214,7 +214,7 @@ The largest issues are:
 ## 10) Nav implementation diverges from documented design dimensions
 
 **Severity:** Medium  
-**Evidence:** `docs/design.md`, `nav.component.scss`  
+**Evidence:** `docs/design/layout.md`, `nav.component.scss`  
 **What was found:**
 
 - Design doc calls out wider expanded sidebar dimensions; current nav uses significantly narrower expanded width.
@@ -273,7 +273,7 @@ Priority values: `P0` (blocker), `P1` (high), `P2` (polish)
 | ID     | Priority | Status | Area           | Open Item                                                                                                    | Milestone                  |
 | ------ | -------- | ------ | -------------- | ------------------------------------------------------------------------------------------------------------ | -------------------------- |
 | CSS-01 | P0       | Open   | Strategy       | Decide and document style strategy (`SCSS-first` or `Hybrid Tailwind`) and enforce it in contribution rules. | M-UI1, M10                 |
-| CSS-02 | P0       | Open   | Tokens         | Add missing semantic tokens from `design.md` (map/type/tint/focus token gaps).                               | M-UI1                      |
+| CSS-02 | P0       | Open   | Tokens         | Add missing semantic tokens from `docs/design/tokens.md` (map/type/tint/focus token gaps).                   | M-UI1                      |
 | CSS-03 | P0       | Open   | Consistency    | Remove remaining raw hex/RGBA color values from component SCSS.                                              | M-UI1                      |
 | CSS-04 | P1       | Open   | Accessibility  | Implement global `:focus-visible` contract and apply parity where hover exists.                              | M-UI1, M-UI4               |
 | CSS-05 | P1       | Open   | Accessibility  | Enforce minimum tap/click target policy for icon/text controls.                                              | M-UI4, M-UI5, M-UI6        |
@@ -290,4 +290,4 @@ Priority values: `P0` (blocker), `P1` (high), `P2` (polish)
 - Add semantic subtle/tint/focus tokens in `styles.scss`.
 - Replace hard-coded auth/upload hex values with semantic tokens.
 - Add global `:focus-visible` rule and patch primary interactive controls.
-- Resolve nav width discrepancy against `design.md` and lock the source of truth.
+- Resolve nav width discrepancy against `docs/design/layout.md` and lock the source of truth.

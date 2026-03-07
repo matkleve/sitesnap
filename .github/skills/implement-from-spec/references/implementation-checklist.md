@@ -9,7 +9,7 @@ Run through this after every agent-generated feature. Compare against the elemen
 - [ ] All components are standalone (no NgModules)
 - [ ] Files follow naming convention: `kebab-case.component.ts`
 - [ ] Files are in correct directories per project structure
-- [ ] Design pattern source was reviewed (`docs/design.md` + relevant element specs)
+- [ ] Design pattern source was reviewed (`docs/design/constitution.md`, `docs/design.md`, relevant `docs/design/*` files, and relevant element specs)
 - [ ] Context7 MCP was consulted for external library API usage
 
 ## Behavior

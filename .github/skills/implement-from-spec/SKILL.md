@@ -19,7 +19,8 @@ argument-hint: "Element spec name or path (e.g., search-bar)"
 1. Open `docs/element-specs/{element}.md`
 2. Read ALL sections: What It Is, Actions, Hierarchy, State, File Map, Wiring
 3. Read `docs/glossary.md` for canonical component names
-4. Read `docs/design.md` for design tokens and visual patterns
+4. Read `docs/design/constitution.md` and `docs/design.md`
+5. Load the relevant task-specific design files from `docs/design/` before implementation
 
 ### Step 2: Plan
 

@@ -14,8 +14,10 @@ Warm surface: `--color-bg-surface` at 85% opacity with blur. Active nav link hig
 
 Source of truth for standardized sizing/tokens:
 
-- Use `docs/design.md` for spacing, widths, radius, and motion timing (especially section 3.3 Spacing and Grid + 3.4 Border Radius).
-- This element spec defines component structure and behavior; if values conflict, `docs/design.md` wins.
+- Use `docs/design/tokens.md` for spacing, widths, radius, and icon sizing.
+- Use `docs/design/layout.md` for breakpoint and shell layout rules.
+- Use `docs/design/motion.md` for motion timing.
+- This element spec defines component structure and behavior; if values conflict, the relevant `docs/design/*` file wins.
 
 ## Where It Lives
 
@@ -48,7 +50,7 @@ Every nav link has these visual states. Agents must implement **all** of them �
 
 ## Spacing & Sizing
 
-All values from the 4px base unit scale (`docs/design.md` §3.3). **No ad-hoc values.**
+All values from the 4px base unit scale (`docs/design/tokens.md` §3.3). **No ad-hoc values.**
 
 ### Desktop sidebar
 

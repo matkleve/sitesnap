@@ -46,4 +46,11 @@ applyTo: "**/*.component.html, **/*.component.ts, **/*.scss"
 - All colors must use CSS custom properties — never hardcode hex values
 - Test both themes when modifying any visual component
 
-Full reference: [docs/design.md](../../docs/design.md)
+Load order:
+
+- Always: [docs/design/constitution.md](../../docs/design/constitution.md), [docs/design.md](../../docs/design.md)
+- Styling/sizing: [docs/design/tokens.md](../../docs/design/tokens.md)
+- Layout: [docs/design/layout.md](../../docs/design/layout.md)
+- Motion: [docs/design/motion.md](../../docs/design/motion.md)
+- Map hierarchy: [docs/design/map-system.md](../../docs/design/map-system.md)
+- Component-specific rules: [docs/design/components/](../../docs/design/components/)
