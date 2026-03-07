@@ -18,14 +18,16 @@
 
 .search-bar {
   --ui-container-radius: var(--container-radius-panel);
-  --ui-container-gap: 0;
   --search-bar-padding-inline: var(--ui-container-padding-inline);
   --search-bar-padding-block: var(--ui-container-padding-block);
   --search-bar-gap: var(--ui-container-gap);
-  --search-bar-clear-size: var(--spacing-6);
-  --search-bar-clear-hit-area: 2.75rem;
+  --search-bar-media-size: var(--spacing-6);
+  --search-bar-row-min-height: 3rem;
+  --search-bar-slot-offset: calc(
+    (var(--search-bar-row-min-height) - var(--search-bar-media-size)) / 2
+  );
   --search-dropdown-item-padding-inline: var(--search-bar-padding-inline);
-  --search-dropdown-item-padding-block: var(--search-bar-padding-block);
+  --search-dropdown-item-padding-block: var(--container-padding-block-compact);
   --search-dropdown-item-gap: var(--search-bar-gap);
   --search-dropdown-item-radius: var(--container-radius-control);
 
@@ -40,11 +42,25 @@
 }
 
 .search-bar__input-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: var(--search-bar-media-size) minmax(0, 1fr) auto;
   width: 100%;
-  min-height: 2.5rem;
+  min-height: var(--search-bar-row-min-height);
   align-items: center;
-  gap: var(--search-bar-gap);
+  column-gap: var(--search-bar-gap);
+}
+
+.search-bar__slot-wrapper {
+  display: inline-flex;
+  align-self: stretch;
+  align-items: flex-start;
+  justify-content: center;
+  padding-block: var(--search-bar-slot-offset);
+}
+
+.search-bar__icon-slot,
+.search-bar__clear-slot {
+  --ui-item-media-size: var(--search-bar-media-size);
 }
 
 .search-bar__icon,
@@ -57,15 +73,15 @@
 }
 
 .search-bar__input {
+  height: 100%;
   min-width: 0;
-  flex: 1 1 auto;
   border: 0;
   background: transparent;
   color: var(--color-text-primary);
   font-size: 0.9375rem;
   line-height: 1.4;
   outline: 0;
-  padding-block: 0.6875rem;
+  padding-block: 0;
 
   &::placeholder {
     color: var(--color-text-disabled);
@@ -89,21 +105,20 @@
 }
 
 .search-bar__clear {
+  position: relative;
   display: inline-flex;
-  align-items: center;
+  align-self: stretch;
+  align-items: stretch;
   justify-content: center;
-  inline-size: var(--search-bar-clear-hit-area);
-  block-size: var(--search-bar-clear-hit-area);
-  min-inline-size: var(--search-bar-clear-hit-area);
-  min-block-size: var(--search-bar-clear-hit-area);
+  inline-size: var(--search-bar-media-size);
+  min-inline-size: var(--search-bar-media-size);
+  padding: 0;
   border-radius: var(--container-radius-control);
 
-  .material-icons {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    inline-size: var(--search-bar-clear-size);
-    block-size: var(--search-bar-clear-size);
+  &::before {
+    content: '';
+    position: absolute;
+    inset: calc(-1 * var(--spacing-1));
   }
 }
 
@@ -111,10 +126,19 @@
   width: 100%;
   border-top: 1px solid color-mix(in srgb, var(--color-border) 82%, transparent);
   background: var(--color-bg-elevated);
+  overflow: clip;
+  max-block-size: min(32rem, 60vh);
+  animation: search-bar-dropdown-reveal 180ms ease-out;
+}
+
+.search-bar__dropdown-content {
+  display: grid;
+  gap: var(--search-bar-gap);
+  padding-block: var(--search-bar-padding-block);
 }
 
 .search-bar__section-label {
-  padding: 0 var(--search-bar-padding-inline) var(--spacing-1);
+  padding: 0 var(--search-bar-padding-inline);
   color: var(--color-text-secondary);
   font-size: 0.75rem;
   font-weight: 600;
@@ -124,7 +148,7 @@
 
 .search-bar__divider {
   height: 1px;
-  margin: var(--spacing-1) var(--search-bar-padding-inline) var(--search-bar-gap);
+  margin: 0 var(--search-bar-padding-inline);
   background: var(--color-border);
 }
 
@@ -132,6 +156,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--search-bar-gap);
+  padding-inline: var(--search-bar-padding-inline);
 }
 
 .search-bar__empty-title {
@@ -158,6 +183,7 @@
 .search-bar__skeleton-list {
   display: grid;
   gap: var(--search-bar-gap);
+  padding-inline: var(--search-bar-padding-inline);
 }
 
 .search-bar__skeleton-row {
@@ -192,5 +218,17 @@
 
   100% {
     background-position: -200% 0;
+  }
+}
+
+@keyframes search-bar-dropdown-reveal {
+  0% {
+    max-block-size: 0;
+    opacity: 0;
+  }
+
+  100% {
+    max-block-size: min(32rem, 60vh);
+    opacity: 1;
   }
 }

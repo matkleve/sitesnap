@@ -6,7 +6,7 @@ A grouped accordion panel for narrowing which images appear on the map and in th
 
 ## What It Looks Like
 
-Accordion-style panel with collapsible filter groups. `--color-bg-surface` background, `--color-border` dividers between groups. Each group has a header (click to expand/collapse) and controls inside. A summary at the bottom shows count of active filters and a "Clear all" action.
+Accordion-style panel with collapsible filter groups. Use the shared `.ui-container` panel shell so radius, padding, and gap align with the Sidebar and Search Bar. `--color-bg-surface` background, `--color-border` dividers between groups. Each group has a header (click to expand/collapse) and controls inside. A summary at the bottom shows count of active filters and a "Clear all" action.
 
 ## Where It Lives
 
@@ -29,7 +29,7 @@ Accordion-style panel with collapsible filter groups. `--color-bg-surface` backg
 ## Component Hierarchy
 
 ```
-FilterPanel                                ← sliding panel, --color-bg-surface
+FilterPanel                                ← `.ui-container` sliding panel, --color-bg-surface
 ├── PanelHeader                            ← "Filters" title + close button
 ├── FilterGroup "Time Range"               ← accordion section
 │   ├── GroupHeader                        ← click to expand/collapse, chevron indicator
@@ -82,6 +82,7 @@ FilterPanel                                ← sliding panel, --color-bg-surface
 
 - [ ] Desktop: slides in from top-right
 - [ ] Mobile: bottom modal
+- [ ] Uses `.ui-container` as the shared panel shell
 - [ ] Accordion groups expand/collapse independently
 - [ ] Applying a filter immediately updates map markers
 - [ ] "Clear all" removes all filters

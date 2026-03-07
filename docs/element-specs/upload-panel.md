@@ -6,7 +6,7 @@ The file upload interface that slides open from the Upload Button. Users drag-an
 
 ## What It Looks Like
 
-Slides down from Upload Button. Glassmorphic background (`--color-bg-surface` at 95% opacity + `backdrop-filter: blur(12px)`). Rounded corners, subtle shadow. Contains: header with title + close, a dashed drop zone, and a scrollable file list. Max height ~400px, scrolls internally.
+Slides down from Upload Button. Uses the shared `.ui-container` panel shell so outer radius, panel padding, and panel gap align with the Sidebar and Search Bar. Glassmorphic background (`--color-bg-surface` at 95% opacity + `backdrop-filter: blur(12px)`). Contains: header with title + close, a dashed drop zone, and a scrollable file list. Max height ~400px, scrolls internally.
 
 ## Where It Lives
 
@@ -31,7 +31,7 @@ Slides down from Upload Button. Glassmorphic background (`--color-bg-surface` at
 ## Component Hierarchy
 
 ```
-UploadPanel                                ← glassmorphic card, slides down from button
+UploadPanel                                ← `.ui-container` glassmorphic panel, slides down from button
 ├── PanelHeader                            ← "Upload Photos" title + close button
 ├── DropZone                               ← dashed border area
 │   ├── CameraIcon                         ← centered icon
@@ -94,6 +94,7 @@ Types: `FileUploadState` and `FileUploadStatus` are defined in the component fil
 
 - [ ] Slide-down animation from upload button
 - [ ] Glassmorphic background with blur
+- [ ] Uses `.ui-container` as the shared panel shell
 - [x] Drag-and-drop works (visual feedback on drag-over)
 - [x] Click on drop zone opens file picker
 - [x] Per-file progress with status labels

@@ -21,7 +21,7 @@ argument-hint: "Element spec name or path (e.g., search-bar)"
 2. Read ALL sections: What It Is, Actions, Hierarchy, State, File Map, Wiring
 3. Read `docs/glossary.md` for canonical component names
 4. Read `docs/design/constitution.md` and `docs/design.md`
-5. Load the relevant task-specific design files from `docs/design/` before implementation in this order: `tokens.md` → `layout.md` → `motion.md` → task-specific component docs
+5. Load the relevant task-specific design files from `docs/design/` before implementation in this order: `tokens.md` → `layout.md` → shared primitives in `apps/web/src/styles.scss` → `motion.md` → task-specific component docs
 6. Check `apps/web/src/styles.scss` for reusable layout primitives before inventing a new panel or row shell
 
 ### Step 2: Audit Current Implementation

@@ -74,11 +74,11 @@
   // nested content, dropdowns, and panels should inherit.
   --container-inset: var(--spacing-3);
   --container-inset-mobile: var(--spacing-3);
+  --container-padding-inline-panel: var(--spacing-1);
+  --container-padding-block-panel: var(--spacing-1);
   --container-padding-inline-compact: var(--spacing-3);
-  --container-padding-inline: var(--spacing-4);
   --container-padding-block-compact: var(--spacing-2);
-  --container-padding-block: var(--spacing-3);
-  --container-gap-tight: var(--spacing-1);
+  --container-gap-panel: var(--spacing-1);
   --container-gap: var(--spacing-2);
   --container-radius-control: var(--radius-md);
   --container-radius-panel: var(--radius-lg);
@@ -187,9 +187,9 @@ router-outlet + * {
 
 // ── Shared container layout helpers ─────────────────────────────────────────
 .ui-container {
-  --ui-container-padding-inline: var(--container-padding-inline);
-  --ui-container-padding-block: var(--container-padding-block);
-  --ui-container-gap: var(--container-gap);
+  --ui-container-padding-inline: var(--container-padding-inline-panel);
+  --ui-container-padding-block: var(--container-padding-block-panel);
+  --ui-container-gap: var(--container-gap-panel);
   --ui-container-radius: var(--container-radius-panel);
 
   position: relative;
@@ -206,12 +206,6 @@ router-outlet + * {
   --ui-container-padding-block: var(--container-padding-block-compact);
 }
 
-.ui-container--panel-tight {
-  --ui-container-padding-inline: var(--container-gap-tight);
-  --ui-container-padding-block: var(--container-gap-tight);
-  --ui-container-gap: var(--container-gap-tight);
-}
-
 .ui-item {
   --ui-item-min-height: 2.5rem;
   --ui-item-padding-inline: var(--container-padding-inline-compact);
@@ -219,7 +213,7 @@ router-outlet + * {
   --ui-item-gap: var(--container-gap);
   --ui-item-radius: var(--container-radius-control);
   --ui-item-media-size: var(--spacing-6);
-  --ui-item-content-gap: var(--container-gap-tight);
+  --ui-item-content-gap: var(--container-gap-panel);
 
   display: grid;
   grid-template-columns: var(--ui-item-media-size) minmax(0, 1fr);

@@ -35,9 +35,10 @@ All motion serves clarity or orientation — no decorative animation.
 ### Geometry stability rules
 
 - Shared layout primitives keep their geometry during transitions.
+- Panels may animate container width or container height when the interaction requires it.
 - Do not animate container padding, row padding, row height, media-column width, item gap, or panel corner radius.
 - Sidebar expand/collapse may animate outer container width and label opacity/clipping only.
-- Search surfaces may animate visibility or opacity of revealed content, but keep the same panel radius and container padding as the closed state.
+- Search surfaces may animate revealed container height and content opacity, but keep the same panel radius and container padding as the closed state.
 - Search results should reveal within the existing panel surface rather than translating like a detached dropdown.
 - If a pill-style treatment causes layout errors, clipping issues, or geometry shifts during state changes, fall back to the standard `.ui-container` panel shape.
 

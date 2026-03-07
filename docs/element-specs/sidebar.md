@@ -94,7 +94,7 @@ The desktop sidebar surface is a standard panel container, not a capsule. It mus
 
 - Container class: `.ui-container`
 - Container radius: `--container-radius-panel`
-- Container padding: `--ui-container-padding-inline` / `--ui-container-padding-block`
+- Container padding: `--container-padding-inline-panel` / `--container-padding-block-panel` from the base `.ui-container` shell
 - Child rows align to the container boundary in expanded state
 - Nav rows and account row share the same leading media column and inline padding
 - Collapsed state centers square icon buttons without shifting the icon column on expand
@@ -221,7 +221,7 @@ Uses the same row shell as NavLink. The leading media column contains either the
 
 ### Spacing (no ad-hoc values)
 
-- [ ] Desktop container uses `.ui-container` with panel radius and token-driven padding
+- [ ] Desktop container uses `.ui-container` with panel radius and the shared panel padding/gap tokens
 - [ ] Collapsed desktop nav items are square and icon-centered
 - [ ] Expanded desktop rows keep the same height as collapsed rows
 - [ ] Expanded desktop rows have visible token-based gaps between items

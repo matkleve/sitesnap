@@ -6,7 +6,7 @@ The right-side panel that shows image groups, thumbnails, and detail views. It's
 
 ## What It Looks Like
 
-**Desktop:** 320px wide by default, resizable 280–640px via Drag Divider. `--color-bg-surface` background. Slides in from the right edge when opened. Contains Group Tab Bar at top, content area below (thumbnail grid or image detail).
+**Desktop:** 320px wide by default, resizable 280–640px via Drag Divider. Uses the shared `.ui-container` panel shell so the workspace aligns with the same outer radius and panel padding language as other app surfaces. `--color-bg-surface` background. Slides in from the right edge when opened. Contains Group Tab Bar at top, content area below (thumbnail grid or image detail).
 
 **Mobile:** Bottom Sheet with drag handle. Three snap points: minimized (64px, shows handle + group name), half-screen (50vh, shows thumbnails), full-screen (100vh, shows detail). Map stays interactive in minimized and half-screen states.
 
@@ -32,7 +32,7 @@ The right-side panel that shows image groups, thumbnails, and detail views. It's
 ## Component Hierarchy
 
 ```
-WorkspacePane                              ← right panel (desktop) or bottom sheet (mobile)
+WorkspacePane                              ← `.ui-container` right panel (desktop) or bottom sheet (mobile)
 ├── [desktop] DragDivider                  ← 4px vertical bar, cursor: col-resize
 ├── PaneHeader                             ← close button + group name
 ├── GroupTabBar                            ← scrollable horizontal tabs (see group-tab-bar spec)
@@ -80,6 +80,7 @@ BottomSheet                                ← fixed bottom, full width
 
 - [ ] Desktop: slides in from right with smooth transition
 - [ ] Desktop: resizable via Drag Divider (280–640px range)
+- [ ] Desktop shell uses `.ui-container` for shared panel geometry
 - [ ] Mobile: bottom sheet with 3 snap points (64px, 50vh, 100vh)
 - [ ] Mobile: drag handle works for snapping
 - [ ] Map stays interactive when pane is open
