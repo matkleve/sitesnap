@@ -19,10 +19,11 @@ argument-hint: "Element spec name or path (e.g., search-bar)"
 
 1. Open `docs/element-specs/{element}.md`
 2. Read ALL sections: What It Is, Actions, Hierarchy, State, File Map, Wiring
-3. Read `docs/glossary.md` for canonical component names
-4. Read `docs/design/constitution.md` and `docs/design.md`
-5. Load the relevant task-specific design files from `docs/design/` before implementation in this order: `tokens.md` → `layout.md` → shared primitives in `apps/web/src/styles.scss` → `motion.md` → task-specific component docs
-6. Check `apps/web/src/styles.scss` for reusable layout primitives before inventing a new panel or row shell
+3. Open `docs/implementation-blueprints/{element}.md` (if it exists) — it contains exact service method signatures, Mermaid data-flow diagrams, database queries, type definitions, and missing infrastructure lists
+4. Read `docs/glossary.md` for canonical component names
+5. Read `docs/design/constitution.md` and `docs/design.md`
+6. Load the relevant task-specific design files from `docs/design/` before implementation in this order: `tokens.md` → `layout.md` → shared primitives in `apps/web/src/styles.scss` → `motion.md` → task-specific component docs
+7. Check `apps/web/src/styles.scss` for reusable layout primitives before inventing a new panel or row shell
 
 ### Step 2: Audit Current Implementation
 
@@ -44,17 +45,18 @@ argument-hint: "Element spec name or path (e.g., search-bar)"
 
 ### Step 4: Implement
 
-1. Create every file listed in the File Map that does not exist yet
-2. Update existing files that are incomplete or incorrect
-3. Do not rewrite already-correct parts just because they differ stylistically
-4. Match the Component Hierarchy **exactly** — each node = a component
-5. Implement **every** row from the Actions table
-6. Use the exact State variables, types, and defaults
-7. Use the exact Data sources and queries
-8. Wire into parent per the Wiring section
-9. Use design tokens, not hardcoded values
-10. Prefer shared primitives `.ui-container`, `.ui-item`, `.ui-item-media`, `.ui-item-label`, and `.ui-spacer` before creating bespoke layout classes
-11. If a decorative shape or animated geometry causes unstable transitions, keep the primitive geometry static and simplify the decoration
+1. Create any missing infrastructure listed in the blueprint's **Missing Infrastructure** table (services, types, adapters) before building the component
+2. Create every file listed in the File Map that does not exist yet
+3. Update existing files that are incomplete or incorrect
+4. Do not rewrite already-correct parts just because they differ stylistically
+5. Match the Component Hierarchy **exactly** — each node = a component
+6. Implement **every** row from the Actions table
+7. Use the exact State variables, types, and defaults
+8. Use the exact Data sources and queries — prefer the blueprint's concrete queries and service signatures over the spec's high-level descriptions when both exist
+9. Wire into parent per the Wiring section
+10. Use design tokens, not hardcoded values
+11. Prefer shared primitives `.ui-container`, `.ui-item`, `.ui-item-media`, `.ui-item-label`, and `.ui-spacer` before creating bespoke layout classes
+12. If a decorative shape or animated geometry causes unstable transitions, keep the primitive geometry static and simplify the decoration
 
 ### Step 5: Verify
 

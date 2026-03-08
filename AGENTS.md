@@ -23,11 +23,12 @@ Each package has its own `AGENTS.md` with package-specific conventions.
 ## Before Implementing Any Feature
 
 1. Read the element spec: `docs/element-specs/[element].md`
-2. Check the glossary: `docs/glossary.md`
-3. Check architecture constraints: `docs/architecture.md`
-4. Load the always-load design files: `docs/design/constitution.md` and `docs/design.md`
-5. Load the task-specific design files from the table below
-6. Consult Context7 MCP for external library APIs (Angular, Leaflet, Supabase, Tailwind); if Context7 conflicts with project docs, prefer project docs
+2. Read the implementation blueprint (if one exists): `docs/implementation-blueprints/[element].md` — contains exact service signatures, Mermaid data-flow diagrams, database queries, and type definitions
+3. Check the glossary: `docs/glossary.md`
+4. Check architecture constraints: `docs/architecture.md`
+5. Load the always-load design files: `docs/design/constitution.md` and `docs/design.md`
+6. Load the task-specific design files from the table below
+7. Consult Context7 MCP for external library APIs (Angular, Leaflet, Supabase, Tailwind); if Context7 conflicts with project docs, prefer project docs
 
 ## Design File Loading
 

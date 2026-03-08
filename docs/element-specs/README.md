@@ -9,9 +9,10 @@ See [agent-workflows/element-spec-format.md](../agent-workflows/element-spec-for
 
 1. Pick an element from the list below
 2. Write its spec using the template (or ask an agent to draft it from the glossary)
-3. Use `#plan-before-build` prompt to get an implementation plan
-4. Use `#implement-element` prompt to build it
-5. Use `#review-against-spec` prompt to verify
+3. Check `docs/implementation-blueprints/` for a companion blueprint with exact service signatures, data-flow diagrams, and database queries
+4. Use `#plan-before-build` prompt to get an implementation plan
+5. Use `#implement-element` prompt to build it
+6. Use `#review-against-spec` prompt to verify
 
 ## Elements (from Glossary)
 

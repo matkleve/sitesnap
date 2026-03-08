@@ -21,8 +21,9 @@ Your job is to compare an implementation against its element spec, report deviat
 ### Phase 1: Audit
 
 1. Read the element spec from `docs/element-specs/`
-2. Open each file listed in the spec's **File Map**
-3. Check every item below in order
+2. Read the implementation blueprint from `docs/implementation-blueprints/` (if one exists) — use it to verify correct service signatures, data flows, and database queries
+3. Open each file listed in the spec's **File Map**
+4. Check every item below in order
 
 #### Structure
 

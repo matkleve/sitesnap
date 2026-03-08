@@ -23,6 +23,7 @@ Run through this after every agent-generated feature. Compare against the elemen
 ## Data
 
 - [ ] Correct Supabase tables/queries match the Data section
+- [ ] Service method signatures match the implementation blueprint (if one exists in `docs/implementation-blueprints/`)
 - [ ] TypeScript types come from generated schema (no `any`)
 - [ ] No hardcoded dummy data left behind
 - [ ] Service abstractions used (not direct Supabase calls from components)

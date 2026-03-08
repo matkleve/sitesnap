@@ -15,11 +15,12 @@ Your job is to create a detailed implementation plan from an element spec — **
 ## Procedure
 
 1. Read the element spec from `docs/element-specs/`
-2. Read `docs/architecture.md` for layer constraints and adapter patterns
-3. Read `docs/glossary.md` for canonical component names
-4. Read `docs/design/constitution.md` and `docs/design.md`
-5. Load the relevant task-specific design files from `docs/design/`
-6. Check existing code in `apps/web/src/app/` for related components and services
+2. Read the implementation blueprint from `docs/implementation-blueprints/` (if one exists) — it contains service contracts, data-flow diagrams, and missing infrastructure lists that should inform the plan
+3. Read `docs/architecture.md` for layer constraints and adapter patterns
+4. Read `docs/glossary.md` for canonical component names
+5. Read `docs/design/constitution.md` and `docs/design.md`
+6. Load the relevant task-specific design files from `docs/design/`
+7. Check existing code in `apps/web/src/app/` for related components and services
 
 ## Output Format
 

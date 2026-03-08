@@ -72,3 +72,4 @@ src/app/
 - Glossary: `docs/glossary.md`
 - Architecture: `docs/architecture.md`
 - Element specs: `docs/element-specs/`
+- Implementation blueprints: `docs/implementation-blueprints/` — companion docs with exact service signatures, Mermaid data flows, DB queries, and type definitions

@@ -15,18 +15,20 @@ Your job is to build UI elements exactly as specified in element specs.
 ## Procedure
 
 1. Read the element spec from `docs/element-specs/`
-2. Follow ALL conventions in the project's AGENTS.md and instruction files
-3. Check what is already implemented in the files from the spec's **File Map** and related wiring before making changes
-4. Compare the existing implementation against the spec, identify anything incomplete or deviating that needs attention, and continue from that state instead of starting over
-5. Create every missing file listed in the spec's **File Map**
-6. Match the **Component Hierarchy** (pseudo-HTML) exactly
-7. Implement every row from the **Actions** table — skip nothing
-8. Use the exact **State** variables, types, and defaults listed
-9. Use the exact **Data** sources and Supabase queries listed
-10. Follow the **Wiring** section for parent integration and routing
-11. Use glossary names from `docs/glossary.md` for all components
-12. Provide loading, error, and empty states as described
-13. Mark the corresponding spec checklist items as done in the element spec file when the implementation is complete
+2. Read the implementation blueprint from `docs/implementation-blueprints/` (if one exists) — it contains exact service method signatures, Mermaid data-flow diagrams, database queries, type definitions, and lists of missing infrastructure to create
+3. Follow ALL conventions in the project's AGENTS.md and instruction files
+4. Check what is already implemented in the files from the spec's **File Map** and related wiring before making changes
+5. Compare the existing implementation against the spec, identify anything incomplete or deviating that needs attention, and continue from that state instead of starting over
+6. Create any missing infrastructure listed in the blueprint's **Missing Infrastructure** table before building the component
+7. Create every missing file listed in the spec's **File Map**
+8. Match the **Component Hierarchy** (pseudo-HTML) exactly
+9. Implement every row from the **Actions** table — skip nothing
+10. Use the exact **State** variables, types, and defaults listed
+11. Use the exact **Data** sources and Supabase queries listed — prefer the blueprint's concrete queries over the spec's high-level descriptions when both exist
+12. Follow the **Wiring** section for parent integration and routing
+13. Use glossary names from `docs/glossary.md` for all components
+14. Provide loading, error, and empty states as described
+15. Mark the corresponding spec checklist items as done in the element spec file when the implementation is complete
 
 ## Constraints
 
