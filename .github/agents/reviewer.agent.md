@@ -1,6 +1,6 @@
 ---
 description: "Review implementations against element specs. Use for verifying correctness, checking all criteria, and finding spec deviations."
-tools: [read, search, editFiles]
+tools: [read, search, edit/editFiles]
 handoffs:
   - label: "Fix Issues"
     agent: implementer

@@ -10,7 +10,7 @@ The right-side panel that shows image groups, thumbnails, and detail views. It's
 
 **Mobile:** Bottom Sheet with drag handle. Three snap points: minimized (64px, shows handle + group name), half-screen (50vh, shows thumbnails), full-screen (100vh, shows detail). Map stays interactive in minimized and half-screen states.
 
-**Drag Divider:** 4px vertical bar between map and workspace pane. `cursor: col-resize`. Desktop only.
+**Drag Divider:** See [drag-divider spec](drag-divider.md) for full details. Vertical resize handle between map and workspace pane. Desktop only.
 
 ## Where It Lives
 
@@ -33,7 +33,7 @@ The right-side panel that shows image groups, thumbnails, and detail views. It's
 
 ```
 WorkspacePane                              ← `.ui-container` right panel (desktop) or bottom sheet (mobile)
-├── [desktop] DragDivider                  ← 4px vertical bar, cursor: col-resize
+├── [desktop] DragDivider                  ← resize handle (see drag-divider spec)
 ├── PaneHeader                             ← close button + group name
 ├── GroupTabBar                            ← scrollable horizontal tabs (see group-tab-bar spec)
 ├── SortingControls                        ← Date↓, Date↑, Distance, Name
@@ -63,12 +63,12 @@ BottomSheet                                ← fixed bottom, full width
 
 ## File Map
 
-| File                                                        | Purpose                         |
-| ----------------------------------------------------------- | ------------------------------- |
-| `features/map/workspace-pane/workspace-pane.component.ts`   | Main pane component             |
-| `features/map/workspace-pane/workspace-pane.component.html` | Template                        |
-| `features/map/workspace-pane/workspace-pane.component.scss` | Styles + responsive behavior    |
-| `features/map/workspace-pane/drag-divider.component.ts`     | Resize handle (inline template) |
+| File                                                                 | Purpose                                                  |
+| -------------------------------------------------------------------- | -------------------------------------------------------- |
+| `features/map/workspace-pane/workspace-pane.component.ts`            | Main pane component                                      |
+| `features/map/workspace-pane/workspace-pane.component.html`          | Template                                                 |
+| `features/map/workspace-pane/workspace-pane.component.scss`          | Styles + responsive behavior                             |
+| `features/map/workspace-pane/drag-divider/drag-divider.component.ts` | Resize handle (see [drag-divider spec](drag-divider.md)) |
 
 ## Wiring
 

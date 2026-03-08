@@ -36,7 +36,7 @@ MapShell                                   ← full viewport, flex row, --color-
 │   ├── GPSButton                          ← floating bottom-right
 │   ├── [future] ActiveFilterChips         ← strip below search bar (when filters active)
 │   └── [placement] PlacementBanner        ← bottom-center pill
-├── [workspace open] DragDivider           ← 4px resize handle
+├── [workspace open] DragDivider           ← resize handle (see drag-divider spec)
 └── [workspace open] WorkspacePane         ← right panel (desktop) or bottom sheet (mobile)
 ```
 

@@ -35,6 +35,23 @@ Your job is to create structured element specs that agents can implement precise
 9. **Wiring** — parent integration, routing, imports
 10. **Acceptance Criteria** — checkbox list, each testable
 
+## Spec Update Mode
+
+When the user provides one or more existing spec files and describes features to add:
+
+1. Read each provided spec file in full
+2. Read the user's feature description carefully
+3. Integrate the new features into the spec:
+   - Add rows to the **Actions** table for new interactions
+   - Add entries to the **Component Hierarchy** if new components are needed
+   - Add entries to the **State** table for new state variables
+   - Update **Data Requirements** if new queries or tables are involved
+   - Add entries to the **File Map** for new files
+   - Add items to **Acceptance Criteria** for the new features
+   - Update **What It Looks Like** and **Wiring** if the visual layout or integration changes
+4. **Cross-spec impact analysis** — search `docs/element-specs/` for other specs that reference or are referenced by the updated spec. For each related spec, check whether the new features require changes there too (e.g., new signals a parent must provide, new child components a sibling must accommodate, shared state changes). List any required cross-spec updates and apply them.
+5. Validate the updated spec the same way as a new spec (Step 4 of the normal procedure)
+
 ## Constraints
 
 - DO NOT skip any required section

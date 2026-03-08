@@ -61,6 +61,43 @@ Unit rules for every new spec:
 - All referenced data sources exist in the schema
 - Glossary name is consistent
 
+---
+
+## Spec Update Mode
+
+When the user provides one or more existing spec files and describes features to add, follow this procedure instead of Steps 1–3:
+
+### Step U1: Read Existing Specs
+
+1. Read each spec file the user provides in full
+2. Understand the current structure: actions, hierarchy, state, data, wiring
+
+### Step U2: Integrate New Features
+
+For each feature the user describes, update the relevant spec sections:
+
+- **Actions table** — add rows for new user interactions and system responses
+- **Component Hierarchy** — add new child components or restructure the tree
+- **State table** — add new signals/variables with type, default, and what they control
+- **Data Requirements** — add new Supabase tables, columns, RPC calls, or service methods
+- **File Map** — add new files that need to be created
+- **Acceptance Criteria** — add testable items for each new feature
+- **What It Looks Like** / **Wiring** — update if the visual layout or parent integration changes
+
+### Step U3: Cross-Spec Impact Analysis
+
+1. Search `docs/element-specs/` for every spec that references or is referenced by the updated spec (look for component names, signal names, shared state, parent/child relationships)
+2. For each related spec, determine if the new features require changes:
+   - Does a parent spec need to pass new inputs or handle new outputs?
+   - Does a sibling spec need to accommodate new layout or z-index changes?
+   - Does a child spec gain new responsibilities or state?
+3. Apply the required updates to related specs
+4. List all cross-spec changes made so the user has visibility
+
+### Step U4: Validate
+
+Run the same validation as Step 4 above on all modified specs.
+
 ## References
 
 - [Element spec format](./references/element-spec-format.md) — detailed template with rationale
