@@ -18,17 +18,17 @@ The marker body geometry is derived from the shared media token system instead o
 
 ## Actions & Interactions
 
-| #   | User Action                        | System Response                                                    | Triggers                 |
-| --- | ---------------------------------- | ------------------------------------------------------------------ | ------------------------ |
-| 1   | Clicks single marker               | Adds image to Active Selection, opens Workspace Pane               | Selection state          |
-| 2   | Ctrl+clicks marker (desktop)       | Adds image to Active Selection without clearing previous selection | Multi-select             |
-| 2b  | Long-press + tap marker (mobile)   | Mobile equivalent of Ctrl+click multi-select                       | Multi-select             |
-| 3   | Clicks cluster marker              | Zooms in to expand cluster, or opens all images in selection       | `MapAdapter.setCenter()` |
-| 4   | Hovers single marker (desktop)     | Shows Direction Cone (if bearing available)                        | CSS `:hover`             |
-| 5   | Long-presses single marker (touch) | Shows Direction Cone (if bearing available)                        | Touch fallback           |
-| 6   | Right-clicks marker (desktop)      | Opens context menu (view detail, edit location, add to group)      | Context menu             |
-| 6b  | Long-press marker (mobile)         | Mobile equivalent of right-click context menu                      | Context menu             |
-| 7   | Drags marker in correction mode    | Moves marker to new position, stores corrected coordinates         | Correction flow          |
+| #   | User Action                        | System Response                                                                       | Triggers                                       |
+| --- | ---------------------------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| 1   | Clicks single marker               | Adds image to Active Selection, opens Workspace Pane                                  | Selection state                                |
+| 2   | Ctrl+clicks marker (desktop)       | Adds image to Active Selection without clearing previous selection                    | Multi-select                                   |
+| 2b  | Long-press + tap marker (mobile)   | Mobile equivalent of Ctrl+click multi-select                                          | Multi-select                                   |
+| 3   | Clicks cluster marker              | Fetches all images in cluster, loads them into Active Selection, opens Workspace Pane | `SelectionService`, `workspacePaneOpen` → true |
+| 4   | Hovers single marker (desktop)     | Shows Direction Cone (if bearing available)                                           | CSS `:hover`                                   |
+| 5   | Long-presses single marker (touch) | Shows Direction Cone (if bearing available)                                           | Touch fallback                                 |
+| 6   | Right-clicks marker (desktop)      | Opens context menu (view detail, edit location, add to group)                         | Context menu                                   |
+| 6b  | Long-press marker (mobile)         | Mobile equivalent of right-click context menu                                         | Context menu                                   |
+| 7   | Drags marker in correction mode    | Moves marker to new position, stores corrected coordinates                            | Correction flow                                |
 
 ## Component Hierarchy
 
@@ -137,11 +137,14 @@ When the user zooms past the cluster's grid threshold, the cluster must split in
 
 ### Cluster Click Behaviour
 
-| Cluster State                       | Click Result                                              |
-| ----------------------------------- | --------------------------------------------------------- |
-| Cluster at zoom ≤ 16                | Zoom in by +2 levels centered on the cluster              |
-| Cluster at zoom 17–18               | Zoom to max (19) to force individual expansion            |
-| Cluster at max zoom (cannot expand) | Open all contained images in the Workspace Pane selection |
+Cluster click **never zooms**. Regardless of zoom level or cluster size, clicking a cluster always opens the Workspace Pane with the cluster's images pre-loaded into the Active Selection tab.
+
+| Cluster State               | Click Result                                                                            |
+| --------------------------- | --------------------------------------------------------------------------------------- |
+| Any cluster                 | Fetch all image IDs in the cluster cell, populate Active Selection, open Workspace Pane |
+| Large cluster (> 50 images) | Show count badge in pane header; thumbnails load progressively as the pane scrolls      |
+
+The map does **not** zoom or re-center on cluster click. The map stays at its current view, preserving the user's spatial context.
 
 ## Performance Rules
 
@@ -171,7 +174,7 @@ These rules exist to prevent marker lag during map pan/zoom interactions.
 - Freshly uploaded markers from `ImageUploadedEvent` are placed optimistically and reconciled on the next viewport query.
 - The Map Shell passes `corrected` and `uploading` flags to `buildPhotoMarkerHtml()` when building or refreshing marker icons. `corrected` is derived from comparing current coordinates to EXIF originals. `uploading` is set during the upload lifecycle and cleared on completion or error.
 - The Map Shell includes the `direction` column in the initial-load and viewport queries so that bearing-based direction cones render for all markers, not only freshly uploaded ones.
-- Marker click handling opens the Workspace Pane for single markers and zooms toward cluster contents for cluster markers.
+- Marker click handling opens the Workspace Pane for both single markers and cluster markers. Single marker click selects one image; cluster marker click fetches all image IDs for the cluster cell, populates Active Selection with those IDs, and signals the Workspace Pane to open. The map never zooms or re-centers on cluster click.
 - Hover direction cones are driven by CSS `:hover` on desktop. Touch long-press direction cones require a Leaflet pointer-event listener (~500 ms threshold) that toggles a `data-long-pressed` attribute or class.
 
 ## Acceptance Criteria
@@ -199,36 +202,38 @@ These rules exist to prevent marker lag during map pan/zoom interactions.
 
 ### Viewport-Driven Loading
 
-- [ ] Markers load based on current viewport bounds, not once at init — `moveend` + 300 ms debounce triggers viewport query
-- [ ] Previous in-flight viewport query is aborted when a new one starts (`AbortController`)
-- [ ] Query bounds expand by 10% on each edge for pre-fetch buffer
-- [ ] Marker set is reconciled (add/remove/update) on each viewport response — existing markers are reused, not rebuilt
-- [ ] Markers that leave the viewport are removed from the map
-- [ ] Newly uploaded markers persist optimistically until the next viewport query reconciles them
+- [x] Markers load based on current viewport bounds, not once at init — `moveend` + 300 ms debounce triggers viewport query
+- [x] Previous in-flight viewport query is aborted when a new one starts (`AbortController`)
+- [x] Query bounds expand by 10% on each edge for pre-fetch buffer
+- [x] Marker set is reconciled (add/remove/update) on each viewport response — existing markers are reused, not rebuilt
+- [x] Markers that leave the viewport are removed from the map
+- [x] Newly uploaded markers persist optimistically until the next viewport query reconciles them
 - [ ] Max 2000 markers on the map at any time; server returns clusters beyond this cap
 
 ### Clustering
 
-- [x] Cluster click zooms in — `map.setView()` with `zoom + 2` when `count > 1`
+- [x] Cluster click never zooms — `map.setView()` is NOT called on cluster click
+- [ ] Cluster click fetches all image IDs within the cluster cell and populates Active Selection
+- [ ] Cluster click opens the Workspace Pane with Active Selection tab active
 - [x] Zoom modifier classes adjust prominence without changing marker structure — `.map-photo-marker--zoom-far/mid/near` CSS classes applied
 - [x] Client-side clustering via coordinate rounding to 4 decimal places (`toMarkerKey()`) — interim implementation
-- [ ] Server-side clustering via `ST_SnapToGrid` with zoom-dependent grid cell size
-- [ ] Cluster grid cell size adapts to zoom level (large cells at low zoom, small cells at high zoom)
-- [ ] Clusters expand into individual markers when user zooms past the cluster's grid threshold
-- [x] At max zoom, cluster click opens all contained images in Workspace Pane selection (fallback when zoom cannot expand further)
+- [x] Server-side clustering via `ST_SnapToGrid` with zoom-dependent grid cell size
+- [x] Cluster grid cell size adapts to zoom level (large cells at low zoom, small cells at high zoom)
+- [x] Clusters expand into individual markers when user zooms past the cluster's grid threshold
 - [ ] Collision offsets prevent overlapping marker bodies when nearby but not clustered
 
 ### Performance
 
 - [x] No marker DOM work during zoom animation — all updates fire on `moveend` only
 - [x] DivIcon HTML is not regenerated when rendered state has not changed
-- [ ] `refreshAllPhotoMarkers()` on `zoomend` is replaced by viewport-query-driven reconciliation
+- [x] `refreshAllPhotoMarkers()` on `zoomend` is replaced by viewport-query-driven reconciliation
 - [ ] Thumbnail signed-URL requests are batched, not issued per-marker
 
 ### State Affordances
 
 - [x] Correction dot visible only for corrected markers — `corrected` flag passed from `map-shell.component.ts` to `buildPhotoMarkerHtml()`
-- [ ] Pending upload ring pulses during upload — `uploading` flag must be passed from `map-shell.component.ts` to `buildPhotoMarkerHtml()`
+- [ ] Pending upload ring pulses during upload — requires `uploadStarted` event from UploadPanel (blocked — UploadPanel only emits after success)
 - [x] Direction cone appears on hover when bearing data exists — CSS `:hover` rule works; bearing flows from `ImageUploadedEvent`
-- [ ] Direction cone appears on long press when bearing data exists on touch devices — needs pointer-event listener (~500 ms)
+- [x] Direction cone appears on long press when bearing data exists on touch devices — `pointerdown` 500 ms timer toggles `.map-photo-marker--long-pressed`; CSS shows cone for that class
 - [x] Direction cone rendered for database-loaded markers — `direction` column included in initial load query
+- [x] Direction cone rotates to reflect actual bearing — inline `transform:rotate(bearing-90deg)` set in `buildPhotoMarkerHtml()`

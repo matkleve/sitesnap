@@ -81,14 +81,25 @@
   }
 </div>
 
-<!-- Drag divider (shown only when PhotoPanel is open) -->
+<!-- Drag divider (shown only when workspace pane is open, desktop only) -->
 @if (photoPanelOpen()) {
-  <div class="drag-divider" role="separator" aria-hidden="true"></div>
+  <app-drag-divider
+    [currentWidth]="workspacePaneWidth()"
+    [minWidth]="workspacePaneMinWidth"
+    [maxWidth]="workspacePaneMaxWidth()"
+    [defaultWidth]="workspacePaneDefaultWidth"
+    (widthChange)="onWorkspaceWidthChange($event)"
+  />
 }
 
 <!-- Photo panel — slides in from right on desktop / bottom on mobile -->
 @if (photoPanelOpen()) {
-  <div class="photo-panel" role="region" aria-label="Photo panel">
+  <div
+    class="photo-panel"
+    role="region"
+    aria-label="Photo panel"
+    [style.width.px]="workspacePaneWidth()"
+  >
     <!-- Tab bar -->
     <div class="photo-panel__tabs" role="tablist">
       <button class="photo-panel__tab photo-panel__tab--active" role="tab" aria-selected="true">

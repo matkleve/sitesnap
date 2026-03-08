@@ -68,6 +68,7 @@ Run through the [implementation checklist](./references/implementation-checklist
 - Loading/error/empty states present
 - Accessibility attributes as specified
 - Build/test/runtime checks from the checklist pass when applicable
+- **Open the running app in a browser and visually inspect the implemented element.** Start the dev server if it is not already running, navigate to the relevant page/state, and confirm the component renders correctly, responds to interactions (hover, click, drag, keyboard), and matches the spec's "What It Looks Like" description. Take a screenshot if possible.
 - Update the spec's Acceptance Criteria checkboxes for items that were verified as complete during this pass
 - Leave unchecked any item that is incomplete, unverified, or blocked
 

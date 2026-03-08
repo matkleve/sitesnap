@@ -106,16 +106,16 @@ None — the Drag Divider is purely a layout interaction component with no data 
 
 ## Acceptance Criteria
 
-- [ ] Divider renders as a 2px vertical line between map and workspace on desktop
-- [ ] Hit zone is at least 2.75rem (44px) wide for accessible pointer targeting
-- [ ] Hover shows the grip indicator (3 horizontal lines) with 80ms fade-in
-- [ ] Pointer drag resizes workspace pane in real time
-- [ ] Width is clamped: workspace min 17.5rem (280px), map min ~20rem (320px)
-- [ ] Double-click resets workspace to default width (22.5rem / 360px)
-- [ ] Keyboard arrow keys resize in 0.5rem (8px) steps
-- [ ] `role="separator"` with correct ARIA value attributes
-- [ ] Visible focus ring on keyboard navigation
-- [ ] Hidden on mobile (`< 768px`)
-- [ ] All colors use design tokens, works in both light and dark mode
-- [ ] No text selection or cursor flicker during drag
-- [ ] `prefers-reduced-motion` disables fade transitions
+- [x] Divider renders as a 2px vertical line between map and workspace on desktop
+- [x] Hit zone is at least 2.75rem (44px) wide for accessible pointer targeting
+- [x] Hover shows the grip indicator (3 horizontal lines) with 80ms fade-in
+- [x] Pointer drag resizes workspace pane in real time
+- [x] Width is clamped: workspace min 17.5rem (280px), map min ~20rem (320px)
+- [x] Double-click resets workspace to default width (22.5rem / 360px)
+- [x] Keyboard arrow keys resize in 0.5rem (8px) steps
+- [x] `role="separator"` with correct ARIA value attributes
+- [x] Visible focus ring on keyboard navigation
+- [x] Hidden on mobile (`< 768px`)
+- [x] All colors use design tokens, works in both light and dark mode
+- [x] No text selection or cursor flicker during drag
+- [x] `prefers-reduced-motion` disables fade transitions

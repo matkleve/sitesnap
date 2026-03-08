@@ -38,8 +38,9 @@ export function buildPhotoMarkerHtml(options: PhotoMarkerHtmlOptions): string {
     const pendingRing = options.uploading
         ? '<span class="map-photo-marker__pending-ring" aria-hidden="true"></span>'
         : '';
+    const coneRotation = (options.bearing ?? 0) - 90;
     const directionCone = options.bearing != null
-        ? '<span class="map-photo-marker__direction-cone" aria-hidden="true"></span>'
+        ? `<span class="map-photo-marker__direction-cone" aria-hidden="true" style="transform:translateX(-8%) rotate(${coneRotation}deg)"></span>`
         : '';
     const content = hasSingleThumbnail
         ? `<img src="${escapeHtmlAttribute(options.thumbnailUrl)}" alt="Uploaded photo marker" />`

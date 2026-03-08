@@ -30,6 +30,7 @@ import { UploadPanelComponent, ImageUploadedEvent } from '../../upload/upload-pa
 import { ExifCoords } from '../../../core/upload.service';
 import { SupabaseService } from '../../../core/supabase.service';
 import { SearchBarComponent } from '../search-bar/search-bar.component';
+import { DragDividerComponent } from '../workspace-pane/drag-divider/drag-divider.component';
 import {
     buildPhotoMarkerHtml,
     PHOTO_MARKER_ICON_ANCHOR,
@@ -40,7 +41,7 @@ import {
 
 @Component({
     selector: 'app-map-shell',
-    imports: [UploadPanelComponent, SearchBarComponent],
+    imports: [UploadPanelComponent, SearchBarComponent, DragDividerComponent],
     templateUrl: './map-shell.component.html',
     styleUrl: './map-shell.component.scss',
 })
@@ -88,10 +89,26 @@ export class MapShellComponent implements OnDestroy {
     /** True while waiting for a GPS fix after pressing the button. */
     readonly gpsLocating = signal(false);
 
-    // ── Photo panel state ────────────────────────────────────────────────────
+    // ── Workspace pane / photo panel state ───────────────────────────────────
 
-    /** Whether the PhotoPanel is slid open. */
+    /** Whether the workspace pane (photo panel) is open. */
     readonly photoPanelOpen = signal(false);
+
+    /** Current workspace pane width in px. */
+    readonly workspacePaneWidth = signal(360);
+
+    /** Minimum workspace pane width in px (17.5rem). */
+    readonly workspacePaneMinWidth = 280;
+
+    /** Default workspace pane width in px (22.5rem). */
+    readonly workspacePaneDefaultWidth = 360;
+
+    /** Maximum workspace pane width: viewport minus map minimum (~320px) minus divider. */
+    readonly workspacePaneMaxWidth = computed(() => {
+        // Fallback to a reasonable default before DOM is available.
+        const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1280;
+        return Math.max(this.workspacePaneMinWidth, viewportWidth - 320);
+    });
     readonly selectedMarkerKey = signal<string | null>(null);
 
     /** Thumbnail URL for the currently selected single marker. */
@@ -177,6 +194,14 @@ export class MapShellComponent implements OnDestroy {
         this.userLocationMarker = null;
         this.clearSearchLocationMarker();
         this.map?.remove();
+    }
+
+    // ── Workspace pane resize ─────────────────────────────────────────────────
+
+    onWorkspaceWidthChange(newWidth: number): void {
+        this.workspacePaneWidth.set(newWidth);
+        // After resize, invalidate the Leaflet map size so tiles re-render.
+        this.map?.invalidateSize();
     }
 
     // ── Upload panel ──────────────────────────────────────────────────────────
@@ -422,7 +447,7 @@ export class MapShellComponent implements OnDestroy {
         });
 
         this.photoMarkerLayer!.addLayer(marker);
-        marker.on('click', () => this.handlePhotoMarkerClick(markerKey));
+        this.attachMarkerInteractions(markerKey, marker);
 
         this.uploadedPhotoMarkers.set(markerKey, {
             marker,
@@ -554,7 +579,7 @@ export class MapShellComponent implements OnDestroy {
             });
 
             this.photoMarkerLayer!.addLayer(marker);
-            marker.on('click', () => this.handlePhotoMarkerClick(key));
+            this.attachMarkerInteractions(key, marker);
 
             this.uploadedPhotoMarkers.set(key, {
                 marker,
@@ -612,26 +637,55 @@ export class MapShellComponent implements OnDestroy {
 
     private handlePhotoMarkerClick(markerKey: string): void {
         const markerState = this.uploadedPhotoMarkers.get(markerKey);
-        if (!markerState || !this.map) {
+        if (!markerState) {
             return;
         }
 
-        if (markerState.count > 1) {
-            const currentZoom = this.map.getZoom();
-            if (currentZoom >= 18) {
-                // At max zoom, expand cluster into workspace pane.
-                this.setSelectedMarker(markerKey);
-                this.photoPanelOpen.set(true);
-                return;
-            }
-            this.setSelectedMarker(null);
-            this.photoPanelOpen.set(false);
-            this.map.setView([markerState.lat, markerState.lng], Math.min(currentZoom + 2, 18));
-            return;
-        }
-
+        // Cluster click never zooms — always open the Workspace Pane with markers selected.
+        // (spec: photo-marker.md § Cluster Click Behaviour)
         this.setSelectedMarker(markerKey);
         this.photoPanelOpen.set(true);
+    }
+
+    /** Attach click + touch long-press interactions consistently for each new marker. */
+    private attachMarkerInteractions(markerKey: string, marker: L.Marker): void {
+        marker.on('click', () => this.handlePhotoMarkerClick(markerKey));
+        // Attach long-press handler for touch direction cone after element is in DOM.
+        marker.once('add', () => {
+            const el = marker.getElement();
+            if (el) this.attachLongPressHandler(el);
+        });
+    }
+
+    /**
+     * Attach a 500 ms long-press handler to a marker element.
+     * On long press, toggles `.map-photo-marker--long-pressed` so the direction
+     * cone is visible on touch devices (mirrors the desktop `:hover` affordance).
+     */
+    private attachLongPressHandler(el: HTMLElement): void {
+        let longPressTimer: ReturnType<typeof setTimeout> | null = null;
+
+        el.addEventListener('pointerdown', () => {
+            longPressTimer = setTimeout(() => {
+                el.classList.add('map-photo-marker--long-pressed');
+            }, 500);
+        }, { passive: true });
+
+        const cancelLongPress = () => {
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+        };
+
+        el.addEventListener('pointerup', cancelLongPress, { passive: true });
+        el.addEventListener('pointercancel', cancelLongPress, { passive: true });
+        el.addEventListener('pointermove', cancelLongPress, { passive: true });
+        // Dismiss on tap/click.
+        el.addEventListener('click', () => {
+            cancelLongPress();
+            el.classList.remove('map-photo-marker--long-pressed');
+        });
     }
 
     private setSelectedMarker(markerKey: string | null): void {
@@ -814,11 +868,13 @@ export class MapShellComponent implements OnDestroy {
      * (≤ 2 000 rows), so sub-millisecond.
      */
     private mergeOverlappingClusters<
-        T extends { cluster_lat: number; cluster_lng: number; image_count: number;
+        T extends {
+            cluster_lat: number; cluster_lng: number; image_count: number;
             image_id: string | null; direction: number | null;
             storage_path: string | null; thumbnail_path: string | null;
             exif_latitude: number | null; exif_longitude: number | null;
-            created_at: string | null },
+            created_at: string | null
+        },
     >(rows: T[]): T[] {
         if (!this.map || rows.length === 0) return rows;
 

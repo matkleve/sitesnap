@@ -19,15 +19,16 @@ The right-side panel that shows image groups, thumbnails, and detail views. It's
 
 ## Actions
 
-| #   | User Action                                 | System Response                                       | Triggers                    |
-| --- | ------------------------------------------- | ----------------------------------------------------- | --------------------------- |
-| 1   | Clicks a photo marker on map                | Workspace pane opens with Active Selection tab        | `workspacePaneOpen` → true  |
-| 2   | Drags the Drag Divider                      | Resizes workspace pane width (clamped 280–640px)      | CSS width change            |
-| 3   | Clicks close button                         | Workspace pane slides out                             | `workspacePaneOpen` → false |
-| 4   | Swipes down on bottom sheet handle (mobile) | Snaps to lower position or closes                     | Snap point logic            |
-| 5   | Swipes up on bottom sheet handle (mobile)   | Snaps to higher position                              | Snap point logic            |
-| 6   | Clicks a thumbnail in the grid              | Image Detail View replaces grid, back arrow to return | Detail view state           |
-| 7   | Selects a group tab                         | Content switches to that group's thumbnails           | Active tab change           |
+| #   | User Action                                 | System Response                                                                                                 | Triggers                                                      |
+| --- | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| 1   | Clicks a single photo marker on map         | Workspace pane opens with Active Selection tab showing that image                                               | `workspacePaneOpen` → true                                    |
+| 1b  | Clicks a cluster marker on map              | Workspace pane opens with Active Selection tab showing all images in the cluster; pane header shows image count | `workspacePaneOpen` → true, `activeClusterImageIds` populated |
+| 2   | Drags the Drag Divider                      | Resizes workspace pane width (clamped 280–640px)                                                                | CSS width change                                              |
+| 3   | Clicks close button                         | Workspace pane slides out                                                                                       | `workspacePaneOpen` → false                                   |
+| 4   | Swipes down on bottom sheet handle (mobile) | Snaps to lower position or closes                                                                               | Snap point logic                                              |
+| 5   | Swipes up on bottom sheet handle (mobile)   | Snaps to higher position                                                                                        | Snap point logic                                              |
+| 6   | Clicks a thumbnail in the grid              | Image Detail View replaces grid, back arrow to return                                                           | Detail view state                                             |
+| 7   | Selects a group tab                         | Content switches to that group's thumbnails                                                                     | Active tab change                                             |
 
 ## Component Hierarchy
 
@@ -53,13 +54,14 @@ BottomSheet                                ← fixed bottom, full width
 
 ## State
 
-| Name              | Type                              | Default       | Controls                                 |
-| ----------------- | --------------------------------- | ------------- | ---------------------------------------- |
-| `isOpen`          | `boolean`                         | `false`       | Pane visibility                          |
-| `width`           | `number`                          | `320`         | Desktop pane width in px                 |
-| `activeTabId`     | `string`                          | `'selection'` | Which group tab is active                |
-| `detailImageId`   | `string \| null`                  | `null`        | If set, show detail view instead of grid |
-| `mobileSnapPoint` | `'minimized' \| 'half' \| 'full'` | `'minimized'` | Mobile bottom sheet position             |
+| Name                    | Type                              | Default       | Controls                                                                                                         |
+| ----------------------- | --------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `isOpen`                | `boolean`                         | `false`       | Pane visibility                                                                                                  |
+| `width`                 | `number`                          | `320`         | Desktop pane width in px                                                                                         |
+| `activeTabId`           | `string`                          | `'selection'` | Which group tab is active                                                                                        |
+| `detailImageId`         | `string \| null`                  | `null`        | If set, show detail view instead of grid                                                                         |
+| `activeClusterImageIds` | `string[] \| null`                | `null`        | When set, Active Selection tab is populated with these cluster image IDs; cleared on pane close or new selection |
+| `mobileSnapPoint`       | `'minimized' \| 'half' \| 'full'` | `'minimized'` | Mobile bottom sheet position                                                                                     |
 
 ## File Map
 
@@ -76,6 +78,14 @@ BottomSheet                                ← fixed bottom, full width
 - Receives `activeTabId` and `detailImageId` from parent or via service
 - Drag Divider emits width changes to parent for map reflow
 
+## Data Requirements
+
+| Field               | Source                                                   | Type                        |
+| ------------------- | -------------------------------------------------------- | --------------------------- |
+| Cluster image IDs   | Viewport query cluster cell lookup via `SupabaseService` | `string[]` from `images.id` |
+| Cluster thumbnails  | Supabase Storage signed URLs (batch-loaded)              | `string[]` (URLs)           |
+| Cluster image count | Cluster marker `count` field from viewport query         | `number`                    |
+
 ## Acceptance Criteria
 
 - [ ] Desktop: slides in from right with smooth transition
@@ -87,3 +97,9 @@ BottomSheet                                ← fixed bottom, full width
 - [ ] Close button hides the pane
 - [ ] Content switches between thumbnail grid and image detail
 - [ ] Group Tab Bar is scrollable horizontally
+- [ ] Cluster click opens pane with Active Selection tab active
+- [ ] Active Selection tab shows all images that belong to the clicked cluster
+- [ ] Pane header shows image count when cluster content is loaded (e.g., "12 photos")
+- [ ] Map does NOT zoom or re-center when a cluster is clicked
+- [ ] Closing the pane clears `activeClusterImageIds`
+- [ ] Thumbnails for large clusters (> 50 images) load progressively as the user scrolls
