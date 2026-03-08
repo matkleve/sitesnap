@@ -142,6 +142,19 @@ export class MapShellComponent implements OnDestroy {
     /** Tracks the last zoom level to detect threshold crossings. */
     private lastZoomLevel: PhotoMarkerZoomLevel = 'mid';
 
+    /** LayerGroup for all photo markers — enables batch add/remove. */
+    private photoMarkerLayer: L.LayerGroup | null = null;
+
+    /**
+     * Bounds that were last fetched (including 10% buffer).
+     * Used to skip RPC when the viewport is still within the buffered area.
+     */
+    private lastFetchedBounds: L.LatLngBounds | null = null;
+    private lastFetchedZoom: number | null = null;
+
+    /** True while a zoom animation is in progress — suppresses moveend queries. */
+    private zoomAnimating = false;
+
     constructor() {
         afterNextRender(() => {
             this.initMap();
@@ -158,6 +171,7 @@ export class MapShellComponent implements OnDestroy {
         }
         this.viewportQueryController?.abort();
         this.viewportQueryController = null;
+        this.photoMarkerLayer?.clearLayers();
         this.uploadedPhotoMarkers.clear();
         this.userLocationMarker?.remove();
         this.userLocationMarker = null;
@@ -260,6 +274,9 @@ export class MapShellComponent implements OnDestroy {
                 '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://carto.com/attributions">CARTO</a>',
         }).addTo(this.map);
 
+        // LayerGroup for all photo markers — batch add/remove.
+        this.photoMarkerLayer = L.layerGroup().addTo(this.map);
+
         // Request user GPS position; fall back to Vienna if denied.
         this.initGeolocation();
         void this.queryViewportMarkers();
@@ -267,6 +284,11 @@ export class MapShellComponent implements OnDestroy {
         // Map click handler: closes upload panel and, when active, places images
         // that had no GPS EXIF data.
         this.map.on('click', (e: L.LeafletMouseEvent) => this.handleMapClick(e));
+
+        // Suppress viewport queries during zoom animation to avoid rapid
+        // fire-and-cancel cycles that cause visible lag.
+        this.map.on('zoomstart', () => { this.zoomAnimating = true; });
+        this.map.on('zoomend', () => { this.zoomAnimating = false; });
 
         // Debounced moveend: refreshes markers only when zoom-level threshold changes.
         // No marker DOM work during zoom animation — all updates fire after moveend.
@@ -397,8 +419,9 @@ export class MapShellComponent implements OnDestroy {
                 thumbnailUrl: event.thumbnailUrl,
                 direction: event.direction,
             }),
-        }).addTo(this.map);
+        });
 
+        this.photoMarkerLayer!.addLayer(marker);
         marker.on('click', () => this.handlePhotoMarkerClick(markerKey));
 
         this.uploadedPhotoMarkers.set(markerKey, {
@@ -433,20 +456,30 @@ export class MapShellComponent implements OnDestroy {
         const latPad = (bounds.getNorth() - bounds.getSouth()) * 0.1;
         const lngPad = (bounds.getEast() - bounds.getWest()) * 0.1;
 
+        const fetchSouth = bounds.getSouth() - latPad;
+        const fetchWest = bounds.getWest() - lngPad;
+        const fetchNorth = bounds.getNorth() + latPad;
+        const fetchEast = bounds.getEast() + lngPad;
+        const roundedZoom = Math.round(zoom);
+
         const { data, error } = await this.supabaseService.client.rpc(
             'viewport_markers',
             {
-                min_lat: bounds.getSouth() - latPad,
-                min_lng: bounds.getWest() - lngPad,
-                max_lat: bounds.getNorth() + latPad,
-                max_lng: bounds.getEast() + lngPad,
-                zoom: Math.round(zoom),
+                min_lat: fetchSouth,
+                min_lng: fetchWest,
+                max_lat: fetchNorth,
+                max_lng: fetchEast,
+                zoom: roundedZoom,
             },
         );
 
         // If this query was aborted, discard the result.
         if (controller.signal.aborted) return;
         this.viewportQueryController = null;
+
+        // Cache the fetched bounds so small pans can skip the RPC.
+        this.lastFetchedBounds = L.latLngBounds([fetchSouth, fetchWest], [fetchNorth, fetchEast]);
+        this.lastFetchedZoom = roundedZoom;
 
         if (error || !data) return;
 
@@ -480,7 +513,7 @@ export class MapShellComponent implements OnDestroy {
         for (const [key, state] of this.uploadedPhotoMarkers) {
             if (state.optimistic) continue; // keep until next reconciliation
             if (!incoming.has(key)) {
-                state.marker.remove();
+                this.photoMarkerLayer!.removeLayer(state.marker);
                 this.uploadedPhotoMarkers.delete(key);
             }
         }
@@ -515,11 +548,12 @@ export class MapShellComponent implements OnDestroy {
                 continue;
             }
 
-            // New marker.
+            // New marker — add to LayerGroup (not directly to map) for batch ops.
             const marker = L.marker([row.cluster_lat, row.cluster_lng], {
                 icon: this.buildPhotoMarkerIcon(key, { count, direction, corrected }),
-            }).addTo(this.map!);
+            });
 
+            this.photoMarkerLayer!.addLayer(marker);
             marker.on('click', () => this.handlePhotoMarkerClick(key));
 
             this.uploadedPhotoMarkers.set(key, {
@@ -630,18 +664,34 @@ export class MapShellComponent implements OnDestroy {
         this.moveEndDebounceTimer = setTimeout(() => {
             this.moveEndDebounceTimer = null;
 
-            // Always re-query so the server returns the right cluster grid for the new viewport/zoom.
-            void this.queryViewportMarkers();
+            // Skip query if still in a zoom animation — it'll fire after zoomend.
+            if (this.zoomAnimating) return;
 
-            // Also refresh existing marker icons if zoom-level threshold changed.
             const currentZoom = this.getPhotoMarkerZoomLevel();
-            if (currentZoom !== this.lastZoomLevel) {
+            const zoomChanged = currentZoom !== this.lastZoomLevel;
+
+            // Skip the RPC if zoom didn't change and viewport is still inside
+            // the last-fetched bounds (which included a 10% buffer).
+            const mapZoom = Math.round(this.map?.getZoom() ?? 0);
+            const viewportInBuffer =
+                !zoomChanged &&
+                this.lastFetchedBounds &&
+                this.lastFetchedZoom === mapZoom &&
+                this.map &&
+                this.lastFetchedBounds.contains(this.map.getBounds());
+
+            if (!viewportInBuffer) {
+                void this.queryViewportMarkers();
+            }
+
+            // Refresh existing marker icons if zoom-level threshold changed.
+            if (zoomChanged) {
                 this.lastZoomLevel = currentZoom;
                 for (const markerKey of this.uploadedPhotoMarkers.keys()) {
                     this.refreshPhotoMarker(markerKey);
                 }
             }
-        }, 300);
+        }, 350);
     }
 
     /**
@@ -719,7 +769,24 @@ export class MapShellComponent implements OnDestroy {
             zoomLevel,
         };
 
-        markerState.marker.setIcon(this.buildPhotoMarkerIcon(markerKey));
+        // Direct innerHTML swap instead of setIcon() — avoids destroying
+        // and recreating the entire DOM subtree for every update.
+        const el = (markerState.marker as L.Marker).getElement();
+        if (el) {
+            const html = buildPhotoMarkerHtml({
+                count: markerState.count,
+                thumbnailUrl: markerState.thumbnailUrl,
+                bearing: markerState.direction,
+                selected: markerKey === this.selectedMarkerKey(),
+                corrected: markerState.corrected,
+                uploading: markerState.uploading,
+                zoomLevel: this.getPhotoMarkerZoomLevel(),
+            });
+            el.innerHTML = html;
+        } else {
+            // Fallback if element not yet in DOM.
+            markerState.marker.setIcon(this.buildPhotoMarkerIcon(markerKey));
+        }
     }
 
     private getPhotoMarkerZoomLevel(): PhotoMarkerZoomLevel {
