@@ -161,15 +161,21 @@ The UI uses a consistent "friendly but professional" radius system:
 
 ## 3.5 Shadows and Elevation
 
-Three elevation levels, used consistently:
+Six shadow tokens form a layered elevation system. All values use warm-tinted black in light mode and higher-opacity pure black in dark mode (since warm-tinted shadows become invisible against dark surfaces).
 
-| Level  | Token       | Usage                                   |
-| ------ | ----------- | --------------------------------------- |
-| Low    | `shadow-sm` | Toolbar separators, subtle panel lift   |
-| Medium | `shadow-md` | Floating panels, filter drawer          |
-| High   | `shadow-xl` | Modals, image detail overlay, dropdowns |
+| Token            | Light mode                                                            | Usage                                                              |
+| ---------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `--shadow-sm`    | `0 1px 3px rgba(15,14,12,.12), 0 1px 2px rgba(15,14,12,.08)`          | Toolbar separators, subtle panel lift, badge/chip outlines         |
+| `--shadow-md`    | `0 4px 12px rgba(15,14,12,.15), 0 2px 4px rgba(15,14,12,.10)`         | Floating panels, workspace pane, upload expand, filter drawer      |
+| `--shadow-lg`    | `0 8px 24px rgba(15,14,12,.18), 0 4px 8px rgba(15,14,12,.12)`         | Heavier drawers, elevated cards, mid-stack overlays                |
+| `--shadow-xl`    | `0 16px 48px rgba(15,14,12,.22), 0 6px 16px rgba(15,14,12,.14)`       | Modals, image detail overlay, high-elevation dropdowns             |
+| `--shadow-float` | `0 2px 8px rgba(15,14,12,.22), 0 1px 3px rgba(15,14,12,.12)`          | Circular/pill map controls: GPS button, FAB, toast notifications   |
+| `--shadow-glass` | `0 1px 4px rgba(15,14,12,.06), 0 8px 32px rgba(15,14,12,.08)`         | Frosted-glass panels (sidebar, search bar) — backdrop-filter depth |
+| `--shadow-focus` | `0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent)` | Keyboard/focus rings — semantic state, not elevation               |
 
-In dark mode, shadows are less visible — increase surface contrast (`--color-bg-elevated` vs `--color-bg-surface`) to compensate.
+In dark mode, all six elevation tokens (`sm` → `glass`) are overridden with `rgba(0,0,0,...)` at higher opacity so shadows remain visible against dark surfaces. `--shadow-focus` is color-mix based and adapts automatically via `--color-primary`.
+
+**Photo marker drop shadow** (`--photo-marker-drop-shadow`) is a separate token: it uses `filter: drop-shadow(...)` so it traces the SVG/image shape rather than the bounding box. Light mode: `rgba(15,14,12,0.45)`. Dark mode: `rgba(0,0,0,0.65)` for legibility against dark map tiles.
 
 ## 3.6 Iconography
 

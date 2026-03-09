@@ -13,6 +13,12 @@ $dd-padding: var(--spacing-3);
   padding-inline: $dd-padding;
 }
 
+.dd-section__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .dd-section__label {
   display: block;
   padding-block: var(--spacing-1) var(--spacing-2);
@@ -21,6 +27,25 @@ $dd-padding: var(--spacing-3);
   color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.03em;
+}
+
+.dd-clear-btn {
+  padding: var(--spacing-0-5) var(--spacing-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    background 80ms ease-out,
+    color 80ms ease-out;
+
+  &:hover {
+    background: color-mix(in srgb, var(--color-clay) 8%, transparent);
+    color: var(--color-text-primary);
+  }
 }
 
 .dd-empty {

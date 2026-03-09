@@ -19,7 +19,12 @@ export interface GroupingProperty {
   template: `
     <div class="grouping-dropdown" cdkDropListGroup>
       <div class="dd-section">
-        <span class="dd-section__label">Grouped by</span>
+        <div class="dd-section__header">
+          <span class="dd-section__label">Grouped by</span>
+          @if (activeGroupings().length > 0) {
+            <button class="dd-clear-btn" (click)="clearGroupings()">Empty</button>
+          }
+        </div>
         @if (activeGroupings().length === 0) {
           <div class="dd-empty">No grouping applied</div>
         }
@@ -195,5 +200,11 @@ export class GroupingDropdownComponent {
     const [prop] = available.splice(idx, 1);
     active.push(prop);
     this.groupingsChanged.emit({ active, available });
+  }
+
+  clearGroupings(): void {
+    const available = [...this.availableProperties(), ...this.activeGroupings()];
+    this.selectedRows.set(new Set());
+    this.groupingsChanged.emit({ active: [], available });
   }
 }

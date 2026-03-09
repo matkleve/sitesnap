@@ -73,7 +73,7 @@
 .auth-card {
   background: var(--color-bg-surface);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-lg);
   padding: 2.5rem 2rem;
   width: 100%;
   max-width: 420px;
@@ -177,7 +177,7 @@
 
     &:focus {
       border-color: var(--color-primary);
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+      box-shadow: var(--shadow-focus);
     }
 
     &::placeholder {

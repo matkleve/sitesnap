@@ -8,7 +8,7 @@ A dropdown that lets the user choose which image property to group by. Groups or
 
 A floating dropdown anchored below the "Grouping" toolbar button. Width: 15rem (240px). `--color-bg-elevated` background, `shadow-xl`, `rounded-lg` corners. Two sections separated by a `--color-border` line:
 
-- **Upper section (Active)**: properties currently used for grouping. Text in `--color-text-primary`. Each row layout: **Media icon → Label → Drag handle (≡)**. Drag handle visible on hover only (Quiet Actions pattern). Rows are drag-reorderable within the section and can be dragged downward past the divider into Available to deactivate.
+- **Upper section (Active)**: properties currently used for grouping. Text in `--color-text-primary`. Header row: **"Grouped by" label (left) + "Empty" button (right)**. The "Empty" button is a small text button (`.dd-clear-btn`) that clears all active groupings, moving every property back to Available. Only visible when there is at least one active grouping. Each property row layout: **Media icon → Label → Drag handle (≡)**. Drag handle visible on hover only (Quiet Actions pattern). Rows are drag-reorderable within the section and can be dragged downward past the divider into Available to deactivate.
 - **Lower section (Available)**: properties not currently grouping. Text in `--color-text-secondary`. Click to activate (moves to upper section). Rows can also be dragged upward past the divider into Active to activate.
 
 Each row is a `.ui-item` with a leading media area, a label, and a trailing drag handle (≡, `drag_indicator` Material Icon) on the right. There is **no × remove button** — deactivation is done purely by dragging an active item down into the Available section.
@@ -34,6 +34,7 @@ Each row is a `.ui-item` with a leading media area, a label, and a trailing drag
 | 7   | Clicks a row without Ctrl                              | Clears multi-selection; performs single-click action (activate if available)                 | `selectedRows` cleared        |
 | 8   | Clicks outside or Escape                               | Closes dropdown, clears selection                                                            | Dropdown closes               |
 | 9   | Hovers a row                                           | Reveals drag handle (≡) on the right side                                                    | Opacity 0→1, 80ms             |
+| 10  | Clicks "Empty" button next to "Grouped by" header      | Moves all active groupings back to Available; workspace ungroups                             | `activeGroupings` cleared     |
 
 ## Component Hierarchy
 
@@ -41,7 +42,9 @@ Each row is a `.ui-item` with a leading media area, a label, and a trailing drag
 GroupingDropdown                           ← floating dropdown, --color-bg-elevated, shadow-xl, rounded-lg
 ├── UnifiedDragContext (cdkDropListGroup)   ← single CDK drag context spanning both sections
 │   ├── ActiveSection (cdkDropList)         ← upper drop zone
-│   │   ├── SectionLabel "Grouped by"      ← --text-caption, --color-text-secondary
+│   │   ├── SectionHeader                  ← flex row: label left, button right
+│   │   │   ├── SectionLabel "Grouped by"   ← --text-caption, --color-text-secondary
+│   │   │   └── EmptyButton "Empty"        ← text button, visible only when activeGroupings.length > 0
 │   │   └── GroupingRow × N                ← .ui-item, cdkDrag
 │   │       ├── MediaIcon                  ← leading property icon (e.g. calendar, location)
 │   │       ├── PropertyLabel              ← property name, --color-text-primary
@@ -74,11 +77,10 @@ Where `PropertyRef` = `{ type: 'builtin' | 'custom'; key: string; id?: string }`
 
 ## File Map
 
-| File                                                           | Purpose                    |
-| -------------------------------------------------------------- | -------------------------- |
-| `features/map/workspace-pane/grouping-dropdown.component.ts`   | Dropdown with drag-reorder |
-| `features/map/workspace-pane/grouping-dropdown.component.html` | Template                   |
-| `features/map/workspace-pane/grouping-dropdown.component.scss` | Styles                     |
+| File                                                                             | Purpose                                      |
+| -------------------------------------------------------------------------------- | -------------------------------------------- |
+| `features/map/workspace-pane/workspace-toolbar/grouping-dropdown.component.ts`   | Dropdown with drag-reorder (inline template) |
+| `features/map/workspace-pane/workspace-toolbar/grouping-dropdown.component.scss` | Styles                                       |
 
 ## Wiring
 
@@ -91,21 +93,25 @@ Where `PropertyRef` = `{ type: 'builtin' | 'custom'; key: string; id?: string }`
 - [x] Two sections: active (dark text) and available (light text)
 - [x] Divider line between sections (visual only — drag crosses it freely)
 - [x] Click on available property activates it (moves to upper section)
-- [ ] No × button — deactivation is done by dragging an active row past the divider into Available
-- [ ] Drag handle on the **right** (trailing) side of each row, visible on hover only (Quiet Actions)
-- [ ] Row layout: Media icon → Label → Drag handle (≡)
-- [ ] Single CDK DragDrop context spanning both sections (cross-section dragging)
-- [ ] Dragging from Active ↓ past divider → deactivates property
-- [ ] Dragging from Available ↑ past divider → activates property
-- [ ] Drag reorder within Active updates grouping priority live
-- [ ] Ctrl+Click multi-selects rows; dragging any selected row moves the entire selection
-- [ ] Click without Ctrl clears multi-selection
-- [ ] Workspace pane content regrouped on every change
+- [x] No × button — deactivation is done by dragging an active row past the divider into Available
+- [x] Drag handle on the **right** (trailing) side of each row, visible on hover only (Quiet Actions)
+- [x] Row layout: Media icon → Label → Drag handle (≡)
+- [x] Single CDK DragDrop context spanning both sections (cross-section dragging)
+- [x] Dragging from Active ↓ past divider → deactivates property
+- [x] Dragging from Available ↑ past divider → activates property
+- [x] Drag reorder within Active updates grouping priority live
+- [x] Ctrl+Click multi-selects rows; dragging any selected row moves the entire selection
+- [x] Click without Ctrl clears multi-selection
+- [x] Workspace pane content regrouped on every change (emits `groupingsChanged`)
 - [x] Built-in properties: Address, City, Country, Date, Project, User
 - [ ] Custom metadata keys appear in available list
 - [x] Dropdown uses `position: fixed` to escape overflow
 - [x] Row hover: clay 8% background tint
 - [x] Active row: text-primary, inactive row: text-secondary
+- [x] Selected row: clay 14% background, 2px left border
+- [x] CDK drag preview: elevated shadow, opacity 0.9
+- [x] CDK drag placeholder: dashed border, 40% opacity
+- [ ] "Empty" button on the right of the "Grouped by" header — clears all active groupings
 
 ---
 
