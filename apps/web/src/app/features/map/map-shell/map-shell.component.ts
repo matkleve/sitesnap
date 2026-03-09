@@ -658,7 +658,7 @@ export class MapShellComponent implements OnDestroy {
       state.optimistic = false;
     }
 
-    // Lazy-load thumbnails if at near zoom.
+    // Lazy-load thumbnails for all single-image markers in viewport.
     this.maybeLoadThumbnails();
   }
 
@@ -824,13 +824,13 @@ export class MapShellComponent implements OnDestroy {
   }
 
   /**
-   * Lazy-load thumbnails for single-image markers visible at near zoom.
-   * Only fires signed-URL requests for markers in the current viewport
-   * that don't already have a thumbnail URL.
-   * Also proactively refreshes URLs older than 50 minutes.
+   * Lazy-load thumbnails for single-image markers visible in the current viewport.
+   * Fires for all zoom levels — single-image markers always show a photo.
+   * Only requests signed URLs for markers without a URL yet, and proactively
+   * refreshes URLs older than 50 minutes.
    */
   private maybeLoadThumbnails(): void {
-    if (this.getPhotoMarkerZoomLevel() !== 'near' || !this.map) return;
+    if (!this.map) return;
 
     const bounds = this.map.getBounds();
     const now = Date.now();
