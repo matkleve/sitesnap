@@ -43,7 +43,7 @@ ProjectsDropdown                           ← floating dropdown, --color-bg-ele
 └── NewProjectButton                       ← ghost "+ New project"
 ```
 
-## Data Requirements
+## Data
 
 | Field        | Source                                                                                                  | Type                  |
 | ------------ | ------------------------------------------------------------------------------------------------------- | --------------------- |

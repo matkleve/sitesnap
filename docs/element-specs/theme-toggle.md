@@ -29,6 +29,13 @@ ThemeToggle                                ← icon button, same size as sidebar
 └── ThemeIcon                              ← sun / moon / monitor depending on mode
 ```
 
+## Data
+
+| Field          | Source                     | Type                            |
+| -------------- | -------------------------- | ------------------------------- |
+| Current theme  | `ThemeService.themeMode()` | `'light' \| 'dark' \| 'system'` |
+| Persisted pref | `localStorage('theme')`    | `string \| null`                |
+
 ## State
 
 | Name            | Type                            | Default    | Controls                               |
@@ -44,6 +51,13 @@ Persisted in `localStorage` under key `geosite-theme`.
 | ---------------------------------------- | ---------------------------------------------- |
 | `core/theme.service.ts`                  | Theme state, persistence, media query listener |
 | `features/nav/theme-toggle.component.ts` | Toggle button component                        |
+
+## Wiring
+
+- Import `ThemeToggleComponent` in `SidebarComponent`
+- Place at bottom of sidebar rail, above account icon
+- Inject `ThemeService` in component constructor
+- Also import in `SettingsComponent` for settings page theme control
 
 ## Acceptance Criteria
 

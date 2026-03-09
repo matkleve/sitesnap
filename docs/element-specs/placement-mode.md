@@ -35,6 +35,13 @@ A temporary map interaction mode activated when an uploaded photo has no GPS dat
 └── MapContainer.--placing                 ← CSS class adds cursor: crosshair
 ```
 
+## Data
+
+| Field          | Source                  | Type                           |
+| -------------- | ----------------------- | ------------------------------ |
+| Placement file | Emitted by Upload Panel | `File \| null`                 |
+| Click location | Leaflet map click event | `{ lat: number, lng: number }` |
+
 ## State
 
 | Name               | Type             | Default | Controls                                |
@@ -46,12 +53,19 @@ A temporary map interaction mode activated when an uploaded photo has no GPS dat
 
 Part of `MapShellComponent` template and styles — not a separate component. The banner HTML and the `--placing` CSS class live in `map-shell.component.html` and `.scss`.
 
+## Wiring
+
+- Placement mode state managed by `placementFile` signal in `MapShellComponent`
+- Banner template is inline in `map-shell.component.html`
+- Cursor style applied via `[class.--placing]` binding on map container
+- Upload Panel emits placement file via `@Output()` to `MapShellComponent`
+
 ## Acceptance Criteria
 
-- [x] Banner appears when placement mode is active
-- [x] Map cursor changes to crosshair
-- [x] Clicking map places the marker and completes the upload
-- [x] Cancel button exits placement mode
+- [ ] Banner appears when placement mode is active
+- [ ] Map cursor changes to crosshair
+- [ ] Clicking map places the marker and completes the upload
+- [ ] Cancel button exits placement mode
 - [ ] Escape key exits placement mode
-- [x] Only one file can be placed at a time
-- [x] Banner has `role="status"` for accessibility
+- [ ] Only one file can be placed at a time
+- [ ] Banner has `role="status"` for accessibility

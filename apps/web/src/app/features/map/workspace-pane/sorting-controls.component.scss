@@ -1,0 +1,32 @@
+.sorting-controls {
+  display: flex;
+  gap: var(--spacing-1);
+  padding: var(--spacing-2) var(--spacing-4);
+  border-bottom: 1px solid var(--color-border);
+  background: transparent;
+}
+
+.sorting-controls__btn {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: var(--spacing-1) var(--spacing-2);
+  border-radius: var(--radius-sm);
+  transition:
+    background 120ms ease-out,
+    color 120ms ease-out;
+  white-space: nowrap;
+
+  &:hover {
+    background: color-mix(in srgb, var(--color-text-secondary) 10%, transparent);
+    color: var(--color-text-primary);
+  }
+
+  &--active {
+    color: var(--color-text-primary);
+    background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  }
+}

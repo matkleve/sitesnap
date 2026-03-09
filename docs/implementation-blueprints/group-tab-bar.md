@@ -184,7 +184,7 @@ sequenceDiagram
 
     Pane->>TabBar: Component init
     TabBar->>GroupService: loadGroups()
-    GroupService->>Supabase: .from('saved_groups').select(...)
+    GroupService->>Supabase: .from('saved_groups').select('id, name, created_at').eq('user_id', userId).order('created_at')
     Supabase-->>GroupService: SavedGroup[]
     GroupService-->>TabBar: groups signal updated
     TabBar->>TabBar: Render tabs: [Active Selection] + saved groups + [+]
@@ -364,7 +364,7 @@ export class GroupTabBarComponent {
   onTabPointerDown(groupId: string): void {
     this.longPressTimer = setTimeout(() => {
       this.showContextMenuForId.set(groupId);
-    }, 500);
+    }, 500); // long-press threshold ms
   }
 
   onTabPointerUp(): void {

@@ -43,3 +43,15 @@ Each interaction scenario file must link to:
 | File                         | Element Spec                               | Blueprint                                              | Status |
 | ---------------------------- | ------------------------------------------ | ------------------------------------------------------ | ------ |
 | [map-shell.md](map-shell.md) | [map-shell](../element-specs/map-shell.md) | [map-shell](../implementation-blueprints/map-shell.md) | Active |
+
+## Files needed (priority order)
+
+Interaction scenario files should be created for these specs as they are implemented. Ordered by delivery wave from `element-spec-priority-ranking.md`.
+
+- [ ] photo-marker.md — Wave 1
+- [ ] image-detail-view.md — Wave 1
+- [ ] filter-panel.md — Wave 1
+- [ ] workspace-pane.md — Wave 2
+- [ ] radius-selection.md — Wave 2
+- [ ] search-bar.md — Wave 3
+- [ ] upload-panel.md — Wave 3

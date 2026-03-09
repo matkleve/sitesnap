@@ -1,5 +1,7 @@
 # Custom Properties
 
+> **Spec type:** Feature spec (cross-cutting). This covers a feature that spans multiple components (image detail view, filter panel, workspace toolbar). Standard element spec sections are included below, followed by extended data-model and lifecycle details.
+
 ## What It Is
 
 A system for defining and managing user-created metadata keys that can be attached to any image. Follows the Notion "property" pattern: an organization defines property names (e.g., "Material", "Floor", "Building Type"), then individual images can have values for any subset of those properties. Not every image needs every property — properties are sparse. Custom properties are the foundation for grouping, sorting, and filtering.
@@ -110,7 +112,7 @@ PropertyPicker                             ← floating dropdown, 12rem, --color
 └── InlineCreateButton                     ← "+ Create new property"
 ```
 
-## Data Requirements
+## Data
 
 | Field                 | Source                                                                                         | Type              |
 | --------------------- | ---------------------------------------------------------------------------------------------- | ----------------- |

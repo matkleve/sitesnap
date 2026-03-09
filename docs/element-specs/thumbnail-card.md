@@ -70,6 +70,12 @@ ThumbnailCard                              ← 128×128, rounded, overflow-hidde
 | --------------------------------------------------------- | --------------------------------- |
 | `features/map/workspace-pane/thumbnail-card.component.ts` | Card component with hover actions |
 
+## Wiring
+
+- Import `ThumbnailCardComponent` in `ThumbnailGridComponent`
+- Bind image data via `@Input()` from grid's `@for` loop
+- Emit selection and detail-view events via `@Output()`
+
 ## Acceptance Criteria
 
 - [ ] 128×128px with rounded corners

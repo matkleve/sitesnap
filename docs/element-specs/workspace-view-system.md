@@ -1,5 +1,7 @@
 # Workspace View System — Architecture Overview
 
+> **Spec type:** System architecture (cross-cutting). This is NOT a standard element spec — it describes the data-flow and service orchestration across multiple components. For the standard element spec sections, see [workspace-pane.md](workspace-pane.md), [workspace-toolbar.md](workspace-toolbar.md), and [thumbnail-grid.md](thumbnail-grid.md).
+
 This document describes the complete data flow and component interaction for the Workspace Pane's view system: how images are loaded, grouped, sorted, filtered, and displayed. It covers the cluster-click flow, the toolbar controls, and the `WorkspaceViewService` that orchestrates everything.
 
 ---

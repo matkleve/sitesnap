@@ -71,7 +71,7 @@ export abstract class MapAdapter {
 }
 ```
 
-> **Note:** The current MapShellComponent does NOT use MapAdapter for most operations — it calls Leaflet directly via `this.map`. The adapter pattern from AGENTS.md is aspirational. Current implementation is Leaflet-direct.
+> **Note:** The current MapShellComponent calls Leaflet directly via `this.map` rather than going through `MapAdapter`. To converge on the adapter pattern required by AGENTS.md, new map operations should be added to `MapAdapter` first, then called from the component. Existing direct calls should be migrated incrementally — see `docs/architecture.md` for the adapter contract.
 
 ## Data Flow
 
@@ -267,7 +267,10 @@ private getZoomLevel(): PhotoMarkerZoomLevel {
 
 ```typescript
 // In map-shell-helpers.ts — already exists
-export function buildBufferedViewportRequest(bounds: L.LatLngBounds, zoom: number) {
+export function buildBufferedViewportRequest(
+  bounds: L.LatLngBounds,
+  zoom: number,
+) {
   const latPad = (bounds.getNorth() - bounds.getSouth()) * 0.1;
   const lngPad = (bounds.getEast() - bounds.getWest()) * 0.1;
   return {
@@ -276,7 +279,10 @@ export function buildBufferedViewportRequest(bounds: L.LatLngBounds, zoom: numbe
     fetchNorth: bounds.getNorth() + latPad,
     fetchEast: bounds.getEast() + lngPad,
     roundedZoom: Math.round(zoom),
-    fetchedBounds: L.latLngBounds([...], [...]),
+    fetchedBounds: L.latLngBounds(
+      [bounds.getSouth() - latPad, bounds.getWest() - lngPad],
+      [bounds.getNorth() + latPad, bounds.getEast() + lngPad],
+    ),
   };
 }
 ```

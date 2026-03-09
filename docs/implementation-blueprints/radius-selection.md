@@ -159,8 +159,8 @@ private updateRadiusVisuals(center: L.LatLng, radiusMeters: number): void {
     this.radiusCenterMarker.setLatLng(center);
   }
 
-  // Edge handle — positioned at 0° (east) on the circle perimeter
-  const edgeLatLng = this.getPointOnCircle(center, radiusMeters, 90);
+  // Edge handle — positioned at geographic bearing 90° (east) on the circle perimeter
+  const edgeLatLng = this.getPointOnCircle(center, radiusMeters, 90); // bearing 90° = due east
   if (!this.radiusEdgeHandle) {
     this.radiusEdgeHandle = L.circleMarker(edgeLatLng, {
       radius: 7,
@@ -244,7 +244,7 @@ private initRadiusInteraction(): void {
         latlng: this.map!.containerPointToLatLng([e.clientX, e.clientY]),
         originalEvent: e,
       } as any);
-    }, 500);
+    }, 500); // long-press threshold ms
   });
   this.map!.getContainer().addEventListener('pointerup', () => {
     if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
@@ -279,4 +279,11 @@ radiusLabel: L.Tooltip | null; // distance text
 
 // State managed by FilterService:
 filters: WritableSignal<ActiveFilter[]>; // includes RadiusFilter when committed
+
+// RadiusFilter shape (subset of ActiveFilter union):
+interface RadiusFilter {
+  type: "radius";
+  center: { lat: number; lng: number };
+  radiusMeters: number;
+}
 ```

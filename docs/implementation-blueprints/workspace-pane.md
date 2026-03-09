@@ -52,6 +52,7 @@ export class SelectionService {
     this.selectedImageIds.set([]);
   }
 
+  /** Reads the selectedImageIds signal — call inside a template or computed() for reactivity. */
   isSelected(imageId: string): boolean {
     return this.selectedImageIds().includes(imageId);
   }
@@ -230,7 +231,7 @@ for (const image of data ?? []) {
   const path = image.thumbnail_path ?? image.storage_path;
   const { data: signed } = await this.supabaseService.client.storage
     .from("images")
-    .createSignedUrl(path, 3600);
+    .createSignedUrl(path, 3600); // 1 hour TTL
   // Store signed.signedUrl with the image
 }
 ```
@@ -250,12 +251,9 @@ for (const image of data ?? []) {
       class="map-container"
       [class.map-container--placing]="placementActive() || searchPlacementActive()"
     ></div>
-    <ss-search-bar
-      (mapCenterRequested)="onSearchMapCenterRequested($event)"
-      ...
-    />
+    <ss-search-bar (mapCenterRequested)="onSearchMapCenterRequested($event)" />
     <ss-active-filter-chips />
-    <ss-gps-button ... />
+    <ss-gps-button (locate)="onGpsLocate()" />
   </div>
 
   @if (photoPanelOpen()) {

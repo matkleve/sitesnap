@@ -1,5 +1,7 @@
 # Thumbnail Grid
 
+> **Blueprint:** [implementation-blueprints/thumbnail-grid.md](../implementation-blueprints/thumbnail-grid.md)
+
 ## What It Is
 
 A scrollable grid of photo thumbnails inside a Workspace Pane tab. Shows the images belonging to the currently active group. Uses virtual scrolling for performance. Has sorting controls above the grid.
@@ -55,6 +57,12 @@ ThumbnailGrid                              ← scrollable container, virtual scr
 | ----------------------------------------------------------- | --------------------------- |
 | `features/map/workspace-pane/thumbnail-grid.component.ts`   | Grid with virtual scrolling |
 | `features/map/workspace-pane/sorting-controls.component.ts` | Segmented sort control      |
+
+## Wiring
+
+- Import `ThumbnailGridComponent` in `WorkspacePaneComponent`
+- Inject `GroupService` and `SelectionService` for image data
+- Place as default content area within Workspace Pane
 
 ## Acceptance Criteria
 

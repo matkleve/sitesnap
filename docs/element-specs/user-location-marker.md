@@ -36,10 +36,16 @@ Managed by `MapAdapter` / GPS service — not a standalone Angular component.
 
 Part of `core/map/leaflet-osm-adapter.ts` (MapAdapter manages this marker).
 
+## Wiring
+
+- Created and managed by `LeafletOsmAdapter` (MapAdapter implementation)
+- GPS Button triggers `MapAdapter.showUserLocation()`
+- Marker is added/removed from the Leaflet map layer directly by the adapter
+
 ## Acceptance Criteria
 
-- [x] 18px diameter, blue, white border, outer glow
-- [x] Appears only after successful GPS fix
+- [ ] 18px diameter, blue, white border, outer glow
+- [ ] Appears only after successful GPS fix
 - [ ] Does not obscure nearby photo markers
 - [ ] Updates position if Geolocation watch is active
-- [x] Disappears when user navigates away from map page
+- [ ] Disappears when user navigates away from map page

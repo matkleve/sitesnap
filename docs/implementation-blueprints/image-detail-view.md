@@ -33,7 +33,7 @@ showContextMenu: WritableSignal<boolean>;
 showDeleteConfirm: WritableSignal<boolean>;
 
 // ── Computed ──
-isCorrected: Signal<boolean>; // corrected_latitude != null
+isCorrected: Signal<boolean>; // true when latitude/longitude differs from exif_latitude/exif_longitude
 displayTitle: Signal<string>; // address_label ?? filename from storage_path
 captureDate: Signal<string>; // formatted captured_at or created_at
 
@@ -53,8 +53,7 @@ interface ImageRecord {
   longitude: number | null;
   exif_latitude: number | null;
   exif_longitude: number | null;
-  corrected_latitude: number | null; // NOTE: does not exist in DB yet
-  corrected_longitude: number | null; // NOTE: does not exist in DB yet
+  // No corrected_latitude/longitude columns — correction is derived (see note below)
   storage_path: string;
   thumbnail_path: string | null;
   captured_at: string | null;
@@ -93,11 +92,13 @@ sequenceDiagram
 
     alt thumbnail_path exists
         Detail->>Storage: createSignedUrl(thumbnail_path, 3600)
+        Note right of Storage: 3600 = 1 hour TTL
         Storage-->>Detail: thumbnailUrl
         Detail->>Detail: thumbnailUrl.set(url)
     end
 
     Detail->>Storage: createSignedUrl(storage_path, 3600)
+    Note right of Storage: 1 hour TTL
     Storage-->>Detail: fullResUrl
     Detail->>Detail: fullResUrl.set(url), loading.set(false)
 ```
@@ -242,7 +243,7 @@ interface CorrectionRecord {
 @Component({
   selector: "app-metadata-property-row",
   standalone: true,
-  template: `...`, // inline
+  template: `<!-- see element spec for full template structure -->`,
 })
 export class MetadataPropertyRowComponent {
   keyName = input.required<string>();

@@ -1,0 +1,16 @@
+.thumbnail-grid {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: var(--spacing-4);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+  gap: var(--spacing-3);
+}
+
+.thumbnail-grid__empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--color-text-secondary);
+  padding: var(--spacing-6) var(--spacing-4);
+  font-size: 0.875rem;
+}

@@ -170,6 +170,7 @@ export class FilterService {
   }
 }
 
+/** Maps to SQL param names: capturedAfter → filter_captured_after, capturedBefore → filter_captured_before */
 export interface FilterQueryParams {
   capturedAfter?: string;
   capturedBefore?: string;
@@ -272,6 +273,8 @@ const { data: keys } = await this.supabase.client
 ```
 
 ### Extended viewport_markers RPC (needs migration)
+
+> **Migration required.** Create `supabase/migrations/<timestamp>_extend_viewport_markers_filters.sql` with the SQL below.
 
 ```sql
 -- The current viewport_markers RPC needs optional filter parameters:
@@ -377,7 +380,9 @@ private async queryViewportMarkers(): Promise<void> {
       filter_project_id: filterParams.projectId ?? null,
       filter_captured_after: filterParams.capturedAfter ?? null,
       filter_captured_before: filterParams.capturedBefore ?? null,
-      // ... distance params
+      filter_distance_lat: filterParams.distanceCenter?.lat ?? null,
+      filter_distance_lng: filterParams.distanceCenter?.lng ?? null,
+      filter_distance_meters: filterParams.distanceMaxMeters ?? null,
     });
 }
 ```

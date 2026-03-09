@@ -35,6 +35,13 @@ SettingsPage                               ← full-width, max-width 640px cente
 └── [future] SectionHeader "Notifications" etc.
 ```
 
+## Data
+
+| Field         | Source                            | Type                            |
+| ------------- | --------------------------------- | ------------------------------- |
+| Current theme | `ThemeService.themeMode()`        | `'light' \| 'dark' \| 'system'` |
+| Map tile pref | `localStorage` / user preferences | `string`                        |
+
 ## State
 
 | Name        | Type                                    | Default             | Controls        |
@@ -50,6 +57,13 @@ SettingsPage                               ← full-width, max-width 640px cente
 | `features/settings/settings.component.html` | Template                               |
 | `features/settings/settings.component.scss` | Styles                                 |
 | `core/theme.service.ts`                     | Shared theme service                   |
+
+## Wiring
+
+- Add route `{ path: 'settings', component: SettingsComponent }` in `app.routes.ts`
+- Import `SettingsComponent` standalone
+- Inject `ThemeService` for theme preference
+- Sidebar "settings" link navigates to `/settings`
 
 ## Acceptance Criteria
 

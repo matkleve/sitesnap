@@ -1,5 +1,7 @@
 # Filter Panel
 
+> **Blueprint:** [implementation-blueprints/filter-panel.md](../implementation-blueprints/filter-panel.md)
+
 ## What It Is
 
 A grouped accordion panel for narrowing which images appear on the map and in the workspace. Filters by time range, project, metadata key/value, and max distance from a reference point. Desktop: slides in from top-right. Mobile: bottom modal.

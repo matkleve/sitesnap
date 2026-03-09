@@ -47,6 +47,13 @@ GpsButton                                  ← 2.75rem/3rem circle, floating bot
 | `--color-bg-surface`    | (from design system)        | Button background      |
 | `--color-text-primary`  | (from design system)        | Icon color             |
 
+## Data
+
+| Field         | Source                  | Type                                      |
+| ------------- | ----------------------- | ----------------------------------------- |
+| User position | Browser Geolocation API | `GeolocationPosition`                     |
+| GPS status    | `navigator.geolocation` | `'idle' \| 'seeking' \| 'fix' \| 'error'` |
+
 ## State
 
 | Name       | Type                              | Default  | Controls                       |
@@ -62,9 +69,9 @@ GpsButton                                  ← 2.75rem/3rem circle, floating bot
 
 ## Acceptance Criteria
 
-- [x] Floating bottom-right in Map Zone
+- [ ] Floating bottom-right in Map Zone
 - [ ] `2.75rem` (≈44px) desktop, `3rem` (≈48px) mobile tap target
-- [x] Pulse animation while seeking GPS
-- [x] Pans map to user location on successful fix
+- [ ] Pulse animation while seeking GPS
+- [ ] Pans map to user location on successful fix
 - [ ] Shows toast on GPS failure
-- [x] Places/updates User Location Marker
+- [ ] Places/updates User Location Marker

@@ -1,4 +1,4 @@
-# Workspace Pane
+/im# Workspace Pane
 
 ## What It Is
 
@@ -7,7 +7,7 @@ The right-side panel that shows image groups, thumbnails, and detail views. It's
 **Related docs:**
 
 - Interaction scenarios: [use-cases/map-shell.md](../use-cases/map-shell.md) (IS-2, IS-3, IS-4)
-- Implementation blueprint: [implementation-blueprints/workspace-pane.md](../implementation-blueprints/workspace-pane.md) (if exists)
+- Implementation blueprint: [implementation-blueprints/workspace-pane.md](../implementation-blueprints/workspace-pane.md)
 - Parent spec: [map-shell](map-shell.md)
 - Child specs: [drag-divider](drag-divider.md), [group-tab-bar](group-tab-bar.md), [thumbnail-grid](thumbnail-grid.md), [image-detail-view](image-detail-view.md)
 - Product use cases: [UC1](../use-cases.md#uc1--technician-on-site-view-history) §6–7, [UC2](../use-cases.md#uc2--clerk-preparing-a-quote) §6–10
@@ -86,7 +86,7 @@ BottomSheet                                ← fixed bottom, full width
 - Receives `activeTabId` and `detailImageId` from parent or via service
 - Drag Divider emits width changes to parent for map reflow
 
-## Data Requirements
+## Data
 
 | Field               | Source                                                   | Type                        |
 | ------------------- | -------------------------------------------------------- | --------------------------- |
@@ -97,17 +97,17 @@ BottomSheet                                ← fixed bottom, full width
 ## Acceptance Criteria
 
 - [ ] Desktop: slides in from right with smooth transition
-- [ ] Desktop: resizable via Drag Divider (280–640px range)
-- [ ] Desktop shell uses `.ui-container` for shared panel geometry
+- [x] Desktop: resizable via Drag Divider (280–640px range)
+- [x] Desktop shell uses `.ui-container` for shared panel geometry
 - [ ] Mobile: bottom sheet with 3 snap points (64px, 50vh, 100vh)
 - [ ] Mobile: drag handle works for snapping
-- [ ] Map stays interactive when pane is open
-- [ ] Close button hides the pane
-- [ ] Content switches between thumbnail grid and image detail
-- [ ] Group Tab Bar is scrollable horizontally
+- [x] Map stays interactive when pane is open
+- [x] Close button hides the pane
+- [x] Content switches between thumbnail grid and image detail
+- [x] Group Tab Bar is scrollable horizontally
 - [ ] Cluster click opens pane with Active Selection tab active
 - [ ] Active Selection tab shows all images that belong to the clicked cluster
 - [ ] Pane header shows image count when cluster content is loaded (e.g., "12 photos")
-- [ ] Map does NOT zoom or re-center when a cluster is clicked
-- [ ] Closing the pane clears `activeClusterImageIds`
+- [x] Map does NOT zoom or re-center when a cluster is clicked
+- [x] Closing the pane clears `activeClusterImageIds`
 - [ ] Thumbnails for large clusters (> 50 images) load progressively as the user scrolls

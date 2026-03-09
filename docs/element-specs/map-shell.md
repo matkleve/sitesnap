@@ -49,6 +49,13 @@ MapShell                                   ← full viewport, flex row, --color-
 └── [workspace open] WorkspacePane         ← right panel (desktop) or bottom sheet (mobile)
 ```
 
+## Data
+
+| Field            | Source                                                   | Type            |
+| ---------------- | -------------------------------------------------------- | --------------- |
+| Viewport markers | `supabase.rpc('viewport_markers', { bounds, zoom })`     | `ViewportRow[]` |
+| User images      | `supabase.from('images').select('*').eq('user_id', uid)` | `ImageRecord[]` |
+
 ## State
 
 | Name                    | Type      | Default | Controls                                             |
@@ -77,12 +84,12 @@ MapShell                                   ← full viewport, flex row, --color-
 
 ## Acceptance Criteria
 
-- [x] Full viewport with no scrollbars
-- [x] Sidebar on left (desktop) / bottom (mobile)
-- [x] Map fills remaining space
-- [x] Floating controls (search, upload, GPS) don't overlap each other
-- [x] Workspace pane slides in from right without pushing sidebar
-- [x] Placement mode adds crosshair cursor to map
-- [x] Workspace pane has a close button that hides the pane
-- [x] Clicking empty map deselects marker but keeps pane open
-- [x] Works on mobile: sidebar → bottom bar, workspace → bottom sheet
+- [ ] Full viewport with no scrollbars
+- [ ] Sidebar on left (desktop) / bottom (mobile)
+- [ ] Map fills remaining space
+- [ ] Floating controls (search, upload, GPS) don't overlap each other
+- [ ] Workspace pane slides in from right without pushing sidebar
+- [ ] Placement mode adds crosshair cursor to map
+- [ ] Workspace pane has a close button that hides the pane
+- [ ] Clicking empty map deselects marker but keeps pane open
+- [ ] Works on mobile: sidebar → bottom bar, workspace → bottom sheet

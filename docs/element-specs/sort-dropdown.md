@@ -51,7 +51,7 @@ SortDropdown                               ← floating dropdown, --color-bg-ele
 | Project       | Ascending (↑)     | `folder`        |
 | _Custom keys_ | Ascending (↑)     | `label`         |
 
-## Data Requirements
+## Data
 
 | Field               | Source                                                               | Type            |
 | ------------------- | -------------------------------------------------------------------- | --------------- |

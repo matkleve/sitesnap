@@ -44,33 +44,77 @@ export function buildPhotoMarkerHtml(options: PhotoMarkerHtmlOptions): string;
 
 // Types
 export type ViewportRow = {
-  cluster_lat: number; cluster_lng: number; image_count: number;
-  image_id: string | null; direction: number | null;
-  storage_path: string | null; thumbnail_path: string | null;
-  exif_latitude: number | null; exif_longitude: number | null;
+  cluster_lat: number;
+  cluster_lng: number;
+  image_count: number;
+  image_id: string | null;
+  direction: number | null;
+  storage_path: string | null;
+  thumbnail_path: string | null;
+  exif_latitude: number | null;
+  exif_longitude: number | null;
   created_at: string | null;
 };
 
 export type PhotoMarkerState = {
-  marker: L.Marker; count: number; lat: number; lng: number;
-  thumbnailUrl?: string; thumbnailSourcePath?: string;
-  direction?: number; corrected?: boolean; uploading?: boolean;
-  optimistic?: boolean; lastRendered?: MarkerVisualSnapshot;
+  marker: L.Marker;
+  count: number;
+  lat: number;
+  lng: number;
+  thumbnailUrl?: string;
+  thumbnailSourcePath?: string;
+  direction?: number;
+  corrected?: boolean;
+  uploading?: boolean;
+  optimistic?: boolean;
+  lastRendered?: MarkerVisualSnapshot;
 };
 
 export type MarkerVisualSnapshot = {
-  count: number; thumbnailUrl?: string; direction?: number;
-  corrected?: boolean; uploading?: boolean;
-  selected: boolean; zoomLevel: PhotoMarkerZoomLevel;
+  count: number;
+  thumbnailUrl?: string;
+  direction?: number;
+  corrected?: boolean;
+  uploading?: boolean;
+  selected: boolean;
+  zoomLevel: PhotoMarkerZoomLevel;
 };
 
 // Functions
-export function buildBufferedViewportRequest(bounds: L.LatLngBounds, zoom: number): { ... };
-export function resolveThumbnailSourcePath(row: ViewportRow, count: number): string | undefined;
-export function buildMarkerVisualSnapshot(state: PhotoMarkerState, selected: boolean, zoom: PhotoMarkerZoomLevel): MarkerVisualSnapshot;
-export function markerNeedsRefresh(previous: MarkerVisualSnapshot | undefined, next: MarkerVisualSnapshot): boolean;
-export function buildPhotoMarkerIcon(options: { markerState?: PhotoMarkerState; selected: boolean; zoomLevel: PhotoMarkerZoomLevel; override?: MarkerIconOverride; }): L.DivIcon;
-export function mergeOverlappingClusters(map: L.Map | undefined, rows: ViewportRow[]): ViewportRow[];
+export function buildBufferedViewportRequest(
+  bounds: L.LatLngBounds,
+  zoom: number,
+): {
+  fetchSouth: number;
+  fetchWest: number;
+  fetchNorth: number;
+  fetchEast: number;
+  roundedZoom: number;
+  fetchedBounds: L.LatLngBounds;
+};
+export function resolveThumbnailSourcePath(
+  row: ViewportRow,
+  count: number,
+): string | undefined;
+export function buildMarkerVisualSnapshot(
+  state: PhotoMarkerState,
+  selected: boolean,
+  zoom: PhotoMarkerZoomLevel,
+): MarkerVisualSnapshot;
+export function markerNeedsRefresh(
+  previous: MarkerVisualSnapshot | undefined,
+  next: MarkerVisualSnapshot,
+): boolean;
+export function buildPhotoMarkerIcon(options: {
+  markerState?: PhotoMarkerState;
+  selected: boolean;
+  zoomLevel: PhotoMarkerZoomLevel;
+  override?: MarkerIconOverride;
+}): L.DivIcon;
+export function mergeOverlappingClusters(
+  map: L.Map | undefined,
+  rows: ViewportRow[],
+): ViewportRow[];
 ```
 
 ### MapShellComponent marker methods (already exist)

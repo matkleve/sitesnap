@@ -62,8 +62,8 @@ AuthShell (auth-shell auth-shell--map)                    ← full viewport, rel
 
 ## Acceptance Criteria
 
-- [x] Login page shows a fixed city map behind the auth card.
-- [x] Register page shows the same fixed city map behind the auth card.
-- [x] The map layer is non-interactive and does not capture focus.
-- [x] Text and controls remain legible over the background in light and dark themes.
-- [x] Layout remains usable on mobile and desktop.
+- [ ] Login page shows a fixed city map behind the auth card.
+- [ ] Register page shows the same fixed city map behind the auth card.
+- [ ] The map layer is non-interactive and does not capture focus.
+- [ ] Text and controls remain legible over the background in light and dark themes.
+- [ ] Layout remains usable on mobile and desktop.

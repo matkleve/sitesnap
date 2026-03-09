@@ -30,8 +30,8 @@ import { UploadPanelComponent, ImageUploadedEvent } from '../../upload/upload-pa
 import { ExifCoords } from '../../../core/upload.service';
 import { SupabaseService } from '../../../core/supabase.service';
 import { SearchBarComponent } from '../search-bar/search-bar.component';
+import { WorkspacePaneComponent } from '../workspace-pane/workspace-pane.component';
 import { DragDividerComponent } from '../workspace-pane/drag-divider/drag-divider.component';
-import { ImageDetailViewComponent } from '../workspace-pane/image-detail-view.component';
 import {
     buildPhotoMarkerHtml,
     PHOTO_MARKER_ICON_ANCHOR,
@@ -42,7 +42,7 @@ import {
 
 @Component({
     selector: 'app-map-shell',
-    imports: [UploadPanelComponent, SearchBarComponent, DragDividerComponent, ImageDetailViewComponent],
+    imports: [UploadPanelComponent, SearchBarComponent, WorkspacePaneComponent, DragDividerComponent],
     templateUrl: './map-shell.component.html',
     styleUrl: './map-shell.component.scss',
 })

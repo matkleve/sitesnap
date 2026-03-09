@@ -228,7 +228,7 @@ export class ThumbnailGridComponent {
 
   // ── State ──
   sortOrder = signal<SortOrder>("date-desc");
-  readonly rowHeight = 128 + 8; // card + gap
+  readonly rowHeight = 128 + 8; // THUMBNAIL_SIZE + gap (--spacing-2)
 
   // ── Derived ──
   columnsPerRow = signal(2); // Recalculate on pane resize
@@ -463,7 +463,7 @@ private paneEl = viewChild.required<ElementRef>('gridContainer');
 
 private resizeObserver = new ResizeObserver(entries => {
   const width = entries[0]?.contentRect.width ?? 256;
-  const cardSize = 128;
+  const cardSize = 128;  // THUMBNAIL_SIZE — matches glossary "128×128 px"
   const gap = 8;        // var(--spacing-2)
   const cols = Math.max(1, Math.floor((width + gap) / (cardSize + gap)));
   this.columnsPerRow.set(cols);

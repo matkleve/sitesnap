@@ -128,10 +128,10 @@ export class ActiveFilterChipsComponent {
 <!-- map-shell.component.html -->
 <div class="map-zone">
   <div #mapContainer class="map-container"></div>
-  <ss-search-bar ... />
+  <ss-search-bar (mapCenterRequested)="onSearchMapCenterRequested($event)" />
   <ss-active-filter-chips />
   <!-- NEW: positioned below search bar -->
-  <ss-gps-button ... />
+  <ss-gps-button (locate)="onGpsLocate()" />
 </div>
 ```
 

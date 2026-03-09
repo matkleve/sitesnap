@@ -1,5 +1,7 @@
 # Search Bar
 
+> **Blueprint:** [implementation-blueprints/search-bar.md](../implementation-blueprints/search-bar.md)
+
 ## What It Is
 
 A search surface floating over the map that lets users find places, photos, groups, and projects. It is the main way people navigate the map and find evidence. Supports keyboard shortcut `Cmd/Ctrl+K` for quick access.

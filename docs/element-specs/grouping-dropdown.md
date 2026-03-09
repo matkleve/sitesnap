@@ -47,7 +47,7 @@ GroupingDropdown                           ← floating dropdown, --color-bg-ele
         └── PropertyLabel                  ← property name, --color-text-secondary
 ```
 
-## Data Requirements
+## Data
 
 | Field               | Source                                                                               | Type            |
 | ------------------- | ------------------------------------------------------------------------------------ | --------------- |

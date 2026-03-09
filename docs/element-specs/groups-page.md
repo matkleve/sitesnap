@@ -68,6 +68,13 @@ GroupsPage                                 ← full-width, flex column
 | `features/groups/groups.component.scss` | Styles                                 |
 | `core/group.service.ts`                 | Group CRUD operations                  |
 
+## Wiring
+
+- Add route `{ path: 'groups', component: GroupsComponent }` in `app.routes.ts`
+- Import `GroupsComponent` standalone
+- Inject `GroupService` for loading and managing groups
+- Sidebar "groups" link navigates to `/groups`
+
 ## Acceptance Criteria
 
 - [ ] Lists all org groups as cards with thumbnail mosaic

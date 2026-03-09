@@ -69,7 +69,7 @@ FilterDropdown                             ← floating dropdown, --color-bg-ele
 | **number**    | Distance (from ref point)          | ≤, ≥, =, between                                 |
 | **boolean**   | Has corrections, Has GPS           | is true, is false                                |
 
-## Data Requirements
+## Data
 
 | Field           | Source                                                                                         | Type            |
 | --------------- | ---------------------------------------------------------------------------------------------- | --------------- |

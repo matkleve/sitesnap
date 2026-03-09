@@ -36,6 +36,10 @@ MapZone                                    ← div, flex-1, relative, overflow-h
 └── [placement] PlacementBanner            ← absolute bottom-16 center, z-30
 ```
 
+## Data
+
+No own data — Map Zone is a layout container. Data flows through child components.
+
 ## State
 
 No own state — Map Zone is a layout container. State lives in Map Shell and child components.

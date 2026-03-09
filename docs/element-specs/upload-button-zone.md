@@ -31,6 +31,10 @@ UploadButtonZone                           ← fixed position container, z-20
 └── [open] UploadPanel                     ← slides down from button (see upload-panel spec)
 ```
 
+## Data
+
+No external data — Upload Button Zone is a UI toggle. File data is handled by Upload Panel.
+
 ## State
 
 | Name              | Type      | Default | Controls                              |
@@ -41,11 +45,17 @@ UploadButtonZone                           ← fixed position container, z-20
 
 Part of `MapShellComponent` template (button + zone container are in `map-shell.component.html`). The Upload Panel itself is a separate component.
 
+## Wiring
+
+- Button and zone container live in `map-shell.component.html`
+- `uploadPanelOpen` signal in `MapShellComponent` controls panel visibility
+- Click handler toggles `uploadPanelOpen` signal
+
 ## Acceptance Criteria
 
-- [x] Button always visible on map page
-- [x] Desktop: 44px, top-right
+- [ ] Button always visible on map page
+- [ ] Desktop: 44px, top-right
 - [ ] Mobile: 56px FAB, bottom-right
-- [x] Click toggles Upload Panel
-- [x] Button shows active state when panel is open
-- [x] `--color-clay` background, white icon
+- [ ] Click toggles Upload Panel
+- [ ] Button shows active state when panel is open
+- [ ] `--color-clay` background, white icon

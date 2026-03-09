@@ -1,5 +1,7 @@
 # Active Filter Chips
 
+> **Blueprint:** [implementation-blueprints/active-filter-chips.md](../implementation-blueprints/active-filter-chips.md)
+
 ## What It Is
 
 A compact row of filter chips that appears above (or near) the search bar when any filter is active. Each chip shows one active filter with a "×" to remove it. Provides at-a-glance visibility of what's currently filtering the map — users should never wonder why results are missing.
@@ -44,6 +46,12 @@ No own state — derived from `FilterService`. Chips appear/disappear reactively
 | File                                                         | Purpose              |
 | ------------------------------------------------------------ | -------------------- |
 | `features/map/filter-chips/active-filter-chips.component.ts` | Chip strip component |
+
+## Wiring
+
+- Import `ActiveFilterChipsComponent` in `MapShellComponent`
+- Inject `FilterService` to read active filters
+- Place below Search Bar in Map Zone template
 
 ## Acceptance Criteria
 

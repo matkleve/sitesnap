@@ -24,6 +24,7 @@ Status: ✅ spec written | 🔲 needs spec
 - ✅ `map-zone.md` — Map Zone (flex container for map + floating controls)
 - ✅ `sidebar.md` — Sidebar navigation rail
 - ✅ `workspace-pane.md` — Right-side collapsible panel with group tabs
+- ✅ `drag-divider.md` — Drag Divider (resizable map/workspace split)
 
 ### Search
 
@@ -45,12 +46,18 @@ Status: ✅ spec written | 🔲 needs spec
 - ✅ `group-tab-bar.md` — Group Tab Bar
 - ✅ `thumbnail-grid.md` — Thumbnail Grid (virtual scrolling gallery)
 - ✅ `thumbnail-card.md` — Thumbnail Card (128×128 with hover actions)
+- ✅ `workspace-toolbar.md` — Workspace Toolbar (sort/group/view controls)
+- ✅ `workspace-view-system.md` — Workspace View System (grid/list/map-only switching)
 
 ### Panels & Detail
 
 - ✅ `filter-panel.md` — Filter Panel (accordion filters)
+- ✅ `filter-dropdown.md` — Filter Dropdown (shared dropdown primitive)
+- ✅ `projects-dropdown.md` — Projects Dropdown (project selection filter)
 - ✅ `active-filter-chips.md` — Active Filter Chips Strip
 - ✅ `image-detail-view.md` — Image Detail View
+- ✅ `sort-dropdown.md` — Sort Dropdown (thumbnail sort order)
+- ✅ `grouping-dropdown.md` — Grouping Dropdown (thumbnail group-by)
 
 ### Controls
 
@@ -65,6 +72,10 @@ Status: ✅ spec written | 🔲 needs spec
 - ✅ `groups-page.md` — Groups Page
 - ✅ `settings-page.md` — Settings Page
 - ✅ `account-page.md` — Account Page
+
+### Features (cross-cutting)
+
+- ✅ `custom-properties.md` — Custom Properties (user-defined metadata schema)
 
 ## Priority
 

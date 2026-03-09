@@ -39,6 +39,14 @@ WorkspaceToolbar                           ← horizontal flex row, gap-2, paddi
     └── [active] ActiveDot
 ```
 
+## Data
+
+| Field               | Source                        | Type             |
+| ------------------- | ----------------------------- | ---------------- |
+| Active filter count | `FilterService.activeCount()` | `number`         |
+| Active sort         | `SortService.activeSort()`    | `SortOrder`      |
+| Active grouping     | `GroupService.activeGroup()`  | `string \| null` |
+
 ## State
 
 | Name             | Type                                                     | Default | Controls               |

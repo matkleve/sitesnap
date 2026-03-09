@@ -1,5 +1,7 @@
 # Group Tab Bar
 
+> **Blueprint:** [implementation-blueprints/group-tab-bar.md](../implementation-blueprints/group-tab-bar.md)
+
 ## What It Is
 
 A horizontal row of tabs inside the Workspace Pane. Each tab represents a group of images. The first tab is always Active Selection (ephemeral, current map selections). Remaining tabs are user-created named groups. A "+" button at the end creates new groups.
@@ -53,6 +55,12 @@ GroupTabBar                                ← scrollable horizontal row, h-8, o
 | File                                                     | Purpose           |
 | -------------------------------------------------------- | ----------------- |
 | `features/map/workspace-pane/group-tab-bar.component.ts` | Tab bar component |
+
+## Wiring
+
+- Import `GroupTabBarComponent` in `WorkspacePaneComponent`
+- Inject `GroupService` for CRUD operations
+- Bind `activeTabId` input from `WorkspacePaneComponent` state
 
 ## Acceptance Criteria
 

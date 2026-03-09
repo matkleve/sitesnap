@@ -40,9 +40,9 @@ Keep it readable — this is a structural guideline, not copy-pasteable code.
 
 When a panel or list row matches an existing shared primitive, name it directly in the hierarchy (`.ui-container`, `.ui-item`, `.ui-item-media`, `.ui-item-label`, `.ui-spacer`) instead of describing new bespoke geometry.
 
-### 6. Data Requirements (table)
+### 6. Data (table)
 
-Where does data come from? Which Supabase tables, which columns, which service methods.
+Where does data come from? Which Supabase tables, which columns, which service methods. Heading: `## Data`.
 
 ### 7. State (table)
 
@@ -142,6 +142,8 @@ ElementRoot ← positioning, size, role
 | Section             | What it prevents                                        |
 | ------------------- | ------------------------------------------------------- |
 | What It Is          | Agent misunderstanding the element's purpose            |
+| What It Looks Like  | Agent guessing visual dimensions, colors, or layout     |
+| Where It Lives      | Agent placing the component in the wrong parent or zone |
 | Actions table       | Agent skipping unlisted behaviors                       |
 | Hierarchy tree      | Agent guessing the component nesting                    |
 | Data table          | Agent inventing fake APIs or queries                    |

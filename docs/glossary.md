@@ -165,6 +165,9 @@
   The concrete value assigned to a metadata key for a given image.
   - Example: key `Material`, value `Beton`.
 
+- **Custom Properties**  
+  The end-user feature for defining and managing metadata keys and their values on images. Encompasses the UI for creating new keys, assigning values, and filtering by metadata. Built on the `metadata_keys` and `metadata_values` tables.
+
 ---
 
 ## Security & Access
@@ -263,7 +266,7 @@ Canonical names for every visible piece of the interface. Use these in code, doc
 - **Drag Divider**  
   4 px vertical (desktop) / horizontal (mobile) separator between map and workspace pane. `cursor: col-resize`. Shown only when workspace pane is open.
 
-- **Bottom Sheet** *(mobile only)*  
+- **Bottom Sheet** _(mobile only)_  
   Container replacing the workspace pane on small screens. Three snap points: minimized (64 px), half-screen (50 vh), full-screen (100 vh). Drag handle at top.
 
 ### Search
@@ -393,10 +396,28 @@ Canonical names for every visible piece of the interface. Use these in code, doc
 - **Sorting Controls**  
   Compact segmented control above the gallery: Date ↓, Date ↑, Distance, Name.
 
+- **Sort Dropdown**  
+  Dropdown menu within the workspace toolbar for choosing the sort order of thumbnails (date ascending, date descending, distance, name).
+
+- **Grouping Dropdown**  
+  Dropdown menu within the workspace toolbar for choosing how thumbnails are grouped (by date, project, location, or none).
+
+- **Workspace Toolbar**  
+  Horizontal bar above the thumbnail grid inside the workspace pane. Hosts sort dropdown, grouping dropdown, and view-mode toggle.
+
+- **Workspace View System**  
+  The mechanism for switching between workspace display modes (grid view, list view, map-only). Controlled via the workspace toolbar.
+
 ### Panels & Detail Views
 
 - **Filter Panel**  
   Grouped accordion panel. Desktop: slides in from top-right. Mobile: bottom modal. Contains time range, project, metadata, max distance groups, and applied-filters summary.
+
+- **Filter Dropdown**  
+  Shared dropdown primitive used inside the filter panel for project, metadata key, and other selection inputs.
+
+- **Projects Dropdown**  
+  Specialization of filter dropdown for selecting a project to filter by. Populated from the `projects` table.
 
 - **Active Filter Chips Strip**  
   Compact chip row above the map search bar. Each chip has a `×` to remove inline. Visible when any filter is active.

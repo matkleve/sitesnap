@@ -89,60 +89,12 @@
     [defaultWidth]="workspacePaneDefaultWidth"
     (widthChange)="onWorkspaceWidthChange($event)"
   />
-}
 
-<!-- Photo panel — slides in from right on desktop / bottom on mobile -->
-@if (photoPanelOpen()) {
-  <div
-    class="photo-panel"
-    role="region"
-    aria-label="Photo panel"
+  <app-workspace-pane
     [style.width.px]="workspacePaneWidth()"
-  >
-    <!-- Pane header with close button -->
-    <div class="photo-panel__header">
-      <span class="photo-panel__header-title">Workspace</span>
-      <button
-        class="photo-panel__close-btn"
-        type="button"
-        aria-label="Close workspace pane"
-        title="Close workspace pane"
-        (click)="closeWorkspacePane()"
-      >
-        <span class="material-icons" aria-hidden="true">close</span>
-      </button>
-    </div>
-
-    <!-- Image Detail View — replaces grid when a detail image is selected -->
-    @if (detailImageId()) {
-      <app-image-detail-view
-        [imageId]="detailImageId()"
-        (closed)="closeDetailView()"
-        (editLocationRequested)="onEditLocationRequested($event)"
-      />
-    } @else {
-      <!-- Tab bar -->
-      <div class="photo-panel__tabs" role="tablist">
-        <button class="photo-panel__tab photo-panel__tab--active" role="tab" aria-selected="true">
-          Selection
-        </button>
-      </div>
-
-      <!-- Photo grid / selected image preview -->
-      <div class="photo-panel__grid">
-        @if (selectedMarkerThumbnail(); as thumb) {
-          <button
-            class="photo-panel__preview-btn"
-            [disabled]="!selectedMarkerImageId()"
-            (click)="selectedMarkerImageId() && openDetailView(selectedMarkerImageId()!)"
-            aria-label="View photo detail"
-          >
-            <img class="photo-panel__preview" [src]="thumb" alt="Selected photo" />
-          </button>
-        } @else {
-          <p class="photo-panel__empty">Select a marker on the map to see photos.</p>
-        }
-      </div>
-    }
-  </div>
+    [detailImageId]="detailImageId()"
+    (closed)="closeWorkspacePane()"
+    (detailRequested)="openDetailView($event)"
+    (editLocationRequested)="onEditLocationRequested($event)"
+  />
 }
