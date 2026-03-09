@@ -127,7 +127,7 @@
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--elevation-dropdown);
   overflow: hidden;
 
   &__item {
@@ -373,7 +373,7 @@
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-xl);
+  box-shadow: var(--elevation-modal);
   padding: var(--spacing-5);
   max-width: 20rem;
   width: 100%;

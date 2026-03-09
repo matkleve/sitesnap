@@ -41,7 +41,6 @@
     border-radius: var(--container-radius-panel);
     display: flex;
     align-items: stretch;
-    overflow: clip;
     transition: width 180ms ease-out;
 
     &:hover,
@@ -69,7 +68,7 @@
     align-items: stretch;
     background: var(--color-bg-surface);
     border-top: 1px solid var(--color-border);
-    box-shadow: var(--shadow-sm);
+    box-shadow: var(--elevation-subtle);
   }
 }
 
@@ -87,7 +86,7 @@
     background: color-mix(in srgb, var(--color-bg-surface) 85%, transparent);
     backdrop-filter: blur(16px) saturate(1.2);
     -webkit-backdrop-filter: blur(16px) saturate(1.2);
-    box-shadow: var(--shadow-glass);
+    box-shadow: var(--elevation-overlay);
     border: 1px solid color-mix(in srgb, var(--color-border) 50%, transparent);
   }
 

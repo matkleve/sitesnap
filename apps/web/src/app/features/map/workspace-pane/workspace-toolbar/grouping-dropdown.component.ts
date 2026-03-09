@@ -25,9 +25,6 @@ export interface GroupingProperty {
             <button class="dd-clear-btn" (click)="clearGroupings()">Empty</button>
           }
         </div>
-        @if (activeGroupings().length === 0) {
-          <div class="dd-empty">No grouping applied</div>
-        }
         <div
           cdkDropList
           #activeList="cdkDropList"
@@ -35,13 +32,20 @@ export interface GroupingProperty {
           [cdkDropListConnectedTo]="[availableList]"
           (cdkDropListDropped)="onDrop($event)"
           class="dd-drop-zone"
+          [class.dd-drop-zone--empty]="activeGroupings().length === 0"
+          [class.dd-drop-zone--dragging]="isDragging()"
         >
+          @if (activeGroupings().length === 0) {
+            <div class="dd-empty">
+              {{ isDragging() ? 'Drop here to group' : 'No grouping applied' }}
+            </div>
+          }
           @for (prop of activeGroupings(); track prop.id) {
             <div
               cdkDrag
               [cdkDragData]="prop"
-              (cdkDragStarted)="dragStarted.emit()"
-              (cdkDragEnded)="dragEnded.emit()"
+              (cdkDragStarted)="onDragStart()"
+              (cdkDragEnded)="onDragEnd()"
               class="dd-row dd-row--active"
               [class.dd-row--selected]="selectedRows().has(prop.id)"
               (click)="onRowClick(prop.id, $event)"
@@ -70,8 +74,8 @@ export interface GroupingProperty {
             <div
               cdkDrag
               [cdkDragData]="prop"
-              (cdkDragStarted)="dragStarted.emit()"
-              (cdkDragEnded)="dragEnded.emit()"
+              (cdkDragStarted)="onDragStart()"
+              (cdkDragEnded)="onDragEnd()"
               class="dd-row dd-row--available"
               [class.dd-row--selected]="selectedRows().has(prop.id)"
               (click)="onRowClick(prop.id, $event)"
@@ -103,8 +107,19 @@ export class GroupingDropdownComponent {
   readonly dragStarted = output<void>();
   readonly dragEnded = output<void>();
 
-  // Local UI state (selection resets when dropdown closes — that's fine)
+  // Local UI state
   readonly selectedRows = signal<Set<string>>(new Set());
+  readonly isDragging = signal(false);
+
+  onDragStart(): void {
+    this.isDragging.set(true);
+    this.dragStarted.emit();
+  }
+
+  onDragEnd(): void {
+    this.isDragging.set(false);
+    this.dragEnded.emit();
+  }
 
   onRowClick(propertyId: string, event: MouseEvent): void {
     if (event.ctrlKey || event.metaKey) {

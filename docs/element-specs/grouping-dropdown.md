@@ -67,11 +67,12 @@ GroupingDropdown                           ← floating dropdown, --color-bg-ele
 
 ## State
 
-| Name              | Type            | Default | Controls                                         |
-| ----------------- | --------------- | ------- | ------------------------------------------------ |
-| `activeGroupings` | `PropertyRef[]` | `[]`    | Ordered list of properties used for grouping     |
-| `availableProps`  | `PropertyDef[]` | all     | Properties not in activeGroupings                |
-| `selectedRows`    | `Set<string>`   | empty   | Row keys currently multi-selected via Ctrl+Click |
+| Name              | Type            | Default | Controls                                                   |
+| ----------------- | --------------- | ------- | ---------------------------------------------------------- |
+| `activeGroupings` | `PropertyRef[]` | `[]`    | Ordered list of properties used for grouping               |
+| `availableProps`  | `PropertyDef[]` | all     | Properties not in activeGroupings                          |
+| `selectedRows`    | `Set<string>`   | empty   | Row keys currently multi-selected via Ctrl+Click           |
+| `isDragging`      | `boolean`       | `false` | True while any row is being dragged (cdkDragStarted/Ended) |
 
 Where `PropertyRef` = `{ type: 'builtin' | 'custom'; key: string; id?: string }`.
 
@@ -112,6 +113,10 @@ Where `PropertyRef` = `{ type: 'builtin' | 'custom'; key: string; id?: string }`
 - [x] CDK drag preview: elevated shadow, opacity 0.9
 - [x] CDK drag placeholder: dashed border, 40% opacity
 - [ ] "Empty" button on the right of the "Grouped by" header — clears all active groupings
+- [ ] Empty drop target: idle → "No grouping applied" (disabled text, no border)
+- [ ] Empty drop target: drag active → "Drop here to group" (dashed border, clay 4% bg)
+- [ ] Empty drop target: receiving → stronger highlight (clay 10% bg, clay dashed outline)
+- [ ] `isDragging` signal tracks drag lifecycle (cdkDragStarted/cdkDragEnded)
 
 ---
 
@@ -212,6 +217,51 @@ flowchart LR
     end
 
     Input -->|"groupBy: [City, Material]"| Nested
+```
+
+## Empty Drop Target Pattern
+
+When the Active section has no groupings, the drop zone must give clear visual feedback across the full drag lifecycle. A local signal `isDragging` tracks whether any row in the dropdown is being dragged.
+
+### Empty Drop Zone States
+
+| State                        | Condition                                          | Visual                                                                                                                       |
+| ---------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| **Idle**                     | `activeGroupings.length === 0` and `!isDragging()` | "No grouping applied" in `--color-text-disabled`, no border                                                                  |
+| **Drag active (invitation)** | `activeGroupings.length === 0` and `isDragging()`  | Dashed `--color-border` outline, text changes to "Drop here to group", `--color-text-secondary`, subtle `clay 4%` background |
+| **Receiving (hover)**        | CDK adds `.cdk-drop-list-receiving`                | Strong `clay 10%` background, dashed `--color-clay` outline, text in `--color-text-primary`                                  |
+
+### Implementation
+
+- `isDragging = signal(false)` — set `true` on any `cdkDragStarted`, set `false` on any `cdkDragEnded`
+- The `.dd-empty` placeholder and the `cdkDropList` drop zone are the **same element** — `.dd-drop-zone--empty` carries both roles
+- Class binding: `[class.dd-drop-zone--dragging]="isDragging()"` on the drop zone
+- CDK automatically adds `.cdk-drop-list-receiving` when a dragged item enters the zone — styles layer on top
+- The `.dd-empty` text content switches via `@if (isDragging())` between "Drop here to group" and "No grouping applied"
+
+### State flow
+
+```
+┌─────────────────────────────────┐
+│  Idle                           │
+│  "No grouping applied"          │
+│  text-disabled, no border       │
+├─────────────────────────────────┤
+│         cdkDragStarted ↓        │
+├─────────────────────────────────┤
+│  Drag Active (invitation)       │
+│  "Drop here to group"           │
+│  text-secondary, border dashed  │
+│  clay 4% bg                     │
+├─────────────────────────────────┤
+│     cursor enters zone ↓        │
+├─────────────────────────────────┤
+│  Receiving (hover)              │
+│  "Drop here to group"           │
+│  text-primary, clay outline     │
+│  clay 10% bg                    │
+└─────────────────────────────────┘
+      ↓ cdkDragEnded → back to Idle
 ```
 
 ## Cross-Section Drag Interaction (CDK DragDrop)

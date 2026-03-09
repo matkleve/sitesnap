@@ -36,7 +36,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: var(--shadow-float);
+  box-shadow: var(--elevation-overlay);
   transition:
     background 120ms ease-out,
     transform 120ms ease-out;
@@ -67,7 +67,7 @@
   background: color-mix(in srgb, var(--color-bg-surface) 95%, transparent);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  box-shadow: var(--shadow-glass);
+  box-shadow: var(--elevation-overlay);
 
   &--visible {
     display: flex;
@@ -109,7 +109,7 @@
   border: 3px solid var(--color-bg-surface);
   box-shadow:
     0 0 0 4px color-mix(in srgb, var(--color-primary) 28%, transparent),
-    var(--shadow-sm);
+    var(--elevation-subtle);
 }
 
 :host ::ng-deep .map-search-location-marker {
@@ -121,7 +121,7 @@
   border: 3px solid var(--color-bg-surface);
   box-shadow:
     0 0 0 4px color-mix(in srgb, var(--color-clay) 30%, transparent),
-    var(--shadow-sm);
+    var(--elevation-subtle);
 }
 
 :host ::ng-deep .map-photo-marker-wrapper {
@@ -240,8 +240,8 @@
 
 :host ::ng-deep .map-photo-marker--count {
   .map-photo-marker__body {
-    background: #ffffff;
-    color: #1a1714;
+    background: var(--color-bg-elevated);
+    color: var(--color-text-primary);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -286,7 +286,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: var(--shadow-float);
+  box-shadow: var(--elevation-overlay);
   transition:
     background 120ms ease-out,
     color 120ms ease-out,
@@ -332,7 +332,7 @@
   padding: var(--spacing-2) var(--spacing-4);
   background: var(--color-bg-elevated);
   border-radius: var(--radius-full);
-  box-shadow: var(--shadow-float);
+  box-shadow: var(--elevation-overlay);
   color: var(--color-text-primary);
   font-size: 0.875rem;
   white-space: nowrap;
@@ -367,7 +367,7 @@
   display: flex;
   flex-direction: column;
   background: var(--color-bg-surface);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--elevation-overlay);
 
   @media (min-width: 768px) {
     width: 22.5rem; // 360px default; overridden by inline style via workspacePaneWidth signal

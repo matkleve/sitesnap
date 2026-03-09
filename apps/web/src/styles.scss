@@ -50,17 +50,22 @@
   --radius-full: 9999px;
 
   // Shadows — warm-tinted black (not cold blue)
-  // Elevation scale: sm → md → lg → xl (surfaces lifting off the page)
-  // Float: compact but punchy, for circular/pill overlays (FAB, GPS btn, toast)
-  // Glass: very light + wide spread for frosted-glass panels (backdrop-filter provides depth)
-  // Focus: semantic ring for keyboard/focus states — not an elevation shadow
+  // Physical shadow scale: sm → md → lg → xl
   --shadow-sm: 0 1px 3px rgba(15, 14, 12, 0.12), 0 1px 2px rgba(15, 14, 12, 0.08);
   --shadow-md: 0 4px 12px rgba(15, 14, 12, 0.15), 0 2px 4px rgba(15, 14, 12, 0.1);
   --shadow-lg: 0 8px 24px rgba(15, 14, 12, 0.18), 0 4px 8px rgba(15, 14, 12, 0.12);
   --shadow-xl: 0 16px 48px rgba(15, 14, 12, 0.22), 0 6px 16px rgba(15, 14, 12, 0.14);
-  --shadow-float: 0 2px 8px rgba(15, 14, 12, 0.22), 0 1px 3px rgba(15, 14, 12, 0.12);
-  --shadow-glass: 0 1px 4px rgba(15, 14, 12, 0.06), 0 8px 32px rgba(15, 14, 12, 0.08);
   --shadow-focus: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
+
+  // Elevation layers — semantic aliases; every element uses a layer, not a raw shadow.
+  // All elements at the same visual plane share the same layer → same shadow.
+  --elevation-base: none; // flush with page background
+  --elevation-subtle: var(--shadow-sm); // subtle lift: mobile bottom bar, dividers
+  --elevation-overlay: var(
+    --shadow-md
+  ); // map overlays: sidebar, search bar, FAB, GPS, markers, banners
+  --elevation-dropdown: var(--shadow-lg); // dropdowns, context menus, popovers
+  --elevation-modal: var(--shadow-xl); // modals, dialogs, image detail overlay
 
   // Z-index stacking ladder (audit issue #2, #13)
   --z-map: 0;
@@ -144,8 +149,6 @@
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.38), 0 2px 4px rgba(0, 0, 0, 0.22);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.48), 0 4px 8px rgba(0, 0, 0, 0.28);
   --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.56), 0 6px 16px rgba(0, 0, 0, 0.32);
-  --shadow-float: 0 2px 8px rgba(0, 0, 0, 0.48), 0 1px 3px rgba(0, 0, 0, 0.28);
-  --shadow-glass: 0 1px 4px rgba(0, 0, 0, 0.22), 0 8px 32px rgba(0, 0, 0, 0.32);
   --photo-marker-drop-shadow: 0 1px 4px rgba(0, 0, 0, 0.65);
 }
 
@@ -178,8 +181,6 @@
     --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.38), 0 2px 4px rgba(0, 0, 0, 0.22);
     --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.48), 0 4px 8px rgba(0, 0, 0, 0.28);
     --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.56), 0 6px 16px rgba(0, 0, 0, 0.32);
-    --shadow-float: 0 2px 8px rgba(0, 0, 0, 0.48), 0 1px 3px rgba(0, 0, 0, 0.28);
-    --shadow-glass: 0 1px 4px rgba(0, 0, 0, 0.22), 0 8px 32px rgba(0, 0, 0, 0.32);
     --photo-marker-drop-shadow: 0 1px 4px rgba(0, 0, 0, 0.65);
   }
 }

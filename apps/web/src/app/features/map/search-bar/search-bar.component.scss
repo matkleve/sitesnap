@@ -37,7 +37,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--ui-container-radius);
   background: color-mix(in srgb, var(--color-bg-surface) 92%, transparent);
-  box-shadow: var(--shadow-glass);
+  box-shadow: var(--elevation-overlay);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   overflow: hidden;

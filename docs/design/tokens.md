@@ -161,21 +161,35 @@ The UI uses a consistent "friendly but professional" radius system:
 
 ## 3.5 Shadows and Elevation
 
-Six shadow tokens form a layered elevation system. All values use warm-tinted black in light mode and higher-opacity pure black in dark mode (since warm-tinted shadows become invisible against dark surfaces).
+### Physical shadow scale
 
-| Token            | Light mode                                                            | Usage                                                              |
-| ---------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| `--shadow-sm`    | `0 1px 3px rgba(15,14,12,.12), 0 1px 2px rgba(15,14,12,.08)`          | Toolbar separators, subtle panel lift, badge/chip outlines         |
-| `--shadow-md`    | `0 4px 12px rgba(15,14,12,.15), 0 2px 4px rgba(15,14,12,.10)`         | Floating panels, workspace pane, upload expand, filter drawer      |
-| `--shadow-lg`    | `0 8px 24px rgba(15,14,12,.18), 0 4px 8px rgba(15,14,12,.12)`         | Heavier drawers, elevated cards, mid-stack overlays                |
-| `--shadow-xl`    | `0 16px 48px rgba(15,14,12,.22), 0 6px 16px rgba(15,14,12,.14)`       | Modals, image detail overlay, high-elevation dropdowns             |
-| `--shadow-float` | `0 2px 8px rgba(15,14,12,.22), 0 1px 3px rgba(15,14,12,.12)`          | Circular/pill map controls: GPS button, FAB, toast notifications   |
-| `--shadow-glass` | `0 1px 4px rgba(15,14,12,.06), 0 8px 32px rgba(15,14,12,.08)`         | Frosted-glass panels (sidebar, search bar) — backdrop-filter depth |
-| `--shadow-focus` | `0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent)` | Keyboard/focus rings — semantic state, not elevation               |
+Four physical shadows plus a focus ring. Components never use these directly — they use the semantic elevation layers below.
 
-In dark mode, all six elevation tokens (`sm` → `glass`) are overridden with `rgba(0,0,0,...)` at higher opacity so shadows remain visible against dark surfaces. `--shadow-focus` is color-mix based and adapts automatically via `--color-primary`.
+| Token            | Light mode value                                                      | Purpose                              |
+| ---------------- | --------------------------------------------------------------------- | ------------------------------------ |
+| `--shadow-sm`    | `0 1px 3px rgba(15,14,12,.12), 0 1px 2px rgba(15,14,12,.08)`          | Lightest lift                        |
+| `--shadow-md`    | `0 4px 12px rgba(15,14,12,.15), 0 2px 4px rgba(15,14,12,.10)`         | Standard overlay                     |
+| `--shadow-lg`    | `0 8px 24px rgba(15,14,12,.18), 0 4px 8px rgba(15,14,12,.12)`         | Dropdown/popover                     |
+| `--shadow-xl`    | `0 16px 48px rgba(15,14,12,.22), 0 6px 16px rgba(15,14,12,.14)`       | Modal-level                          |
+| `--shadow-focus` | `0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent)` | Focus ring (semantic, not elevation) |
 
-**Photo marker drop shadow** (`--photo-marker-drop-shadow`) is a separate token: it uses `filter: drop-shadow(...)` so it traces the SVG/image shape rather than the bounding box. Light mode: `rgba(15,14,12,0.45)`. Dark mode: `rgba(0,0,0,0.65)` for legibility against dark map tiles.
+In dark mode, `sm` through `xl` are overridden with `rgba(0,0,0,...)` at higher opacity so shadows remain visible against dark surfaces. `--shadow-focus` adapts automatically via `--color-primary`.
+
+### Elevation layers (semantic)
+
+Every component's `box-shadow` references a semantic `--elevation-*` token. Elements at the **same visual plane share the same layer** — this ensures the sidebar, search bar, upload FAB, GPS button, and map markers all look like they float at the same height.
+
+| Layer                  | Maps to       | Elements                                                                                                                                    |
+| ---------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--elevation-base`     | `none`        | Page background, flush surfaces                                                                                                             |
+| `--elevation-subtle`   | `--shadow-sm` | Mobile bottom bar, drag divider (rest), location marker rings                                                                               |
+| `--elevation-overlay`  | `--shadow-md` | **All map-level overlays**: sidebar, search bar, upload FAB, GPS button, placement banner, toast, upload panel, workspace pane, photo panel |
+| `--elevation-dropdown` | `--shadow-lg` | Context menus, popovers, toolbar dropdowns (sort/group/filter), auth card                                                                   |
+| `--elevation-modal`    | `--shadow-xl` | Delete confirmation dialog, image detail overlay, drag preview                                                                              |
+
+**Rule**: if two elements visually sit at the same plane, they must use the same `--elevation-*` layer. To change the shadow for an entire visual plane, update the alias in `:root` — every element on that plane updates together.
+
+**Photo marker drop shadow** (`--photo-marker-drop-shadow`) is a separate token: it uses `filter: drop-shadow(...)` so it traces the SVG/image shape rather than the bounding box. Light: `rgba(15,14,12,0.45)`. Dark: `rgba(0,0,0,0.65)`.
 
 ## 3.6 Iconography
 

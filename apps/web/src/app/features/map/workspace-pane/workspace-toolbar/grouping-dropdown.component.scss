@@ -49,9 +49,20 @@ $dd-padding: var(--spacing-3);
 }
 
 .dd-empty {
-  padding: var(--spacing-2) 0;
+  // Match .dd-row dimensions exactly so it looks like a consistent drop slot
+  display: flex;
+  align-items: center;
+  padding: var(--spacing-1) var(--spacing-2);
   font-size: 0.8125rem;
   color: var(--color-text-disabled);
+  // Absolutely positioned so CDK doesn't count it as a list item
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: var(--radius-sm);
+  transition:
+    background 80ms ease-out,
+    color 80ms ease-out;
 }
 
 .dd-divider {
@@ -62,6 +73,39 @@ $dd-padding: var(--spacing-3);
 
 .dd-drop-zone {
   min-height: 0.25rem; // allow dropping when section is empty
+  position: relative; // anchor for .dd-empty
+
+  &--empty {
+    // Tall enough to be a visible drop target
+    min-height: 2rem;
+    border-radius: var(--radius-sm);
+    transition:
+      background 80ms ease-out,
+      outline-color 80ms ease-out;
+  }
+
+  // Invitation state: a drag started somewhere — show this is a drop target
+  &--empty.dd-drop-zone--dragging {
+    background: color-mix(in srgb, var(--color-clay) 4%, transparent);
+    outline: 1.5px dashed var(--color-border);
+    outline-offset: -1.5px;
+
+    .dd-empty {
+      color: var(--color-text-secondary);
+    }
+  }
+
+  // Receiving state: cursor is hovering over this zone
+  &--empty.cdk-drop-list-receiving,
+  &--empty.dd-drop-zone--dragging.cdk-drop-list-receiving {
+    background: color-mix(in srgb, var(--color-clay) 10%, transparent);
+    outline: 1.5px dashed var(--color-clay);
+    outline-offset: -1.5px;
+
+    .dd-empty {
+      color: var(--color-text-primary);
+    }
+  }
 }
 
 // --- Row base ---
@@ -146,7 +190,7 @@ $dd-padding: var(--spacing-3);
 .cdk-drag-preview {
   border-radius: var(--radius-sm);
   background: var(--color-bg-elevated);
-  box-shadow: var(--shadow-xl);
+  box-shadow: var(--elevation-modal);
   opacity: 0.9;
 
   .dd-row__drag {
