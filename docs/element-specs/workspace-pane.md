@@ -9,7 +9,7 @@ The right-side panel that shows image groups, thumbnails, and detail views. It's
 - Interaction scenarios: [use-cases/map-shell.md](../use-cases/map-shell.md) (IS-2, IS-3, IS-4)
 - Implementation blueprint: [implementation-blueprints/workspace-pane.md](../implementation-blueprints/workspace-pane.md)
 - Parent spec: [map-shell](map-shell.md)
-- Child specs: [drag-divider](drag-divider.md), [group-tab-bar](group-tab-bar.md), [thumbnail-grid](thumbnail-grid.md), [image-detail-view](image-detail-view.md)
+- Child specs: [drag-divider](drag-divider.md), [group-tab-bar](group-tab-bar.md), [active-selection-view](active-selection-view.md), [thumbnail-grid](thumbnail-grid.md), [image-detail-view](image-detail-view.md)
 - Product use cases: UC1 (Technician on Site) §6–7, UC2 (Clerk Preparing a Quote) §6–10
 
 ## What It Looks Like

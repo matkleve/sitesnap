@@ -134,7 +134,7 @@ See relevant historical images for the exact spot the technician is currently st
 **Main Flow**
 
 1. Technician opens GeoSite on a mobile device.
-2. App centers the map on the technician’s current location (from GPS) or on a searched address.
+2. App centers the map on the technician’s city (from GPS) or on a searched address.
 3. Technician optionally adjusts filters (time range, project, metadata, max distance) to narrow results.
 4. GeoSite queries the backend for images within the selected distance of the reference point.
 5. Map displays markers (and/or clusters) for all relevant images.

@@ -43,11 +43,12 @@ Status: ✅ spec written | 🔲 needs spec
 
 ### Workspace & Groups
 
+- ✅ `active-selection-view.md` — Active Selection View (composed workspace content: toolbar + grid + grouping + filtering)
 - ✅ `group-tab-bar.md` — Group Tab Bar
 - ✅ `thumbnail-grid.md` — Thumbnail Grid (virtual scrolling gallery)
 - ✅ `thumbnail-card.md` — Thumbnail Card (128×128 with hover actions)
 - ✅ `workspace-toolbar.md` — Workspace Toolbar (sort/group/view controls)
-- ✅ `workspace-view-system.md` — Workspace View System (grid/list/map-only switching)
+- ✅ `workspace-view-system.md` — Workspace View System (data pipeline architecture)
 
 ### Panels & Detail
 
