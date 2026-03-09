@@ -74,8 +74,12 @@ export class WorkspaceViewService {
 
   // ── Public API ───────────────────────────────────────────────────────────
 
+  /** Monotonic counter to discard stale RPC responses on rapid marker clicks. */
+  private clusterLoadId = 0;
+
   /** Load images for a cluster click via the cluster_images RPC. */
   async loadClusterImages(clusterLat: number, clusterLng: number, zoom: number): Promise<void> {
+    const requestId = ++this.clusterLoadId;
     this.selectionActive.set(true);
     this.isLoading.set(true);
     try {
@@ -84,31 +88,20 @@ export class WorkspaceViewService {
         p_cluster_lng: clusterLng,
         p_zoom: zoom,
       });
+      // Discard if a newer request has been fired while this one was in-flight.
+      if (requestId !== this.clusterLoadId) return;
+
       if (error || !data || (data as RawClusterRow[]).length === 0) {
-        // Dev placeholder: markers always have photos in production.
-        // During development, show a placeholder image in the grid.
-        this.rawImages.set([
-          {
-            id: `placeholder-${clusterLat}-${clusterLng}`,
-            latitude: clusterLat,
-            longitude: clusterLng,
-            thumbnailPath: null,
-            storagePath: '',
-            capturedAt: null,
-            createdAt: new Date().toISOString(),
-            projectId: null,
-            projectName: null,
-            direction: null,
-            exifLatitude: null,
-            exifLongitude: null,
-            addressLabel: null,
-          },
-        ]);
+        // No images found — show the empty selection state.
+        this.rawImages.set([]);
         return;
       }
       this.rawImages.set((data as RawClusterRow[]).map(mapClusterRow));
     } finally {
-      this.isLoading.set(false);
+      // Only clear loading if this is still the active request.
+      if (requestId === this.clusterLoadId) {
+        this.isLoading.set(false);
+      }
     }
   }
 

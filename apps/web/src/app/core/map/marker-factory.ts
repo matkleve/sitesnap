@@ -71,7 +71,7 @@ function buildMarkerContent(
   thumbnailUrl?: string,
 ): string {
   if (hasSingleThumbnail) {
-    return `<img src="${escapeHtmlAttribute(thumbnailUrl)}" alt="Uploaded photo marker" onerror="this.parentElement.classList.add('map-photo-marker__body--error');this.remove()" />`;
+    return `<img src="${escapeHtmlAttribute(thumbnailUrl)}" alt="" onerror="this.parentElement.classList.add('map-photo-marker__body--error');this.remove()" />`;
   }
   if (isPlaceholder) {
     return '<span class="map-photo-marker__placeholder-icon" aria-hidden="true"></span>';

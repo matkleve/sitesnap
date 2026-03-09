@@ -62,13 +62,15 @@ flowchart TB
 
 ## 2. Cluster Click → Workspace Pane Flow
 
-### Current Problem
+### Coordinate Mismatch (resolved)
 
-When the user clicks a cluster marker (count > 1), the workspace pane opens but shows nothing useful. The `viewport_markers` RPC only returns `image_id` for single-image markers. For clusters, `image_id` is null.
+`viewport_markers` returns `AVG(lat/lng)` for cluster positions (visually accurate), but the original `cluster_images` WHERE clause compared against grid-snapped values directly. Because `AVG(lat) ≠ ROUND(lat/cell_size)*cell_size`, the RPC returned 0 rows for every cluster click.
 
-### Solution: New RPC `cluster_images`
+**Fix:** `cluster_images` now re-snaps incoming coordinates via a `snapped_input` CTE before comparing. The average position always falls within its source cell, so `ROUND(avg/cell_size)*cell_size` reliably recovers the correct grid cell.
 
-A new Supabase RPC that fetches all images within a specific grid cell (the same grid cell the cluster represents). Takes the cluster's snapped coordinates and zoom level, returns individual images with their metadata.
+### Solution: RPC `cluster_images`
+
+A Supabase RPC that fetches all images within a specific grid cell. Takes the cluster's displayed coordinates (AVG) and zoom level, internally re-snaps them to the grid, and returns individual images with metadata.
 
 ```mermaid
 sequenceDiagram
@@ -83,6 +85,7 @@ sequenceDiagram
     Map->>MS: handlePhotoMarkerClick(markerKey)
     MS->>MS: photoPanelOpen.set(true)
     MS->>Supa: rpc('cluster_images', {cluster_lat, cluster_lng, zoom})
+    Note right of Supa: RPC re-snaps AVG coords<br/>to grid cell internally
     Supa-->>MS: [{id, thumbnail_path, captured_at, project_id, ...}, ...]
     MS->>WVS: loadClusterImages() → rawImages.set(images)
     WVS->>WVS: apply filters → sort → group
@@ -91,6 +94,9 @@ sequenceDiagram
     alt count === 1 && imageId
         MS->>MS: openDetailView(imageId)
         Note right of MS: Grid is populated in background<br/>for back-navigation
+    else count > 1 (cluster)
+        MS->>MS: detailImageId.set(null)
+        Note right of MS: Clear any open detail view<br/>so thumbnail grid renders
     end
 ```
 
@@ -98,7 +104,7 @@ sequenceDiagram
 
 ```sql
 -- Returns all individual images that belong to a specific cluster grid cell.
--- Uses the same grid-snapping formula as viewport_markers.
+-- Re-snaps incoming AVG coordinates to the grid before comparing.
 CREATE OR REPLACE FUNCTION public.cluster_images(
   p_cluster_lat numeric,
   p_cluster_lng numeric,
@@ -128,6 +134,19 @@ AS $$
         WHEN p_zoom >= 19 THEN 0::numeric
         ELSE (80.0 * 360.0) / (256.0 * power(2, p_zoom))
       END AS cell_size
+  ),
+  -- Re-snap AVG coords from viewport_markers back to the grid cell.
+  snapped_input AS (
+    SELECT
+      CASE WHEN g.cell_size > 0
+        THEN ROUND(p_cluster_lat / g.cell_size) * g.cell_size
+        ELSE p_cluster_lat
+      END AS snap_lat,
+      CASE WHEN g.cell_size > 0
+        THEN ROUND(p_cluster_lng / g.cell_size) * g.cell_size
+        ELSE p_cluster_lng
+      END AS snap_lng
+    FROM grid g
   )
   SELECT
     i.id            AS image_id,
@@ -145,15 +164,15 @@ AS $$
     i.address_label
   FROM public.images i
   CROSS JOIN grid g
+  CROSS JOIN snapped_input si
   LEFT JOIN public.projects p ON p.id = i.project_id
   WHERE i.organization_id = public.user_org_id()
     AND i.latitude  IS NOT NULL
     AND i.longitude IS NOT NULL
     AND (
-      -- Same grid-snapping formula as viewport_markers
       (g.cell_size > 0 AND
-       ROUND(i.latitude  / g.cell_size) * g.cell_size = p_cluster_lat AND
-       ROUND(i.longitude / g.cell_size) * g.cell_size = p_cluster_lng)
+       ROUND(i.latitude  / g.cell_size) * g.cell_size = si.snap_lat AND
+       ROUND(i.longitude / g.cell_size) * g.cell_size = si.snap_lng)
       OR
       (g.cell_size = 0 AND
        ROUND(i.latitude, 7) = p_cluster_lat AND
@@ -326,10 +345,12 @@ flowchart TD
     end
 
     ClickMarker -->|"count=1"| LoadAndDetail["Load images + Open Detail"]
-    ClickMarker -->|"count>1"| LoadImages
+    ClickMarker -->|"count>1"| ClusterFlow["Load images + Clear Detail"]
     LoadAndDetail --> ReFilter --> ReSort --> ReGroup --> ReRender
     LoadAndDetail --> OpenDetail
-    LoadImages --> ReFilter
+    ClusterFlow --> ClearDetail["detailImageId.set(null)"]
+    ClusterFlow --> ReFilter
+    ClearDetail --> ReRender
 
     ClickGroup -->|"activate/deactivate/reorder"| ReGroup
     ClickSort -->|"change sort key/dir"| ReSort

@@ -27,16 +27,16 @@ The right-side panel that shows image groups, thumbnails, and detail views. It's
 
 ## Actions
 
-| #   | User Action                                 | System Response                                                                                                 | Triggers                                                      |
-| --- | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| 1   | Clicks a single photo marker on map         | Workspace pane opens with Active Selection tab showing that image                                               | `workspacePaneOpen` → true                                    |
-| 1b  | Clicks a cluster marker on map              | Workspace pane opens with Active Selection tab showing all images in the cluster; pane header shows image count | `workspacePaneOpen` → true, `activeClusterImageIds` populated |
-| 2   | Drags the Drag Divider                      | Resizes workspace pane width (clamped 280–640px)                                                                | CSS width change                                              |
-| 3   | Clicks close button                         | Workspace pane slides out                                                                                       | `workspacePaneOpen` → false                                   |
-| 4   | Swipes down on bottom sheet handle (mobile) | Snaps to lower position or closes                                                                               | Snap point logic                                              |
-| 5   | Swipes up on bottom sheet handle (mobile)   | Snaps to higher position                                                                                        | Snap point logic                                              |
-| 6   | Clicks a thumbnail in the grid              | Image Detail View replaces grid, back arrow to return                                                           | Detail view state                                             |
-| 7   | Selects a group tab                         | Content switches to that group's thumbnails                                                                     | Active tab change                                             |
+| #   | User Action                                 | System Response                                                                                                                        | Triggers                                           |
+| --- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| 1   | Clicks a single photo marker on map         | Workspace pane opens with image detail view for that photo; thumbnail grid loads in background                                         | `workspacePaneOpen` → true, `detailImageId` set    |
+| 1b  | Clicks a cluster marker on map              | Workspace pane opens showing thumbnail grid with all images in the cluster; any open detail view is dismissed (`detailImageId` → null) | `workspacePaneOpen` → true, `detailImageId` → null |
+| 2   | Drags the Drag Divider                      | Resizes workspace pane width (clamped 280–640px)                                                                                       | CSS width change                                   |
+| 3   | Clicks close button                         | Workspace pane slides out                                                                                                              | `workspacePaneOpen` → false                        |
+| 4   | Swipes down on bottom sheet handle (mobile) | Snaps to lower position or closes                                                                                                      | Snap point logic                                   |
+| 5   | Swipes up on bottom sheet handle (mobile)   | Snaps to higher position                                                                                                               | Snap point logic                                   |
+| 6   | Clicks a thumbnail in the grid              | Image Detail View replaces grid, back arrow to return                                                                                  | Detail view state                                  |
+| 7   | Selects a group tab                         | Content switches to that group's thumbnails                                                                                            | Active tab change                                  |
 
 ## Component Hierarchy
 

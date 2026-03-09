@@ -167,6 +167,7 @@ export class MapShellComponent implements OnDestroy {
       lastRendered?: {
         count: number;
         thumbnailUrl?: string;
+        thumbnailLoading?: boolean;
         direction?: number;
         corrected?: boolean;
         uploading?: boolean;
@@ -423,6 +424,7 @@ export class MapShellComponent implements OnDestroy {
       // Deselect the active marker but keep the workspace pane open.
       // The pane is closed only via its own close button.
       this.setSelectedMarker(null);
+      this.detailImageId.set(null);
       return;
     }
 
@@ -715,6 +717,9 @@ export class MapShellComponent implements OnDestroy {
     // Single-image marker: also jump directly to detail view.
     if (markerState.count === 1 && markerState.imageId) {
       this.openDetailView(markerState.imageId);
+    } else {
+      // Cluster click: ensure detail view is dismissed so thumbnail grid shows.
+      this.detailImageId.set(null);
     }
   }
 
@@ -876,14 +881,29 @@ export class MapShellComponent implements OnDestroy {
         transform: { width: 80, height: 80, resize: 'cover' },
       });
 
-    state.thumbnailLoading = false;
-
     if (!error && data?.signedUrl) {
-      state.thumbnailUrl = data.signedUrl;
-      state.signedAt = Date.now();
+      // Preload the image so the browser caches it before we swap the DOM.
+      // The pulse animation continues on the placeholder until the image is ready.
+      const loaded = await this.preloadImage(data.signedUrl);
+      state.thumbnailLoading = false;
+      if (loaded) {
+        state.thumbnailUrl = data.signedUrl;
+        state.signedAt = Date.now();
+      }
+    } else {
+      state.thumbnailLoading = false;
     }
-    // On error: thumbnailUrl stays undefined → placeholder remains visible.
+    // On error or preload failure: thumbnailUrl stays undefined → placeholder remains visible.
     this.refreshPhotoMarker(key);
+  }
+
+  private preloadImage(url: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve(true);
+      img.onerror = () => resolve(false);
+      img.src = url;
+    });
   }
 
   private refreshPhotoMarker(markerKey: string): void {
@@ -901,6 +921,7 @@ export class MapShellComponent implements OnDestroy {
       last &&
       last.count === markerState.count &&
       last.thumbnailUrl === markerState.thumbnailUrl &&
+      last.thumbnailLoading === markerState.thumbnailLoading &&
       last.direction === markerState.direction &&
       last.corrected === markerState.corrected &&
       last.uploading === markerState.uploading &&
@@ -913,6 +934,7 @@ export class MapShellComponent implements OnDestroy {
     markerState.lastRendered = {
       count: markerState.count,
       thumbnailUrl: markerState.thumbnailUrl,
+      thumbnailLoading: markerState.thumbnailLoading,
       direction: markerState.direction,
       corrected: markerState.corrected,
       uploading: markerState.uploading,

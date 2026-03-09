@@ -1,14 +1,13 @@
 -- =============================================================================
--- Add address resolution columns to images table.
--- address_label: human-readable address string (from geocoding / manual entry)
--- location_unresolved: flag for images that still need geocoding
+-- Fix: cluster_images RPC — re-snap input coordinates to the grid.
+--
+-- viewport_markers returns AVG(lat/lng) for cluster positions, but the
+-- original WHERE clause compared directly against grid-snapped image coords.
+-- AVG ≠ ROUND(lat/cell_size)*cell_size, so the RPC returned 0 rows for
+-- every cluster click. This migration adds a snapped_input CTE that
+-- recovers the correct grid cell from the displayed AVG position.
 -- =============================================================================
 
-ALTER TABLE public.images
-  ADD COLUMN IF NOT EXISTS address_label text,
-  ADD COLUMN IF NOT EXISTS location_unresolved boolean DEFAULT true;
-
--- Drop and recreate cluster_images RPC to add address_label to return type.
 DROP FUNCTION IF EXISTS public.cluster_images(numeric, numeric, int);
 
 CREATE OR REPLACE FUNCTION public.cluster_images(
