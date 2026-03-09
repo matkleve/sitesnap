@@ -33,23 +33,22 @@ A thin vertical bar (2px visual width, `--color-border` at rest) occupying the f
 DragDivider                                ← host element, full height, col-resize cursor
 ├── HitZone                                ← transparent tap target, min-width 2.75rem (44px)
 │   ├── Bar                                ← 2px visual line, centered in hit zone, --color-border
-│   └── GripIndicator                      ← centered vertically in hit zone
-│       ├── GripLine                        ← short horizontal line (1rem wide × 1px), --color-text-disabled
-│       ├── GripLine                        ← spaced --spacing-1 (4px) apart
-│       └── GripLine                        ← 3 lines total
+│   └── GripIndicator                      ← pill badge centered vertically in hit zone
+│       └── drag_indicator icon              ← Material icon, 1rem, --color-text-disabled
 ```
 
 ### Grip indicator details
 
-The grip indicator is the centered visual affordance. It uses existing design token spacing to stay consistent with UI density:
+The grip indicator is a pill badge centered on the divider. It uses a `drag_indicator` Material icon as the visual affordance:
 
-- **Grip line dimensions**: `1rem` wide × `1px` tall, `--color-text-disabled` (fades to `--color-text-secondary` on hover)
-- **Grip line gap**: `--spacing-1` (4px) between each line
-- **Vertical position**: centered in the divider's full height
+- **Badge dimensions**: `var(--ui-item-media-size-default)` wide × `var(--spacing-7)` (48px) tall — portrait orientation
+- **Badge style**: `--color-bg-surface` background, `1px solid --color-border`, `--shadow-sm`, `--container-radius-control` (8px) corners
+- **Icon**: `drag_indicator`, `1rem` (16px), `--color-text-disabled` at rest → `--color-text-secondary` on hover
+- **Vertical position**: centered in the divider’s full height
 - **Horizontal position**: centered in the hit zone
-- **Visibility**: `opacity: 0` at rest → `opacity: 1` on hover/focus/drag, transitions over 80ms
+- **Visibility**: `opacity: 0` at rest → `opacity: 1` on hover/focus/drag, with border/shadow upgrade; transitions over 80ms
 
-This follows the standard resizable-pane grip pattern used by VS Code, Notion, and Figma: three short parallel lines perpendicular to the drag direction, centered on the separator.
+This follows the VS Code / Figma resizable-pane pill handle pattern.
 
 ## Data
 
