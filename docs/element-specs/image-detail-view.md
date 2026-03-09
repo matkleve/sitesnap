@@ -28,7 +28,7 @@ Property rows follow Notion pattern: click the value → inline edit, no separat
 | 3   | Clicks a metadata value         | Value becomes an inline text input          | Edit mode              |
 | 4   | Presses Enter or blurs input    | Saves updated metadata value                | Supabase update        |
 | 5   | Clicks "Edit location"          | Enters correction mode (drag marker on map) | Correction flow        |
-| 6   | Clicks "Add to group"           | Opens group picker                          | Group assignment       |
+| 6   | Clicks "Add to project"         | Opens project picker                        | Project assignment     |
 | 7   | Clicks "Delete" in actions menu | Confirmation dialog, then deletes image     | Supabase delete        |
 | 8   | Scrolls down                    | Reveals more metadata and coordinate info   | Scroll                 |
 
@@ -48,7 +48,7 @@ ImageDetailView                            ← fills Workspace Pane content area
 │   └── TimestampRow                       ← captured_at or created_at
 ├── DetailActions
 │   ├── EditLocationButton                 ← ghost button "Edit location"
-│   ├── AddToGroupButton                   ← ghost button "Add to group"
+│   ├── AddToProjectButton                 ← ghost button "Add to project"
 │   └── ContextMenu (⋯)                   ← Delete, Copy coordinates, etc.
 └── [corrected] CorrectionHistory
     ├── OriginalCoords                     ← "Original EXIF: lat, lng"
@@ -98,5 +98,5 @@ ImageDetailView                            ← fills Workspace Pane content area
 - [ ] Coordinates displayed with correction indicator if corrected
 - [ ] Original EXIF coordinates shown when correction exists (Honesty principle)
 - [ ] Edit location button starts marker correction mode
-- [ ] Add to group opens group picker
+- [ ] Add to project opens project picker
 - [ ] Delete confirmation before removal

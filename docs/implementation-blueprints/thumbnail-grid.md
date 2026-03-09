@@ -207,7 +207,7 @@ import {
               [isSelected]="selectionService.isSelected(image.id)()"
               (click)="onCardClick(image)"
               (toggleSelect)="selectionService.toggle(image.id)"
-              (addToGroup)="onAddToGroup(image)"
+              (addToProject)="onAddToProject(image)"
             />
           }
         </div>
@@ -302,8 +302,8 @@ export class ThumbnailGridComponent {
           />
           <button
             class="add-to-group-btn"
-            (click)="$event.stopPropagation(); addToGroup.emit()"
-            aria-label="Add to group"
+            (click)="$event.stopPropagation(); addToProject.emit()"
+            aria-label="Add to project"
           >
             +
           </button>
@@ -324,7 +324,7 @@ export class ThumbnailCardComponent {
   isSelected = input(false);
 
   toggleSelect = output<void>();
-  addToGroup = output<void>();
+  addToProject = output<void>();
   contextMenu = output<void>();
 
   isHovered = signal(false);

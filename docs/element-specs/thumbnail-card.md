@@ -15,7 +15,7 @@ A single 128×128px image thumbnail in the grid. Shows photo preview with overla
 On hover (desktop): fade-in at 80ms with no layout shift:
 
 - Top-left: selection checkbox
-- Top-right: "Add to group" icon button
+- Top-right: "Add to project" icon button
 - Bottom-right: context menu (⋯) button
 
 ## Where It Lives
@@ -30,7 +30,7 @@ On hover (desktop): fade-in at 80ms with no layout shift:
 | 1   | Clicks card                      | Opens Image Detail View                            | `detailImageId` set |
 | 2   | Hovers card (desktop)            | Reveals action buttons (checkbox, add-to-group, ⋯) | Opacity 0→1, 80ms   |
 | 3   | Clicks checkbox                  | Toggles selection for this image                   | Selection state     |
-| 4   | Clicks "Add to group"            | Opens group picker dropdown                        | Group selection     |
+| 4   | Clicks "Add to project"          | Opens project picker dropdown                      | Project selection   |
 | 5   | Clicks ⋯ (context menu)          | Opens menu: View detail, Edit metadata, Delete     | Context menu        |
 | 6   | Enters bulk-select mode (mobile) | Checkboxes become always visible                   | Bulk mode           |
 
@@ -44,7 +44,7 @@ ThumbnailCard                              ← 128×128, rounded, overflow-hidde
 ├── [corrected] CorrectionDot             ← top-right, 6px, --color-accent
 └── [hover] ActionOverlay                  ← opacity 0→1, 80ms, no layout shift
     ├── SelectionCheckbox                  ← top-left
-    ├── AddToGroupButton                   ← top-right
+│   ├── AddToProjectButton                 ← top-right
     └── ContextMenuButton (⋯)             ← bottom-right
 ```
 
@@ -83,6 +83,6 @@ ThumbnailCard                              ← 128×128, rounded, overflow-hidde
 - [ ] Date overlay bottom-left, always visible
 - [ ] Project badge bottom-right (when project assigned)
 - [ ] Correction dot top-right (when corrected)
-- [ ] Hover reveals checkbox, add-to-group, context menu (80ms, no layout shift)
+- [ ] Hover reveals checkbox, add-to-project, context menu (80ms, no layout shift)
 - [ ] Mobile: checkboxes visible in bulk-select mode, hidden otherwise
 - [ ] Click opens detail view

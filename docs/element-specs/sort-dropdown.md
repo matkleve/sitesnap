@@ -81,14 +81,16 @@ SortDropdown                               ← floating dropdown, --color-bg-ele
 
 ## Acceptance Criteria
 
-- [ ] Search input at top, filters options by name
-- [ ] All built-in sort options listed
+- [x] Search input at top, filters options by name
+- [x] All built-in sort options listed
 - [ ] Custom metadata keys appear as additional sort options
-- [ ] Active sort highlighted with checkmark and `--color-primary` text
+- [x] Active sort highlighted with checkmark and `--color-primary` text
 - [ ] Direction toggle (↑/↓) visible on hover for each option
 - [ ] Click applies sort immediately — workspace re-sorts live
-- [ ] Single active sort (not multi-sort)
+- [x] Single active sort (not multi-sort)
 - [ ] Empty state "No matching properties" when search has no results
+- [x] Dropdown uses `position: fixed` to escape overflow
+- [x] Row hover: clay 8% background tint
 
 ---
 
@@ -141,4 +143,79 @@ flowchart TD
     end
 
     Note["Sort applies within each group.\nGroups themselves are ordered by\ntheir first item's sort value."]
+```
+
+## Sort Dropdown — State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> DefaultSort
+
+    state DefaultSort {
+        [*]: activeSort = date_captured DESC\nToolbar dot hidden (default = no custom sort)\nSearch empty
+    }
+
+    state CustomSort {
+        [*]: User selected a non-default sort\nToolbar dot visible (clay)\nActive option has checkmark
+    }
+
+    state Searching {
+        [*]: searchTerm is non-empty\nOptions filtered by name match\nMatching options shown
+    }
+
+    state EmptySearch {
+        [*]: searchTerm matches nothing\n"No matching properties" shown
+    }
+
+    DefaultSort --> CustomSort: click different option
+    CustomSort --> CustomSort: click different option
+    CustomSort --> DefaultSort: click date_captured DESC
+    DefaultSort --> Searching: type in search input
+    CustomSort --> Searching: type in search input
+    Searching --> EmptySearch: no options match
+    EmptySearch --> Searching: edit search (matches found)
+    Searching --> DefaultSort: clear search + sort is default
+    Searching --> CustomSort: clear search + sort is custom
+```
+
+## Sort Option Row States
+
+```mermaid
+stateDiagram-v2
+    state "Inactive Row" as Inactive {
+        [*]: text-primary\nno checkmark\ndirection toggle hidden
+    }
+    state "Inactive Hover" as InactiveHover {
+        [*]: bg clay 8%\ndirection toggle visible (↑/↓)\ncursor pointer
+    }
+    state "Active Row" as Active {
+        [*]: text --color-primary\ncheckmark visible\ndirection shown
+    }
+    state "Active Hover" as ActiveHover {
+        [*]: bg clay 8%\ndirection toggle highlighted\nclick = flip direction
+    }
+
+    Inactive --> InactiveHover: mouseenter
+    InactiveHover --> Inactive: mouseleave
+    InactiveHover --> Active: click (select this sort)
+    Active --> ActiveHover: mouseenter
+    ActiveHover --> Active: mouseleave
+    ActiveHover --> Active: click direction toggle (flips asc/desc)
+    Active --> Inactive: different option clicked
+```
+
+## Direction Toggle
+
+```mermaid
+stateDiagram-v2
+    [*] --> Descending
+    Descending --> Ascending: click toggle
+    Ascending --> Descending: click toggle
+
+    state Descending {
+        [*]: arrow_downward icon\nNewest/largest first
+    }
+    state Ascending {
+        [*]: arrow_upward icon\nOldest/smallest first
+    }
 ```

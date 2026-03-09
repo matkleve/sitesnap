@@ -32,6 +32,7 @@
 
   display: grid;
   grid-template-rows: auto 0fr;
+  row-gap: 0;
   width: 100%;
   border: 1px solid var(--color-border);
   border-radius: var(--ui-container-radius);

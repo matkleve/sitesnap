@@ -76,14 +76,17 @@ ProjectsDropdown                           ← floating dropdown, --color-bg-ele
 
 ## Acceptance Criteria
 
-- [ ] Search input at top filters projects by name
-- [ ] Each project row has a checkbox, name, and image count
-- [ ] "All projects" row with tri-state checkbox (all/some/none)
+- [x] Search input at top filters projects by name
+- [x] Each project row has a checkbox, name, and image count
+- [x] "All projects" row with tri-state checkbox (all/some/none)
 - [ ] Checking/unchecking updates workspace view immediately
 - [ ] "+ New project" creates a project with inline name entry
 - [ ] Closing dropdown does NOT clear project selection
 - [ ] Empty search state: "No matching projects"
 - [ ] Newly created project appears in list immediately
+- [x] Dropdown uses `position: fixed` to escape overflow
+- [x] Row hover: clay 8% background tint
+- [x] Checked rows: text-primary, unchecked: text-secondary
 
 ---
 
@@ -132,4 +135,124 @@ sequenceDiagram
     Supa-->>PD: {id: 'new-uuid', name: 'Berlin-Mitte'}
     PD->>PD2: add to project list, auto-check
     PD2->>PD2: emit projectFilterChanged with new project included
+```
+
+## Projects Dropdown — State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> AllSelected
+
+    state AllSelected {
+        [*]: "All projects" checked\nNo project filter active\nToolbar dot hidden\nAll rows checked
+    }
+
+    state SomeSelected {
+        [*]: Subset of projects checked\n"All projects" shows indeterminate (–)\nToolbar dot visible (clay)\nFilter active
+    }
+
+    state NoneSelected {
+        [*]: No projects checked\n"All projects" unchecked\nToolbar dot visible (clay)\nWorkspace shows no images
+    }
+
+    state Searching {
+        [*]: searchTerm non-empty\nProject list filtered by name\nCheckbox states preserved
+    }
+
+    state EmptySearch {
+        [*]: searchTerm matches no projects\n"No matching projects" shown
+    }
+
+    state CreatingProject {
+        [*]: Inline name input visible\nInput focused\nUser typing project name
+    }
+
+    AllSelected --> SomeSelected: uncheck a project
+    SomeSelected --> AllSelected: check "All projects"
+    SomeSelected --> SomeSelected: check/uncheck individual project
+    SomeSelected --> NoneSelected: uncheck all remaining
+    NoneSelected --> SomeSelected: check a project
+    NoneSelected --> AllSelected: check "All projects"
+    AllSelected --> Searching: type in search input
+    SomeSelected --> Searching: type in search input
+    Searching --> EmptySearch: no projects match
+    EmptySearch --> Searching: edit search (matches found)
+    Searching --> AllSelected: clear search (all checked)
+    Searching --> SomeSelected: clear search (partial)
+    AllSelected --> CreatingProject: click "+ New project"
+    SomeSelected --> CreatingProject: click "+ New project"
+    CreatingProject --> SomeSelected: Enter (project created + auto-checked)
+    CreatingProject --> AllSelected: Escape (cancel creation)
+```
+
+## "All Projects" Checkbox — Tri-State
+
+```mermaid
+stateDiagram-v2
+    [*] --> Checked
+
+    state Checked {
+        [*]: All projects selected\nCheckbox = ✓\nNo filter applied
+    }
+    state Indeterminate {
+        [*]: Some projects selected\nCheckbox = –\nFilter applied
+    }
+    state Unchecked {
+        [*]: No projects selected\nCheckbox = empty\nFilter blocks all
+    }
+
+    Checked --> Indeterminate: uncheck one project
+    Indeterminate --> Checked: click "All projects" (select all)
+    Indeterminate --> Indeterminate: check/uncheck (still partial)
+    Indeterminate --> Unchecked: uncheck all remaining
+    Unchecked --> Checked: click "All projects"
+```
+
+## Project Row — Visual States
+
+```mermaid
+stateDiagram-v2
+    state "Row Idle (Checked)" as IdleChecked {
+        [*]: checkbox filled\ntext-primary\nimage count visible
+    }
+    state "Row Idle (Unchecked)" as IdleUnchecked {
+        [*]: checkbox empty\ntext-secondary\nimage count dimmed
+    }
+    state "Row Hover" as Hover {
+        [*]: bg clay 8%\ncursor pointer\nrow highlighted
+    }
+
+    IdleChecked --> Hover: mouseenter
+    Hover --> IdleChecked: mouseleave (was checked)
+    Hover --> IdleUnchecked: mouseleave (was unchecked)
+    IdleUnchecked --> Hover: mouseenter
+    Hover --> IdleUnchecked: click (uncheck)
+    Hover --> IdleChecked: click (check)
+```
+
+## Create New Project Flow — States
+
+```mermaid
+stateDiagram-v2
+    [*] --> ButtonVisible
+
+    state ButtonVisible {
+        [*]: "+ New project" link visible\nat bottom of dropdown
+    }
+    state InputVisible {
+        [*]: Inline text input shown\nInput focused\nPlaceholder "Project name..."
+    }
+    state Saving {
+        [*]: Input disabled\nSpinner visible\nSaving to Supabase
+    }
+    state Created {
+        [*]: New row appears in list\nAuto-checked\nInput cleared\nBack to button
+    }
+
+    ButtonVisible --> InputVisible: click "+ New project"
+    InputVisible --> Saving: Enter (name valid)
+    InputVisible --> ButtonVisible: Escape (cancel)
+    Saving --> Created: success
+    Created --> ButtonVisible: transition complete
+    Saving --> InputVisible: error (show message, re-enable)
 ```

@@ -1,0 +1,136 @@
+// Grouping dropdown — cross-section CDK drag, trailing drag handle, multi-select
+$dd-padding: var(--spacing-3);
+
+:host {
+  display: block;
+}
+
+.grouping-dropdown {
+  padding-block: var(--spacing-2);
+}
+
+.dd-section {
+  padding-inline: $dd-padding;
+}
+
+.dd-section__label {
+  display: block;
+  padding-block: var(--spacing-1) var(--spacing-2);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.dd-empty {
+  padding: var(--spacing-2) 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-disabled);
+}
+
+.dd-divider {
+  height: 1px;
+  margin-block: var(--spacing-1);
+  background: var(--color-border);
+}
+
+.dd-drop-zone {
+  min-height: 0.25rem; // allow dropping when section is empty
+}
+
+// --- Row base ---
+.dd-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  width: 100%;
+  padding: var(--spacing-1) var(--spacing-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: background 80ms ease-out;
+
+  &:hover {
+    background: color-mix(in srgb, var(--color-clay) 8%, transparent);
+  }
+}
+
+// --- Drag handle (trailing, Quiet Actions) ---
+.dd-row__drag {
+  opacity: 0;
+  margin-left: auto;
+  font-size: 1rem;
+  color: var(--color-text-secondary);
+  cursor: grab;
+  transition: opacity 80ms ease-out;
+
+  .dd-row:hover &,
+  .dd-row--selected & {
+    opacity: 1;
+  }
+}
+
+// --- Media icon (leading) ---
+.dd-row__icon {
+  font-size: 1rem;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+// --- Label ---
+.dd-row__label {
+  flex: 1 1 auto;
+  text-align: left;
+}
+
+// --- Active row ---
+.dd-row--active {
+  color: var(--color-text-primary);
+}
+
+// --- Available row ---
+.dd-row--available {
+  color: var(--color-text-secondary);
+
+  &:hover {
+    color: var(--color-text-primary);
+  }
+}
+
+// --- Selected row (multi-select via Ctrl+Click) ---
+.dd-row--selected {
+  background: color-mix(in srgb, var(--color-clay) 14%, transparent);
+  border-left: 2px solid var(--color-clay);
+
+  &:hover {
+    background: color-mix(in srgb, var(--color-clay) 18%, transparent);
+  }
+}
+
+// --- CDK drag placeholder (ghost in source list) ---
+.cdk-drag-placeholder {
+  opacity: 0.4;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+// --- CDK drag preview (floating element while dragging) ---
+.cdk-drag-preview {
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-elevated);
+  box-shadow: var(--shadow-xl);
+  opacity: 0.9;
+
+  .dd-row__drag {
+    opacity: 1;
+    cursor: grabbing;
+  }
+}
+
+// --- CDK drag animating ---
+.cdk-drag-animating {
+  transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+}

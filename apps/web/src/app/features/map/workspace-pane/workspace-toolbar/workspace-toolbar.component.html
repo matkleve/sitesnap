@@ -1,0 +1,48 @@
+<div class="workspace-toolbar" role="toolbar" aria-label="Workspace controls">
+  @for (btn of buttons; track btn.id) {
+    <button
+      class="toolbar-btn"
+      [class.toolbar-btn--active]="btn.active()"
+      [class.toolbar-btn--open]="activeDropdown() === btn.id"
+      [attr.aria-expanded]="activeDropdown() === btn.id"
+      [attr.aria-haspopup]="true"
+      (click)="toggleDropdown(btn.id, $event); $event.stopPropagation()"
+    >
+      <span class="toolbar-btn__label">{{ btn.label }}</span>
+      @if (btn.active()) {
+        <span class="toolbar-btn__dot" aria-hidden="true"></span>
+      }
+      <span class="toolbar-btn__chevron material-icons" aria-hidden="true">expand_more</span>
+    </button>
+  }
+</div>
+
+@if (activeDropdown()) {
+  <div
+    class="toolbar-dropdown"
+    [style.top.px]="dropdownTop()"
+    [style.left.px]="dropdownLeft()"
+    (click)="$event.stopPropagation()"
+  >
+    @switch (activeDropdown()) {
+      @case ('grouping') {
+        <app-grouping-dropdown
+          [activeGroupings]="activeGroupings()"
+          [availableProperties]="availableGroupings()"
+          (groupingsChanged)="onGroupingsChanged($event.active, $event.available)"
+          (dragStarted)="onDragStarted()"
+          (dragEnded)="onDragEnded()"
+        />
+      }
+      @case ('filter') {
+        <app-filter-dropdown />
+      }
+      @case ('sort') {
+        <app-sort-dropdown />
+      }
+      @case ('projects') {
+        <app-projects-dropdown />
+      }
+    }
+  </div>
+}

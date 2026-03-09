@@ -89,13 +89,11 @@
 
   // Photo marker geometry derives from the shared media token system.
   --photo-marker-body-size: calc(var(--ui-item-media-size-default) * 1.25);
-  --photo-marker-hit-size: 3rem;
-  --photo-marker-tail-width: 0.875rem;
-  --photo-marker-tail-height: 0.625rem;
+  --photo-marker-hit-size: 2.5rem;
   --photo-marker-correction-dot-size: 8px;
   --photo-marker-drop-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
   --photo-marker-selected-scale: 1.05;
-  --photo-marker-cluster-font-size: calc(var(--photo-marker-body-size) * 0.38);
+  --photo-marker-cluster-font-size: 0.875rem;
 
   // Sidebar layout dimensions — standardized from docs/design/tokens.md.
   --layout-sidebar-width-collapsed: var(--spacing-7);

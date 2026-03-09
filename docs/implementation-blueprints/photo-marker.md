@@ -254,12 +254,12 @@ const { data } = await this.supabaseService.client.storage
 
 ## Missing Infrastructure
 
-| What                    | Why Needed                                                    | Proposed Location                |
-| ----------------------- | ------------------------------------------------------------- | -------------------------------- |
-| `SelectionService`      | Multi-select (Ctrl+click), cluster→Active Selection           | `core/selection.service.ts`      |
-| Context menu component  | Right-click marker → view detail, edit location, add to group | `shared/context-menu/`           |
-| Correction mode handler | Drag marker to update coordinates                             | Extension of `MapShellComponent` |
-| Batch thumbnail signing | Sign multiple URLs in one call instead of per-marker          | `UploadService` or new utility   |
+| What                    | Why Needed                                                      | Proposed Location                |
+| ----------------------- | --------------------------------------------------------------- | -------------------------------- |
+| `SelectionService`      | Multi-select (Ctrl+click), cluster→Active Selection             | `core/selection.service.ts`      |
+| Context menu component  | Right-click marker → view detail, edit location, add to project | `shared/context-menu/`           |
+| Correction mode handler | Drag marker to update coordinates                               | Extension of `MapShellComponent` |
+| Batch thumbnail signing | Sign multiple URLs in one call instead of per-marker            | `UploadService` or new utility   |
 
 ### SelectionService (to be created)
 

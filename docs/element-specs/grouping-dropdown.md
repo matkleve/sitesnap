@@ -8,10 +8,12 @@ A dropdown that lets the user choose which image property to group by. Groups or
 
 A floating dropdown anchored below the "Grouping" toolbar button. Width: 15rem (240px). `--color-bg-elevated` background, `shadow-xl`, `rounded-lg` corners. Two sections separated by a `--color-border` line:
 
-- **Upper section (Active)**: properties currently used for grouping. Text in `--color-text-primary`. Each row has a drag handle icon (≡, `drag_indicator` Material Icon) on the left. Rows are drag-reorderable.
-- **Lower section (Available)**: properties not currently grouping. Text in `--color-text-secondary`. Click to activate (moves to upper section).
+- **Upper section (Active)**: properties currently used for grouping. Text in `--color-text-primary`. Each row layout: **Media icon → Label → Drag handle (≡)**. Drag handle visible on hover only (Quiet Actions pattern). Rows are drag-reorderable within the section and can be dragged downward past the divider into Available to deactivate.
+- **Lower section (Available)**: properties not currently grouping. Text in `--color-text-secondary`. Click to activate (moves to upper section). Rows can also be dragged upward past the divider into Active to activate.
 
-Each row is a `.ui-item` with a leading icon area and label. Active rows show a remove (×) button on the right on hover (Quiet Actions pattern).
+Each row is a `.ui-item` with a leading media area, a label, and a trailing drag handle (≡, `drag_indicator` Material Icon) on the right. There is **no × remove button** — deactivation is done purely by dragging an active item down into the Available section.
+
+**Multi-select**: Ctrl+Click selects multiple rows (applied `selected` visual). Dragging any selected row moves the entire selection as a group. Clicking without Ctrl clears the selection.
 
 ## Where It Lives
 
@@ -21,30 +23,36 @@ Each row is a `.ui-item` with a leading icon area and label. Active rows show a 
 
 ## Actions
 
-| #   | User Action                             | System Response                                                                             | Triggers                  |
-| --- | --------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------- |
-| 1   | Clicks an available (inactive) property | Moves property from lower section to upper section (activates grouping); workspace regroups | `activeGroupings` updated |
-| 2   | Clicks × on an active property          | Removes property from grouping; workspace regroups                                          | `activeGroupings` updated |
-| 3   | Drags an active property up/down        | Reorders grouping priority; workspace regroups live                                         | `activeGroupings` reorder |
-| 4   | Clicks outside or Escape                | Closes dropdown                                                                             | Dropdown closes           |
-| 5   | Hovers a row in upper section           | Reveals drag handle (≡) and remove (×) button                                               | Opacity 0→1, 80ms         |
+| #   | User Action                                            | System Response                                                                              | Triggers                      |
+| --- | ------------------------------------------------------ | -------------------------------------------------------------------------------------------- | ----------------------------- |
+| 1   | Clicks an available (inactive) property                | Moves property from Available to Active section (activates grouping); workspace regroups     | `activeGroupings` updated     |
+| 2   | Drags an active row down past the divider              | Moves property from Active to Available (deactivates grouping); workspace regroups           | `activeGroupings` updated     |
+| 3   | Drags an available row up past the divider             | Moves property from Available to Active (activates grouping); workspace regroups             | `activeGroupings` updated     |
+| 4   | Drags an active property up/down within Active section | Reorders grouping priority; workspace regroups live                                          | `activeGroupings` reorder     |
+| 5   | Ctrl+Click on a row                                    | Toggles selection on the row (adds/removes from multi-select). Does not activate/deactivate. | `selectedRows` updated        |
+| 6   | Drags any selected row (with multi-select active)      | Moves the entire selection group to the drop target section/position                         | `activeGroupings` bulk update |
+| 7   | Clicks a row without Ctrl                              | Clears multi-selection; performs single-click action (activate if available)                 | `selectedRows` cleared        |
+| 8   | Clicks outside or Escape                               | Closes dropdown, clears selection                                                            | Dropdown closes               |
+| 9   | Hovers a row                                           | Reveals drag handle (≡) on the right side                                                    | Opacity 0→1, 80ms             |
 
 ## Component Hierarchy
 
 ```
 GroupingDropdown                           ← floating dropdown, --color-bg-elevated, shadow-xl, rounded-lg
-├── ActiveSection                          ← upper part
-│   ├── SectionLabel "Grouped by"          ← --text-caption, --color-text-secondary
-│   └── DraggableList                      ← CDK DragDrop or native drag
-│       └── GroupingRow × N                ← .ui-item, drag handle + label + (×)
-│           ├── DragHandle (≡)             ← leading icon, visible on hover
-│           ├── PropertyLabel              ← property name, --color-text-primary
-│           └── [hover] RemoveButton (×)   ← trailing action, ghost
-├── Divider                                ← 1px --color-border
-└── AvailableSection                       ← lower part
-    ├── SectionLabel "Available"           ← --text-caption, --color-text-secondary
-    └── GroupingRow × N                    ← .ui-item, click to activate
-        └── PropertyLabel                  ← property name, --color-text-secondary
+├── UnifiedDragContext (cdkDropListGroup)   ← single CDK drag context spanning both sections
+│   ├── ActiveSection (cdkDropList)         ← upper drop zone
+│   │   ├── SectionLabel "Grouped by"      ← --text-caption, --color-text-secondary
+│   │   └── GroupingRow × N                ← .ui-item, cdkDrag
+│   │       ├── MediaIcon                  ← leading property icon (e.g. calendar, location)
+│   │       ├── PropertyLabel              ← property name, --color-text-primary
+│   │       └── [hover] DragHandle (≡)     ← trailing icon, visible on hover, cdkDragHandle
+│   ├── Divider                            ← 1px --color-border (visual only, not a drag boundary)
+│   └── AvailableSection (cdkDropList)     ← lower drop zone
+│       ├── SectionLabel "Available"       ← --text-caption, --color-text-secondary
+│       └── GroupingRow × N                ← .ui-item, cdkDrag, click to activate
+│           ├── MediaIcon                  ← leading property icon
+│           ├── PropertyLabel              ← property name, --color-text-secondary
+│           └── [hover] DragHandle (≡)     ← trailing icon, visible on hover, cdkDragHandle
 ```
 
 ## Data
@@ -56,10 +64,11 @@ GroupingDropdown                           ← floating dropdown, --color-bg-ele
 
 ## State
 
-| Name              | Type            | Default | Controls                                     |
-| ----------------- | --------------- | ------- | -------------------------------------------- |
-| `activeGroupings` | `PropertyRef[]` | `[]`    | Ordered list of properties used for grouping |
-| `availableProps`  | `PropertyDef[]` | all     | Properties not in activeGroupings            |
+| Name              | Type            | Default | Controls                                         |
+| ----------------- | --------------- | ------- | ------------------------------------------------ |
+| `activeGroupings` | `PropertyRef[]` | `[]`    | Ordered list of properties used for grouping     |
+| `availableProps`  | `PropertyDef[]` | all     | Properties not in activeGroupings                |
+| `selectedRows`    | `Set<string>`   | empty   | Row keys currently multi-selected via Ctrl+Click |
 
 Where `PropertyRef` = `{ type: 'builtin' | 'custom'; key: string; id?: string }`.
 
@@ -79,16 +88,24 @@ Where `PropertyRef` = `{ type: 'builtin' | 'custom'; key: string; id?: string }`
 
 ## Acceptance Criteria
 
-- [ ] Two sections: active (dark text) and available (light text)
-- [ ] Divider line between sections
-- [ ] Click on available property activates it (moves to upper section)
-- [ ] Click × on active property deactivates it
-- [ ] Drag handle on active rows for reordering
-- [ ] Drag reorder updates grouping priority live
+- [x] Two sections: active (dark text) and available (light text)
+- [x] Divider line between sections (visual only — drag crosses it freely)
+- [x] Click on available property activates it (moves to upper section)
+- [ ] No × button — deactivation is done by dragging an active row past the divider into Available
+- [ ] Drag handle on the **right** (trailing) side of each row, visible on hover only (Quiet Actions)
+- [ ] Row layout: Media icon → Label → Drag handle (≡)
+- [ ] Single CDK DragDrop context spanning both sections (cross-section dragging)
+- [ ] Dragging from Active ↓ past divider → deactivates property
+- [ ] Dragging from Available ↑ past divider → activates property
+- [ ] Drag reorder within Active updates grouping priority live
+- [ ] Ctrl+Click multi-selects rows; dragging any selected row moves the entire selection
+- [ ] Click without Ctrl clears multi-selection
 - [ ] Workspace pane content regrouped on every change
-- [ ] Built-in properties: Address, City, Country, Date, Project, User
+- [x] Built-in properties: Address, City, Country, Date, Project, User
 - [ ] Custom metadata keys appear in available list
-- [ ] Quiet Actions: drag handle and × visible only on hover
+- [x] Dropdown uses `position: fixed` to escape overflow
+- [x] Row hover: clay 8% background tint
+- [x] Active row: text-primary, inactive row: text-secondary
 
 ---
 
@@ -100,30 +117,43 @@ flowchart TD
     Open["GroupingDropdown opens"]
     User --> Open
 
-    subgraph Dropdown["Grouping Dropdown"]
+    subgraph Dropdown["Unified CDK Drag Context"]
         direction TB
         Active["Active Section\n(dark text, drag-reorderable)"]
-        Available["Available Section\n(light text, click to activate)"]
-        Active --- Available
+        Divider["── divider ──"]
+        Available["Available Section\n(light text)"]
+        Active --- Divider --- Available
     end
 
     Open --> Dropdown
 
-    ActivateProp["User clicks inactive property"]
-    Available -->|click| ActivateProp
-    ActivateProp -->|"property moves up"| Active
+    ClickActivate["User clicks available property"]
+    Available -->|click| ClickActivate
+    ClickActivate -->|"property moves up"| Active
 
-    Deactivate["User clicks × on active property"]
-    Active -->|"hover → ×"| Deactivate
-    Deactivate -->|"property moves down"| Available
+    DragActivate["User drags available row up past divider"]
+    Available -->|"drag ≡ ↑"| DragActivate
+    DragActivate -->|"property moves up"| Active
 
-    Reorder["User drags active property"]
+    DragDeactivate["User drags active row down past divider"]
+    Active -->|"drag ≡ ↓"| DragDeactivate
+    DragDeactivate -->|"property moves down"| Available
+
+    Reorder["User drags active property within Active"]
     Active -->|"drag ≡"| Reorder
     Reorder -->|"new order"| Active
 
-    ActivateProp --> Emit["Emit groupingsChanged"]
-    Deactivate --> Emit
+    MultiDrag["User Ctrl+Clicks multiple rows,\nthen drags selection"]
+    Active -->|"Ctrl+Click + drag"| MultiDrag
+    Available -->|"Ctrl+Click + drag"| MultiDrag
+    MultiDrag -->|"group move"| Active
+    MultiDrag -->|"group move"| Available
+
+    ClickActivate --> Emit["Emit groupingsChanged"]
+    DragActivate --> Emit
+    DragDeactivate --> Emit
     Reorder --> Emit
+    MultiDrag --> Emit
 
     Emit --> WVS["WorkspaceViewService\nre-groups images"]
     WVS --> Content["Workspace Content\nre-renders with group headings"]
@@ -178,7 +208,11 @@ flowchart LR
     Input -->|"groupBy: [City, Material]"| Nested
 ```
 
-## Drag Reorder Interaction (CDK DragDrop)
+## Cross-Section Drag Interaction (CDK DragDrop)
+
+Both sections share a `cdkDropListGroup`. Each section is a `cdkDropList` connected to the other via `[cdkDropListConnectedTo]`. Dragging an item across the divider transfers it between lists.
+
+### Single-Item Drag
 
 ```mermaid
 sequenceDiagram
@@ -188,15 +222,155 @@ sequenceDiagram
     participant WVS as WorkspaceViewService
     participant WP as WorkspacePane Content
 
-    U->>DD: mousedown on drag handle (≡)
+    U->>DD: mousedown on drag handle (≡, right side)
     DD->>CDK: cdkDragStarted
-    U->>DD: drag row to new position
-    DD->>CDK: cdkDragMoved (preview updates)
-    U->>DD: mouseup (drop)
+    U->>DD: drag row across divider (Active → Available)
+    DD->>CDK: cdkDragMoved (preview crosses divider)
+    U->>DD: mouseup (drop into Available section)
     CDK->>DD: cdkDropListDropped(event)
-    DD->>DD: moveItemInArray(activeGroupings)
-    DD->>WVS: groupingsChanged([City, Material] → [Material, City])
-    WVS->>WVS: re-group image list by new order
+    DD->>DD: transferArrayItem(active → available)
+    DD->>WVS: groupingsChanged([City, Material] → [City])
+    WVS->>WVS: re-group image list
     WVS->>WP: emit grouped sections
     WP->>WP: re-render headings + thumbnail grid
+```
+
+### Multi-Select Drag
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant DD as GroupingDropdown
+    participant CDK as @angular/cdk DragDrop
+    participant WVS as WorkspaceViewService
+
+    U->>DD: Ctrl+Click "City" row (selects)
+    DD->>DD: selectedRows.add('city')
+    U->>DD: Ctrl+Click "Country" row (selects)
+    DD->>DD: selectedRows.add('country')
+    Note over DD: 2 rows highlighted with selected state
+
+    U->>DD: mousedown on drag handle of any selected row
+    DD->>CDK: cdkDragStarted (custom preview shows 2 items)
+    U->>DD: drag selection across divider
+    U->>DD: mouseup (drop)
+    CDK->>DD: cdkDropListDropped(event)
+    DD->>DD: transferArrayItem for each selected row
+    DD->>DD: selectedRows.clear()
+    DD->>WVS: groupingsChanged(updated list)
+    WVS->>WVS: re-group image list
+```
+
+## Grouping Dropdown — State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> Empty
+
+    state Empty {
+        [*]: No active groupings\nAll properties in Available section\nToolbar dot hidden
+    }
+
+    state SingleGrouping {
+        [*]: One property in Active section\nRemaining in Available\nToolbar dot visible (clay)
+    }
+
+    state MultiGrouping {
+        [*]: 2+ properties in Active section\nDrag handles visible on hover\nToolbar dot visible (clay)
+    }
+
+    state DragWithinActive {
+        [*]: User dragging within Active section\nDrop preview shows new position\nReorders grouping priority
+    }
+
+    state DragCrossSection {
+        [*]: User dragging across divider\nPreview crosses boundary\nActivates or deactivates property
+    }
+
+    state MultiSelected {
+        [*]: 2+ rows have selected state (Ctrl+Click)\nDrag moves entire selection
+    }
+
+    Empty --> SingleGrouping: click available property
+    Empty --> SingleGrouping: drag available row ↑ past divider
+    SingleGrouping --> MultiGrouping: click / drag another property up
+    MultiGrouping --> MultiGrouping: click / drag another property up
+    MultiGrouping --> DragWithinActive: drag handle within Active
+    DragWithinActive --> MultiGrouping: drop (reorder applied)
+    SingleGrouping --> DragCrossSection: drag active row ↓ past divider
+    MultiGrouping --> DragCrossSection: drag active row ↓ past divider
+    DragCrossSection --> Empty: drop in Available (was last active)
+    DragCrossSection --> SingleGrouping: drop in Available (leaves 1)
+    DragCrossSection --> MultiGrouping: drop in Available (leaves 2+)
+    DragCrossSection --> SingleGrouping: drop in Active (was available, now 1)
+    DragCrossSection --> MultiGrouping: drop in Active (was available, now 2+)
+
+    Empty --> MultiSelected: Ctrl+Click rows
+    SingleGrouping --> MultiSelected: Ctrl+Click rows
+    MultiGrouping --> MultiSelected: Ctrl+Click rows
+    MultiSelected --> DragCrossSection: drag selected group
+    MultiSelected --> Empty: click without Ctrl (clears)
+    MultiSelected --> SingleGrouping: click without Ctrl (clears)
+    MultiSelected --> MultiGrouping: click without Ctrl (clears)
+```
+
+## Grouping Row States
+
+```mermaid
+stateDiagram-v2
+    state "Available Row — Idle" as AvailIdle {
+        [*]: text-secondary\nMedia icon + Label\nDrag handle hidden
+    }
+    state "Available Row — Hover" as AvailHover {
+        [*]: bg clay 8%\nDrag handle visible (right)\ncursor pointer
+    }
+    state "Active Row — Idle" as ActiveIdle {
+        [*]: text-primary\nMedia icon + Label\nDrag handle hidden
+    }
+    state "Active Row — Hover" as ActiveHover {
+        [*]: bg clay 8%\nDrag handle visible (right, opacity 1)\ncursor grab on handle
+    }
+    state "Row — Dragging" as Dragging {
+        [*]: elevated shadow\nopacity 0.8\ncursor grabbing\nplaceholder shown in source list
+    }
+    state "Row — Selected" as Selected {
+        [*]: bg clay 14% persistent\nborder-left 2px clay\npart of multi-select group
+    }
+    state "Selected + Hover" as SelectedHover {
+        [*]: bg clay 18%\nDrag handle visible (right)\ncursor grab
+    }
+
+    AvailIdle --> AvailHover: mouseenter
+    AvailHover --> AvailIdle: mouseleave
+    AvailHover --> ActiveIdle: click to activate
+    AvailHover --> Dragging: mousedown on drag handle
+    Dragging --> ActiveIdle: drop in Active section
+    Dragging --> AvailIdle: drop in Available section
+
+    ActiveIdle --> ActiveHover: mouseenter
+    ActiveHover --> ActiveIdle: mouseleave
+    ActiveHover --> Dragging: mousedown on drag handle
+
+    AvailIdle --> Selected: Ctrl+Click
+    ActiveIdle --> Selected: Ctrl+Click
+    Selected --> AvailIdle: Ctrl+Click (deselect) / click without Ctrl
+    Selected --> ActiveIdle: Ctrl+Click (deselect) / click without Ctrl
+    Selected --> SelectedHover: mouseenter
+    SelectedHover --> Selected: mouseleave
+    SelectedHover --> Dragging: mousedown on drag handle (drags all selected)
+```
+
+## Row Layout
+
+```
+┌─────────────────────────────────────┐
+│  [icon]   Property Name        [≡]  │
+│  media    label           drag handle│
+│  (leading)               (trailing)  │
+└─────────────────────────────────────┘
+
+  • Media icon: always visible, property-type icon (calendar, location_on, etc.)
+  • Label: always visible, property name
+  • Drag handle (≡): trailing, visible on hover only (Quiet Actions)
+  • No × button anywhere
 ```

@@ -128,7 +128,6 @@
   background: none !important;
   border: none !important;
   --ui-item-media-size: var(--ui-item-media-size-default);
-  --photo-marker-body-size: calc(var(--ui-item-media-size) * 1.25);
 }
 
 :host ::ng-deep .map-photo-marker {
@@ -136,9 +135,9 @@
   display: flex;
   justify-content: center;
   width: var(--photo-marker-hit-size);
-  height: calc(var(--photo-marker-hit-size) + var(--photo-marker-tail-height));
+  height: var(--photo-marker-hit-size);
   filter: drop-shadow(var(--photo-marker-drop-shadow));
-  transform-origin: center bottom;
+  transform-origin: center center;
   transition: transform 200ms ease-in-out;
 
   .map-photo-marker__hit-zone {
@@ -157,21 +156,6 @@
     overflow: hidden;
     border: 2px solid var(--color-bg-surface);
     box-shadow: var(--shadow-md);
-  }
-
-  .map-photo-marker__tail {
-    position: absolute;
-    top: calc(
-      ((var(--photo-marker-hit-size) - var(--photo-marker-body-size)) / 2) +
-        var(--photo-marker-body-size) - 1px
-    );
-    left: 50%;
-    transform: translateX(-50%);
-    width: 0;
-    height: 0;
-    border-left: calc(var(--photo-marker-tail-width) / 2) solid transparent;
-    border-right: calc(var(--photo-marker-tail-width) / 2) solid transparent;
-    border-top: var(--photo-marker-tail-height) solid var(--color-bg-surface);
   }
 
   .map-photo-marker__correction-dot {
@@ -198,10 +182,10 @@
 
   .map-photo-marker__direction-cone {
     position: absolute;
+    top: 50%;
     left: 50%;
-    bottom: calc(var(--photo-marker-tail-height) + 2px);
-    width: calc(var(--photo-marker-body-size) * 1.2);
-    height: calc(var(--photo-marker-body-size) * 1.2);
+    width: calc(var(--photo-marker-body-size) * 1.6);
+    height: calc(var(--photo-marker-body-size) * 1.6);
     background: color-mix(in srgb, var(--color-primary) 18%, transparent);
     clip-path: polygon(50% 50%, 100% 38%, 100% 62%);
     opacity: 0;
@@ -260,17 +244,19 @@
 
 :host ::ng-deep .map-photo-marker--count {
   .map-photo-marker__body {
-    background: var(--color-clay);
-    color: var(--color-bg-surface);
+    background: #ffffff;
+    color: #1a1714;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 700;
     font-size: var(--photo-marker-cluster-font-size);
   }
+}
 
-  .map-photo-marker__tail {
-    border-top-color: var(--color-clay);
+:host ::ng-deep .map-photo-marker--count.map-photo-marker--selected {
+  .map-photo-marker__count-label {
+    color: var(--color-clay);
   }
 }
 

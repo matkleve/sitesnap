@@ -106,17 +106,19 @@ Where `FilterRule` = `{ id: string; conjunction: 'and' | 'or'; property: Propert
 
 ## Acceptance Criteria
 
-- [ ] Empty state "No filters applied" + "Add a filter" button
-- [ ] Each rule is a horizontal row: conjunction + property + operator + value + ×
-- [ ] Conjunction toggles between "And" / "Or" on click
+- [x] Empty state "No filters applied" + "Add a filter" button
+- [x] Each rule is a horizontal row: conjunction + property + operator + value + ×
+- [x] Conjunction toggles between "And" / "Or" on click
 - [ ] Property dropdown shows built-in + custom metadata keys
 - [ ] Operator list changes based on property type
 - [ ] Value input adapts: text, date picker, multi-select, number
 - [ ] Filters apply immediately on value change
-- [ ] × removes a rule (visible on hover)
-- [ ] Multiple rules can be combined
+- [x] × removes a rule (visible on hover)
+- [x] Multiple rules can be combined
 - [ ] Closing dropdown does NOT clear filters
 - [ ] Active filter count shown on toolbar button
+- [x] Dropdown uses `position: fixed` to escape overflow
+- [x] Row hover: clay 8% background tint, × appears
 
 ---
 
@@ -193,4 +195,109 @@ flowchart TD
     end
 
     FilterDropdown --> Result
+```
+
+## Filter Dropdown — State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> NoFilters
+
+    state NoFilters {
+        [*]: Empty state shown\n"No filters applied"\n"+ Add a filter" button\nToolbar dot hidden
+    }
+
+    state OneRule {
+        [*]: Single rule row visible\nConjunction = "Where" (first rule)\nToolbar dot shown if rule complete
+    }
+
+    state MultiRule {
+        [*]: 2+ rule rows visible\nConjunctions shown (And/Or)\nToolbar dot visible (clay)
+    }
+
+    state IncompleteRule {
+        [*]: Rule has null property/operator/value\nFilter not applied yet\nRow shown with placeholder dropdowns
+    }
+
+    NoFilters --> IncompleteRule: click "+ Add a filter"
+    IncompleteRule --> OneRule: complete all fields (property + operator + value)
+    OneRule --> MultiRule: add another rule
+    MultiRule --> MultiRule: add another rule
+    MultiRule --> OneRule: remove rule (leaves 1)
+    OneRule --> NoFilters: remove last rule (click ×)
+    MultiRule --> MultiRule: remove rule (leaves 2+)
+```
+
+## Filter Rule Row — State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> Blank
+
+    state Blank {
+        [*]: property = null\noperator = null\nvalue = null\nFilter NOT applied
+    }
+
+    state PropertySelected {
+        [*]: property chosen\noperator list populated by type\nvalue = null\nFilter NOT applied
+    }
+
+    state OperatorSelected {
+        [*]: property + operator chosen\nvalue input shown (type-adapted)\nFilter NOT applied
+    }
+
+    state Complete {
+        [*]: All fields filled\nFilter ACTIVE\nApplied to query immediately
+    }
+
+    state Editing {
+        [*]: User changes property/operator/value\nPrevious filter removed\nNew filter applied when complete
+    }
+
+    Blank --> PropertySelected: select property
+    PropertySelected --> OperatorSelected: select operator
+    OperatorSelected --> Complete: enter value
+    Complete --> Editing: change any field
+    Editing --> Complete: all fields valid
+    Editing --> OperatorSelected: cleared value
+    PropertySelected --> Blank: clear property
+```
+
+## Conjunction Toggle
+
+```mermaid
+stateDiagram-v2
+    [*] --> And
+    And --> Or: click conjunction
+    Or --> And: click conjunction
+
+    state And {
+        [*]: All rules must match\nLabel shows "And"
+    }
+    state Or {
+        [*]: Any rule can match\nLabel shows "Or"
+    }
+
+    note right of And: First rule always shows "Where"\n(conjunction visible from 2nd rule)
+```
+
+## Filter Rule Row — Visual States
+
+```mermaid
+stateDiagram-v2
+    state "Row Idle" as Idle {
+        [*]: bg transparent\n× hidden\nall dropdowns closed
+    }
+    state "Row Hover" as Hover {
+        [*]: bg surface-hover\n× visible (clay on hover)\ncursor pointer on dropdowns
+    }
+    state "Dropdown Open" as DropOpen {
+        [*]: property/operator/value dropdown expanded\nfocused field highlighted\nother fields dimmed slightly
+    }
+
+    Idle --> Hover: mouseenter
+    Hover --> Idle: mouseleave
+    Hover --> DropOpen: click property/operator/value field
+    DropOpen --> Hover: select option / click outside
+    Hover --> [*]: click × (row removed)
 ```

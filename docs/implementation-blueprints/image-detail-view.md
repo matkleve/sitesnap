@@ -1,7 +1,7 @@
 # Image Detail View — Implementation Blueprint
 
 > **Spec**: [element-specs/image-detail-view.md](../element-specs/image-detail-view.md)
-> **Status**: Partially implemented — component exists with basic image display, metadata rendering, and signed URL loading. Missing: inline metadata editing, group picker, correction flow, delete confirmation.
+> **Status**: Partially implemented — component exists with basic image display, metadata rendering, and signed URL loading. Missing: inline metadata editing, project picker, correction flow, delete confirmation.
 
 ## Existing Infrastructure
 
@@ -231,7 +231,7 @@ interface CorrectionRecord {
 | What                       | Why Needed                                     | Proposed Location                                                                |
 | -------------------------- | ---------------------------------------------- | -------------------------------------------------------------------------------- |
 | Inline edit component      | Click-to-edit metadata values (Notion pattern) | `features/map/workspace-pane/metadata-property-row.component.ts` (spec File Map) |
-| Group picker               | "Add to group" modal/dropdown                  | `shared/group-picker/group-picker.component.ts`                                  |
+| Project picker             | "Add to project" modal/dropdown                | `shared/project-picker/project-picker.component.ts`                              |
 | GroupService               | CRUD for saved_groups                          | `core/group.service.ts`                                                          |
 | Correction mode            | "Edit location" → drag marker on map           | Extension of MapShellComponent                                                   |
 | Delete confirmation dialog | Modal confirm before image deletion            | Inline in component (simple conditional template)                                |

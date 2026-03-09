@@ -73,13 +73,18 @@ WorkspaceToolbar                           ← horizontal flex row, gap-2, paddi
 
 ## Acceptance Criteria
 
-- [ ] Four ghost buttons in a horizontal row: Grouping, Filter, Sort, Projects
-- [ ] Each button opens its corresponding dropdown
-- [ ] Only one dropdown open at a time
-- [ ] Click-outside and Escape close the dropdown
+- [x] Four ghost buttons in a horizontal row: Grouping, Filter, Sort, Projects
+- [x] Each button opens its corresponding dropdown
+- [x] Only one dropdown open at a time
+- [x] Click-outside and Escape close the dropdown
 - [ ] Active indicator dot when a feature is engaged
-- [ ] `.btn-compact` height (1.75rem)
+- [x] `.btn-compact` height (1.75rem)
 - [ ] Responsive: buttons wrap on narrow panes
+- [x] Hover state: light `--color-clay` (14%) background tint + `--color-clay` text + font-weight 600
+- [x] Active state (feature engaged): same clay tint background persists + clay text + bold
+- [x] Open state: slightly stronger clay tint (18%) background
+- [x] Dropdown uses `position: fixed` to escape parent overflow contexts
+- [x] Dropdown positioned below the clicked button via `getBoundingClientRect()`
 
 ---
 
@@ -124,4 +129,94 @@ flowchart TB
 
     WVS -->|images grouped + sorted| Content
     FS -->|active filters| WVS
+```
+
+---
+
+## Button State Machine
+
+Each toolbar button transitions through these visual states:
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle
+    Idle --> Hover: mouseenter
+    Hover --> Idle: mouseleave
+    Hover --> Open: click
+    Idle --> Open: click
+    Open --> Idle: click (toggle off) / Escape / click-outside
+    Open --> ActiveIdle: feature engaged + dropdown closed
+    Idle --> ActiveIdle: feature engaged externally
+    ActiveIdle --> ActiveHover: mouseenter
+    ActiveHover --> ActiveIdle: mouseleave
+    ActiveHover --> Open: click
+    ActiveIdle --> Open: click
+    ActiveIdle --> Idle: feature disengaged
+
+    state Idle {
+        [*]: bg transparent\ncolor --text-secondary\nweight 500
+    }
+    state Hover {
+        [*]: bg clay 14%\ncolor --color-clay\nweight 600
+    }
+    state Open {
+        [*]: bg clay 18%\ncolor --color-clay\nweight 600\nchevron rotated 180°
+    }
+    state ActiveIdle {
+        [*]: bg clay 14%\ncolor --color-clay\nweight 600\ndot visible
+    }
+    state ActiveHover {
+        [*]: bg clay 18%\ncolor --color-clay\nweight 600\ndot visible
+    }
+```
+
+## Toolbar — All States Overview
+
+```mermaid
+flowchart LR
+    subgraph Default["Default — nothing active"]
+        direction LR
+        G1["Grouping ▾"]
+        F1["Filter ▾"]
+        S1["Sort ▾"]
+        P1["Projects ▾"]
+    end
+
+    subgraph Hover["Hover on Sort"]
+        direction LR
+        G2["Grouping ▾"]
+        F2["Filter ▾"]
+        S2["**Sort ▾** 🟠"]
+        P2["Projects ▾"]
+    end
+
+    subgraph Open["Sort dropdown open"]
+        direction LR
+        G3["Grouping ▾"]
+        F3["Filter ▾"]
+        S3["**Sort ▲** 🟠"]
+        P3["Projects ▾"]
+    end
+
+    subgraph Active["Sort active + Filter active"]
+        direction LR
+        G4["Grouping ▾"]
+        F4["**Filter • ▾** 🟠"]
+        S4["**Sort • ▾** 🟠"]
+        P4["Projects ▾"]
+    end
+
+    Default -->|mouseenter Sort| Hover
+    Hover -->|click Sort| Open
+    Open -->|close + feature engaged| Active
+```
+
+## Dropdown Positioning
+
+```mermaid
+flowchart TD
+    Click["User clicks toolbar button"] --> Rect["getBoundingClientRect()\non button element"]
+    Rect --> Pos["dropdownTop = rect.bottom + 4px\ndropdownLeft = rect.left"]
+    Pos --> Fixed["Dropdown rendered with\nposition: fixed\ntop / left from signals"]
+    Fixed --> Escape["Escapes all overflow:hidden\nparents (pane, map-shell)"]
 ```
