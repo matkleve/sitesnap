@@ -3,7 +3,7 @@
 **Who this is for:** engineers working on system design, data flows, and performance.  
 **What you’ll get:** a high‑level view of how GeoSite is put together and where responsibilities and invariants sit.
 
-See also: `project-description.md`, `database-schema.md`, `security-boundaries.md`, and `decisions.md`.
+See also: `database-schema.md`, `security-boundaries.md`.
 
 ---
 
@@ -203,7 +203,7 @@ Purpose:
 - Enable a scalable permission model.
 
 Authorization is enforced at the database level using Row-Level Security (RLS).  
-See `security-boundaries.md` for policy details and `decisions.md` (D2).
+See `security-boundaries.md` for policy details.
 
 ---
 
@@ -218,7 +218,7 @@ Contains:
 - Image metadata.
 - Geographic coordinates (EXIF and corrected).
 - Ownership reference to the user.
-- Links to project and metadata structures (see `features.md` / `glossary.md`).
+- Links to project and metadata structures (see `glossary.md`).
 
 All domain data is protected via RLS policies.
 
@@ -309,7 +309,7 @@ interface AddressCandidate {
 }
 ```
 
-See `address-resolver.md` for the full interface contract, UI presentation spec, and error states. See `decisions.md` (D17) for rationale.
+See `address-resolver.md` for the full interface contract, UI presentation spec, and error states.
 
 ---
 
@@ -432,8 +432,6 @@ interface ImageInputMetadata {
 - The ingestion pipeline depends only on `ImageInputAdapter`, never on `LocalUploadAdapter` or `GoogleDriveAdapter` directly.
 - Adding a new source requires only: (a) implementing `ImageInputAdapter` and (b) registering it in Angular's DI container. No changes to core ingestion logic.
 - `LocalUploadAdapter` is the MVP default. All other adapters are post-MVP drop-ins.
-
-See `decisions.md` (D10) for rationale.
 
 ### Upload Validation
 
@@ -612,8 +610,6 @@ interface RadiusSelectionOptions {
 - Leaflet remains the current default; the adapter boundary exists to prevent lock-in, not to encourage churn.
 - The `LeafletOSMAdapter` exposes a `setTileStyle(style: 'light' | 'dark')` method so the theme service can switch tile sets when dark mode is active.
 
-See `decisions.md` (D3 and D8) for rationale.
-
 ---
 
 ## 7. UI Theming Layer
@@ -652,8 +648,6 @@ GeoSite uses **Tailwind CSS** as its styling foundation. Dark mode and theming a
 - Every new UI component must carry both light and `dark:` Tailwind variants. A component shipped without dark mode support is a defect, not a deferral.
 - Avoid hardcoded hex or RGB values in component templates. Use Tailwind utility classes or the CSS custom properties above.
 - Map tile layers should visually adapt to dark mode where the provider supports a dark tile URL. The `MapAdapter` interface exposes `setTileStyle('light' | 'dark')` for this purpose; adapters that don't support dark tiles may no-op the call.
-
-See `decisions.md` (D9) for rationale.
 
 ---
 
@@ -934,8 +928,6 @@ sequenceDiagram
 - **Group membership** is persisted server-side.
 - **Active Selection contents** are ephemeral and not persisted.
 
-See `decisions.md` (D14) for rationale.
-
 ---
 
 ## 12. Spatial Selection
@@ -974,8 +966,6 @@ LIMIT 2000;
 ```
 
 Active filters (time range, project, metadata) are AND-combined with the spatial selection. Organization-scoped RLS is applied automatically.
-
-See `decisions.md` (D13) for rationale.
 
 ---
 

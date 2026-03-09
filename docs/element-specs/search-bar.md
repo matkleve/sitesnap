@@ -163,3 +163,49 @@ Types are defined in `core/search/search.models.ts` (already exists).
 - [ ] Results panel expansion animates outer panel height without animating row height, row padding, media width, or panel radius
 - [ ] Opening and closing the dropdown does not change outer corner radius, item padding, or media-column width
 - [ ] Screen reader announces result count on query completion
+
+## Search State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle
+
+    Idle --> FocusedEmpty : User focuses input
+    FocusedEmpty --> Idle : Blur without typing
+    FocusedEmpty --> Typing : User types character
+
+    Typing --> ResultsPartial : First source returns
+    Typing --> Typing : More characters (debounce resets)
+    Typing --> FocusedEmpty : Backspace to empty
+
+    ResultsPartial --> ResultsComplete : All sources returned or timed out
+    ResultsPartial --> Typing : User modifies query
+
+    ResultsComplete --> Committed : User selects a result
+    ResultsComplete --> Typing : User modifies query
+    ResultsComplete --> Idle : Escape → Escape (two presses)
+
+    Committed --> Typing : User modifies query text
+    Committed --> Idle : Clear button or Backspace on empty
+```
+
+## Search + Filter Integration Rules
+
+1. Search commits can set the **distance reference point** used by distance filters.
+2. Applied filter chips remain visible while search is active.
+3. Search must not reset active filters unless user explicitly runs "Clear filters."
+4. Search context persists through image-detail navigation and tab changes.
+5. If user pans far from committed target, provide a "Return to selected" affordance in search area.
+
+## Forgiving Address Matching
+
+For MVP, apply **query normalization + two-pass fallback**:
+
+1. **Always normalize input** — lowercase, trim, collapse spaces, transliterate diacritics (`straße` ↔ `strasse`), expand/compress street suffixes (`g.` ↔ `gasse`, `str.` ↔ `straße`), punctuation-insensitive.
+2. **Trigger fallback** when strict pass returns zero or below-confidence results:
+   - Pass 1: street + house number (`denisgasse 46`)
+   - Pass 2: street only (`denisgasse`)
+   - Pass 3: nearest token-corrected variant (`denisgass` → `denisgasse`)
+3. Show a **suggestion row** when fallback produced the best candidate: _"Did you mean Denisgasse 46?"_ — selecting replaces query and reruns search. Do not show if strict matches exist.
+4. Confidence tiers: exact > normalized > corrected > street-only.
+5. Fallback/corrected matches must be visually labeled (e.g. `Approximate match`).

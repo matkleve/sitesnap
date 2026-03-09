@@ -3,7 +3,7 @@
 **Who this is for:** designers, frontend engineers, and anyone shaping how GeoSite looks and behaves.  
 **What you'll get:** the always-load design context — principles, dark mode, accessibility, responsive quick reference, design debt, and links to smaller task-specific design files.
 
-See `features.md` for capability scope, `use-cases/README.md` for user flows, `search-experience-spec.md` for the full search behavior contract, and `architecture.md` for technical constraints that affect layout decisions.
+See `architecture.md` for technical constraints that affect layout decisions.
 
 ---
 

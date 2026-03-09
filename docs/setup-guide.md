@@ -162,7 +162,7 @@ supabase status  # shows local URLs and keys
 
 ## 6. Tailwind CSS & Design Tokens
 
-SiteSnap uses Tailwind CSS v3 as the styling foundation (see `decisions.md D9`).
+SiteSnap uses Tailwind CSS v3 as the styling foundation.
 The setup is already complete in the repository; this section explains how it
 works and what to do if you reinstall or encounter issues.
 

@@ -3,7 +3,7 @@
 **Who this is for:** engineers implementing or integrating the address resolver, and product owners validating autocomplete and resolution behaviour.  
 **What you'll get:** the interface contract, ranking algorithm, UI presentation spec, and integration points for the `AddressResolverService`.
 
-See also: `architecture.md` §3, `folder-import.md` §4, `features.md` §1.15, `decisions.md` (D6, D17).
+See also: `architecture.md` §3, `folder-import.md` §4.
 
 ---
 
@@ -29,8 +29,6 @@ Addresses already present in the GeoSite database represent **confirmed project 
 The resolver therefore queries the GeoSite database **first** and promotes those matches to the top of the result list, before falling back to the external geocoding provider.
 
 This is analogous to a search engine's "featured results" panel: the most likely correct answers — drawn from the user's own data — appear prominently, followed by broader external results when needed.
-
-See `decisions.md` D17 for rationale.
 
 ---
 
@@ -416,6 +414,3 @@ export class AddressResolverService {
 | Folder import — address resolution | `folder-import.md` §4 |
 | Map search bar UX contract         | `architecture.md` §3  |
 | Angular service table              | `architecture.md` §14 |
-| ADR: DB-first address ranking      | `decisions.md` D17    |
-| ADR: Provider-agnostic geocoding   | `decisions.md` D6     |
-| Feature list entry                 | `features.md` §1.15   |

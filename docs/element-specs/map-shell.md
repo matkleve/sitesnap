@@ -9,7 +9,7 @@ The top-level full-screen host component for the map page. It's the main screen 
 - Interaction scenarios: [use-cases/map-shell.md](../use-cases/map-shell.md)
 - Implementation blueprint: [implementation-blueprints/map-shell.md](../implementation-blueprints/map-shell.md)
 - Child specs: [workspace-pane](workspace-pane.md), [drag-divider](drag-divider.md), [search-bar](search-bar.md), [upload-button-zone](upload-button-zone.md), [photo-marker](photo-marker.md)
-- Product use cases: [UC1](../use-cases/README.md#uc1--technician-on-site-view-history), [UC2](../use-cases/README.md#uc2--clerk-preparing-a-quote), [UC3](../use-cases/README.md#uc3--upload-and-correct-a-new-image)
+- Product use cases: UC1 (Technician on Site — view nearby history), UC2 (Clerk Preparing a Quote — evidence gathering), UC3 (Upload and Correct a New Image)
 
 ## What It Looks Like
 

@@ -55,7 +55,7 @@
 
 - **Cluster**  
   A visual grouping of nearby markers on the map rendered as a single icon with a count badge.
-  - Server-side: computed via `ST_SnapToGrid` (see architecture.md §8, decisions.md D11).
+  - Server-side: computed via `ST_SnapToGrid` (see architecture.md §8).
   - Client-side: only used if server-side clustering is disabled.
   - Click expands to child markers or zooms in.
 
@@ -73,7 +73,6 @@
 - **Radius Selection**  
   A spatial interaction: right-click + drag on desktop (long-press + drag on mobile) to draw a circle on the map.
   - All images within the circle are added to the Active Selection.
-  - See decisions.md D13.
 
 - **Location / Coordinates**  
   The latitude and longitude representing where the photo was taken or is anchored on the map.
@@ -113,7 +112,7 @@
   An address or location string extracted from a folder name or filename during folder-based bulk import (e.g., `Burgstraße_7` from a folder path).
   - Extracted by `FilenameLocationParser`.
   - Treated as a primary location source because it represents deliberate human organization, not automatic sensor data.
-  - See `folder-import.md` §4.1 and `decisions.md` D16.
+  - See `folder-import.md` §4.1.
 
 - **Location Resolution (folder import)**  
   The per-image process during `FolderImportAdapter` that combines filename hints and EXIF GPS to produce a confirmed set of coordinates before import.
@@ -133,7 +132,7 @@
 - **Organization**  
   A company or team that owns all data within its scope. Every user belongs to exactly one organization.
   - Table: `organizations`.
-  - All RLS policies use `organization_id` to enforce data isolation between orgs (see security-boundaries.md §2.1, decisions.md D12).
+  - All RLS policies use `organization_id` to enforce data isolation between orgs (see security-boundaries.md §2.1).
 
 - **Project**  
   A logical grouping of images that belong to the same construction job, site, or contract.
@@ -155,7 +154,7 @@
 - **Workspace**  
   The tabbed panel (desktop: side pane; mobile: bottom sheet) that displays image groups.
   - Contains the Active Selection tab plus zero or more named Group tabs.
-  - See architecture.md §11, decisions.md D14.
+  - See architecture.md §11.
 
 - **Metadata Key**  
   A user-defined property name attached to an image, such as “Fang”, “Türe”, “Material”.
@@ -198,8 +197,6 @@
 - **PostGIS**  
   PostgreSQL extension providing spatial data types (`geography`), operators (`<->`, `&&`), and functions (`ST_DWithin`, `ST_SnapToGrid`).
   - Enabled by `CREATE EXTENSION postgis;` in the Supabase SQL editor.
-  - See decisions.md D11.
-
 - **GiST Index**  
   Generalized Search Tree index used by PostGIS for efficient spatial queries.
   - Applied to `images.geog` for bounding-box and distance queries.
@@ -214,13 +211,13 @@
   - Queries the GeoSite database first (DB-first ranking), then calls `GeocodingAdapter` for external results.
   - Returns results as `AddressCandidateGroup`: `databaseCandidates` first (up to 3), then `geocoderCandidates` (up to 5), separated by a visual divider.
   - Used at every address-input point in the application: map search bar, upload panel, folder import review, marker correction.
-  - See `address-resolver.md` and `decisions.md` D17.
+  - See `address-resolver.md`.
 
 - **FolderImportAdapter**  
   An `ImageInputAdapter` implementation that wraps the browser File System Access API (`showDirectoryPicker()`).
   - Recursively scans a user-selected folder for images and feeds them into the core ingestion pipeline.
   - Requires a Chromium-based browser (Chrome 86+, Edge 86+).
-  - See `folder-import.md` and `decisions.md` D10, D16.
+  - See `folder-import.md`.
 
 - **FilenameLocationParser**  
   A pure utility function (no Angular DI dependencies) that extracts address hints from file paths and filenames.

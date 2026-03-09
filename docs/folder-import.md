@@ -3,7 +3,7 @@
 **Who this is for:** engineers implementing the bulk import feature and product owners validating the flow.  
 **What you'll get:** a complete spec for folder-based batch image import — how the folder is scanned, how locations are resolved per image, how conflicts are surfaced, and what happens to unresolvable images.
 
-See also: `architecture.md` §5, `address-resolver.md`, `features.md` §1.14, `decisions.md` (D10, D16).
+See also: `architecture.md` §5, `address-resolver.md`.
 
 ---
 
@@ -58,7 +58,7 @@ const isFolderImportSupported = (): boolean =>
 If unsupported, the button is replaced by a notice:  
 _"Folder import requires Chrome or Edge. You can still select multiple files using the standard file picker."_
 
-The `FolderImportAdapter` wraps `showDirectoryPicker()` and implements the `ImageInputAdapter` interface so it plugs into the existing core ingestion pipeline (EXIF parse → Storage upload → DB write) without any changes to pipeline code. See `architecture.md` §5 and `decisions.md` D10.
+The `FolderImportAdapter` wraps `showDirectoryPicker()` and implements the `ImageInputAdapter` interface so it plugs into the existing core ingestion pipeline (EXIF parse → Storage upload → DB write) without any changes to pipeline code. See `architecture.md` §5.
 
 ---
 
@@ -227,7 +227,7 @@ When a recognizable address string is extracted, it is passed to `AddressResolve
 
 EXIF parsing runs identically to the single-file upload pipeline (`upload.service.ts`). GPS coordinates, capture timestamp, and direction bearing are extracted. EXIF parsing runs in the **resolution phase** (before the review phase) so all data is available for comparison.
 
-Original EXIF coordinates follow the same immutability invariant as single-file uploads (see `decisions.md` D4).
+Original EXIF coordinates follow the same immutability invariant as single-file uploads.
 
 ### 4.3 Resolution Decision Matrix
 
@@ -332,7 +332,7 @@ During the review phase the user may select multiple images and apply a shared p
 
 - **Batch location** — useful when all images in a folder share the same address (e.g., all files from `Burgstraße_7/`). A "Assign same location to all from this folder" shortcut is shown when the parser detects a shared folder name.
 - **Batch project** — assign all selected images to one project.
-- **Batch metadata** — apply a shared key/value pair to all selected images (same as Feature 18 in `features.md`).
+- **Batch metadata** — apply a shared key/value pair to all selected images.
 
 Batch assignment applies only to the current import batch; it does not modify already-saved images.
 
@@ -355,7 +355,7 @@ At the end of the import phase, a summary is shown on the map with newly importe
 
 - `FolderImportAdapter` implements `ImageInputAdapter`. The core ingestion pipeline never imports `FolderImportAdapter` directly.
 - Filename-derived location hints are never written to the database verbatim. They always go through `AddressResolverService` to produce validated coordinates.
-- EXIF coordinates arriving from folder import follow the same immutability invariant as single-file uploads (`decisions.md` D4): they are stored as-is and never overwritten.
+- EXIF coordinates arriving from folder import follow the same immutability invariant as single-file uploads: they are stored as-is and never overwritten.
 - Images imported without coordinates (`location_unresolved = TRUE`) are stored but excluded from all map viewport queries.
 - All imports are subject to RLS in the same way as single-file uploads. Organization and user scoping apply unconditionally.
 
@@ -368,9 +368,4 @@ At the end of the import phase, a summary is shown on the map with newly importe
 | `ImageInputAdapter` interface contract | `architecture.md` §5                                |
 | `AddressResolverService`               | `address-resolver.md`                               |
 | EXIF parsing and ingestion pipeline    | `architecture.md` §5                                |
-| Single-file upload flow                | `use-cases/README.md` UC3                           |
-| Batch metadata assignment              | `features.md` §1.4 feature 18                       |
-| Folder import use case                 | `use-cases/README.md` UC13                          |
-| ADR: Filename-first resolution         | `decisions.md` D16                                  |
-| ADR: Provider-agnostic image input     | `decisions.md` D10                                  |
 | Marker lifecycle after upload          | `archive/audit-upload-map-interaction.md` Pattern 3 |

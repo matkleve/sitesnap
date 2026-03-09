@@ -3,7 +3,7 @@
 **Who this is for:** engineers working on authentication, onboarding, and account management.  
 **What you'll get:** the end-to-end flow of how users are created, authenticated, assigned roles, and deleted, and which invariants must always hold.
 
-See also: `glossary.md`, `security-boundaries.md`, `database-schema.md`, and `decisions.md` (D1, D2, D12).
+See also: `glossary.md`, `security-boundaries.md`, `database-schema.md`.
 
 ### User Lifecycle Overview
 

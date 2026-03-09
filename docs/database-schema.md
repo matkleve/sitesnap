@@ -3,7 +3,7 @@
 **Who this is for:** engineers and DBAs working on data modeling, queries, and RLS policies.  
 **What you'll get:** the core tables, relationships, and constraints that support GeoSite invariants.
 
-See also: `project-description.md`, `architecture.md`, `security-boundaries.md`, `glossary.md`, and `decisions.md`.
+See also: `architecture.md`, `security-boundaries.md`, `glossary.md`.
 
 Database: PostgreSQL (Supabase) with **PostGIS extension** enabled.
 
@@ -165,8 +165,6 @@ Columns:
 - `name` (text, not null)
 - `created_at` (timestamptz, not null, default `now()`)
 - `updated_at` (timestamptz, not null, default `now()`)
-
-See `decisions.md` (D12) for rationale.
 
 ---
 
@@ -369,7 +367,7 @@ Primary Key:
 
 ## 9. Indexing Strategy (MVP)
 
-GeoSite uses **PostGIS** with GiST indexes as the MVP default for spatial queries. See `decisions.md` (D11).
+GeoSite uses **PostGIS** with GiST indexes as the MVP default for spatial queries.
 
 ### Required Indexes
 
