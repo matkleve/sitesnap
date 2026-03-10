@@ -1,15 +1,48 @@
-﻿# Sitesnap — Project Guidelines
+# SiteSnap — Agent Guidelines
 
 Sitesnap is a geo-temporal image management system for construction companies.
 Angular SPA + Leaflet map + Supabase (Auth, PostgreSQL + PostGIS, Storage).
 
-## Monorepo Structure
+## Project Structure
 
 ```
-apps/web/     → Angular SPA (primary UI, Leaflet map, Tailwind + SCSS)
-supabase/     → Database migrations, RLS policies, storage config
-docs/         → Design docs, element specs, glossary (source of truth)
+apps/web/             → Angular frontend application (Angular CLI 21.1.5)
+apps/web/src/app/     → Components, services, routing
+apps/web/src/         → index.html, main.ts, styles.scss
+supabase/             → Database migrations, RLS policies, edge functions
+docs/                 → Design docs, element specs, glossary (source of truth)
 ```
+
+## Development
+
+### Install dependencies
+```bash
+npm install
+```
+
+### Run the dev server
+```bash
+cd apps/web && ng serve
+```
+
+### Build
+```bash
+cd apps/web && ng build
+```
+
+### Run tests
+```bash
+cd apps/web && ng test
+```
+
+## Code Conventions
+
+- Use Angular **standalone components** (no NgModules)
+- Use Angular **signals** and new control flow syntax (`@if`, `@for`, `@switch`)
+- Prefer **`inject()`** over constructor injection
+- **SCSS** for component styling
+- Commit messages follow **Conventional Commits** (`feat:`, `fix:`, `chore:`)
+- Always run `ng build` to verify changes compile before submitting
 
 ## Universal Invariants
 
