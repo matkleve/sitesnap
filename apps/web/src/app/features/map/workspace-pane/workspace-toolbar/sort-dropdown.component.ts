@@ -1,4 +1,5 @@
-import { Component, computed, output, signal } from '@angular/core';
+import { Component, computed, inject, output, signal } from '@angular/core';
+import { WorkspaceViewService } from '../../../../core/workspace-view.service';
 import type { SortConfig } from '../../../../core/workspace-view.types';
 
 type SortOption = {
@@ -20,8 +21,19 @@ type SortOption = {
           [value]="searchTerm()"
           (input)="searchTerm.set($any($event.target).value)"
         />
+        @if (searchTerm()) {
+          <button class="sort-search__clear" (click)="searchTerm.set('')" aria-label="Clear search">
+            <span class="material-icons">close</span>
+          </button>
+        }
       </div>
       <div class="sort-options">
+        @if (activeSortId() !== 'date-captured' || sortDirection() !== 'desc') {
+          <button class="sort-reset" (click)="resetSort()">
+            <span class="material-icons sort-reset__icon" aria-hidden="true">restart_alt</span>
+            <span>Reset to default</span>
+          </button>
+        }
         @for (opt of filteredOptions(); track opt.id) {
           <button
             class="sort-option"
@@ -32,14 +44,19 @@ type SortOption = {
             <span class="sort-option__label">{{ opt.label }}</span>
             @if (opt.id === activeSortId()) {
               <span class="material-icons sort-option__check" aria-hidden="true">check</span>
+              <span
+                class="sort-option__direction"
+                role="button"
+                tabindex="0"
+                (click)="flipDirection(); $event.stopPropagation()"
+                (keydown.enter)="flipDirection(); $event.stopPropagation()"
+                [attr.aria-label]="
+                  'Sort ' + (sortDirection() === 'asc' ? 'ascending' : 'descending')
+                "
+              >
+                {{ sortDirection() === 'asc' ? '↑' : '↓' }}
+              </span>
             }
-            <button
-              class="sort-option__direction"
-              (click)="flipDirection(); $event.stopPropagation()"
-              [attr.aria-label]="'Sort ' + (sortDirection() === 'asc' ? 'ascending' : 'descending')"
-            >
-              {{ sortDirection() === 'asc' ? '↑' : '↓' }}
-            </button>
           </button>
         } @empty {
           <div class="sort-empty">No matching properties</div>
@@ -50,6 +67,8 @@ type SortOption = {
   styleUrl: './sort-dropdown.component.scss',
 })
 export class SortDropdownComponent {
+  private readonly viewService = inject(WorkspaceViewService);
+
   private readonly options: SortOption[] = [
     { id: 'date-captured', label: 'Date captured', icon: 'schedule', defaultDirection: 'desc' },
     { id: 'date-uploaded', label: 'Date uploaded', icon: 'cloud_upload', defaultDirection: 'desc' },
@@ -62,8 +81,8 @@ export class SortDropdownComponent {
   ];
 
   readonly searchTerm = signal('');
-  readonly activeSortId = signal('date-captured');
-  readonly sortDirection = signal<'asc' | 'desc'>('desc');
+  readonly activeSortId = signal(this.viewService.activeSort().key);
+  readonly sortDirection = signal<'asc' | 'desc'>(this.viewService.activeSort().direction);
   readonly sortChanged = output<SortConfig>();
 
   readonly filteredOptions = computed(() => {
@@ -83,5 +102,11 @@ export class SortDropdownComponent {
   flipDirection(): void {
     this.sortDirection.update((d) => (d === 'asc' ? 'desc' : 'asc'));
     this.sortChanged.emit({ key: this.activeSortId(), direction: this.sortDirection() });
+  }
+
+  resetSort(): void {
+    this.activeSortId.set('date-captured');
+    this.sortDirection.set('desc');
+    this.sortChanged.emit({ key: 'date-captured', direction: 'desc' });
   }
 }

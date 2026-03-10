@@ -101,11 +101,20 @@ export class WorkspaceToolbarComponent {
       this.activeDropdown.set(null);
       return;
     }
-    // Position dropdown below the clicked button
+    // Position dropdown below the clicked button, clamped to viewport
     const btn = event.currentTarget as HTMLElement;
     const rect = btn.getBoundingClientRect();
+    const dropdownWidth = id === 'filter' ? 352 : 240; // min-width per spec
+    const viewportWidth = window.innerWidth;
+    const padding = 8; // keep 8px from viewport edge
+
+    let left = rect.left;
+    if (left + dropdownWidth > viewportWidth - padding) {
+      left = Math.max(padding, viewportWidth - dropdownWidth - padding);
+    }
+
     this.dropdownTop.set(rect.bottom + 4);
-    this.dropdownLeft.set(rect.left);
+    this.dropdownLeft.set(left);
     this.activeDropdown.set(id);
   }
 

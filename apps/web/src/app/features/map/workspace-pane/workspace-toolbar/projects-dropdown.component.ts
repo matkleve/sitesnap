@@ -1,5 +1,6 @@
 import { Component, computed, inject, output, signal } from '@angular/core';
 import { SupabaseService } from '../../../../core/supabase.service';
+import { WorkspaceViewService } from '../../../../core/workspace-view.service';
 
 interface Project {
   id: string;
@@ -19,6 +20,15 @@ interface Project {
           [value]="searchTerm()"
           (input)="searchTerm.set($any($event.target).value)"
         />
+        @if (searchTerm()) {
+          <button
+            class="projects-search__clear"
+            (click)="searchTerm.set('')"
+            aria-label="Clear search"
+          >
+            <span class="material-icons">close</span>
+          </button>
+        }
       </div>
       <div class="projects-list">
         <label class="projects-row projects-row--all">
@@ -54,10 +64,11 @@ interface Project {
 })
 export class ProjectsDropdownComponent {
   private readonly supabase = inject(SupabaseService);
+  private readonly viewService = inject(WorkspaceViewService);
 
   readonly projects = signal<Project[]>([]);
   readonly searchTerm = signal('');
-  readonly selectedIds = signal<Set<string>>(new Set());
+  readonly selectedIds = signal<Set<string>>(new Set(this.viewService.selectedProjectIds()));
   readonly isCreating = signal(false);
 
   readonly projectsChanged = output<Set<string>>();
