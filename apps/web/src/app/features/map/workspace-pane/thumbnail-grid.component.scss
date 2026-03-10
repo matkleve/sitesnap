@@ -1,6 +1,9 @@
+:host {
+  min-height: 0;
+  overflow-y: scroll;
+}
+
 .thumbnail-grid {
-  flex: 1 1 auto;
-  overflow-y: auto;
   padding: var(--spacing-3);
 }
 

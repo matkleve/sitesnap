@@ -23,6 +23,8 @@ export type PhotoMarkerState = {
   count: number;
   lat: number;
   lng: number;
+  /** Original grid-cell centres that were merged into this marker. Used to load all images on click. */
+  sourceCells?: Array<{ lat: number; lng: number }>;
   thumbnailUrl?: string;
   thumbnailSourcePath?: string;
   direction?: number;

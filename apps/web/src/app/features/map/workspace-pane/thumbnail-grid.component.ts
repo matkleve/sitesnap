@@ -48,16 +48,16 @@ type RenderItem =
         </div>
       } @else if (hasGrouping()) {
         @for (item of renderItems(); track $index) {
-          @if (item.type === 'header') {
-            <app-group-header
-              [heading]="item.heading"
-              [imageCount]="item.imageCount"
-              [level]="item.level"
-              [collapsed]="isCollapsed(item.heading)"
-              (toggle)="viewService.toggleGroupCollapsed(item.heading)"
-            />
-          } @else {
-            @if (!isParentCollapsed(item, $index)) {
+          @if (!isItemHidden($index)) {
+            @if (item.type === 'header') {
+              <app-group-header
+                [heading]="item.heading"
+                [imageCount]="item.imageCount"
+                [level]="item.level"
+                [collapsed]="isCollapsed(item.heading)"
+                (toggle)="viewService.toggleGroupCollapsed(item.heading)"
+              />
+            } @else {
               <div class="thumbnail-grid__cards">
                 @for (img of item.images; track img.id) {
                   <app-thumbnail-card [image]="img" (clicked)="thumbnailClicked.emit($event)" />
@@ -142,15 +142,27 @@ export class ThumbnailGridComponent implements OnDestroy {
   }
 
   /**
-   * Check if a grid item's parent header is collapsed.
-   * Look backward from the grid's index to find its nearest header.
+   * Check if an item should be hidden because any ancestor header is collapsed.
+   * For headers: hidden if any preceding header at a lower level is collapsed.
+   * For grids:  hidden if the nearest header or any of its ancestors is collapsed.
    */
-  isParentCollapsed(item: RenderItem, index: number): boolean {
+  isItemHidden(index: number): boolean {
     const items = this.renderItems();
+    const item = items[index];
+
+    // Top-level headers are never hidden
+    if (item.type === 'header' && item.level === 0) return false;
+
+    // Walk backward collecting ancestors.
+    // contextLevel starts at the item's own level (header) or Infinity (grid).
+    let contextLevel = item.type === 'header' ? item.level : Infinity;
+
     for (let i = index - 1; i >= 0; i--) {
       const prev = items[i];
-      if (prev.type === 'header') {
-        return this.isCollapsed(prev.heading);
+      if (prev.type === 'header' && prev.level < contextLevel) {
+        if (this.isCollapsed(prev.heading)) return true;
+        contextLevel = prev.level;
+        if (contextLevel === 0) break;
       }
     }
     return false;

@@ -81,28 +81,48 @@ export class WorkspaceViewService {
 
   /** Load images for a cluster click via the cluster_images RPC. */
   async loadClusterImages(clusterLat: number, clusterLng: number, zoom: number): Promise<void> {
+    return this.loadMultiClusterImages([{ lat: clusterLat, lng: clusterLng }], zoom);
+  }
+
+  /**
+   * Load images from multiple grid-cell centres (when a client-side merge has combined
+   * adjacent clusters into one marker). Calls cluster_images for each source cell in
+   * parallel, deduplicates by image id, and sets rawImages atomically.
+   */
+  async loadMultiClusterImages(
+    cells: Array<{ lat: number; lng: number }>,
+    zoom: number,
+  ): Promise<void> {
     const requestId = ++this.clusterLoadId;
     this.selectionActive.set(true);
     this.isLoading.set(true);
     try {
-      const { data, error } = await this.supabase.client.rpc('cluster_images', {
-        p_cluster_lat: clusterLat,
-        p_cluster_lng: clusterLng,
-        p_zoom: zoom,
-      });
-      // Discard if a newer request has been fired while this one was in-flight.
+      const results = await Promise.all(
+        cells.map((cell) =>
+          this.supabase.client.rpc('cluster_images', {
+            p_cluster_lat: cell.lat,
+            p_cluster_lng: cell.lng,
+            p_zoom: zoom,
+          }),
+        ),
+      );
       if (requestId !== this.clusterLoadId) return;
 
-      if (error || !data || (data as RawClusterRow[]).length === 0) {
-        // No images found — show the empty selection state.
-        this.rawImages.set([]);
-        return;
+      const seen = new Set<string>();
+      const images: WorkspaceImage[] = [];
+      for (const { data, error } of results) {
+        if (error || !data) continue;
+        for (const row of data as RawClusterRow[]) {
+          if (!seen.has(row.image_id)) {
+            seen.add(row.image_id);
+            images.push(mapClusterRow(row));
+          }
+        }
       }
-      const images = (data as RawClusterRow[]).map(mapClusterRow);
+
       this.rawImages.set(images);
-      this.resolveUnresolvedAddresses(images);
+      if (images.length > 0) this.resolveUnresolvedAddresses(images);
     } finally {
-      // Only clear loading if this is still the active request.
       if (requestId === this.clusterLoadId) {
         this.isLoading.set(false);
       }

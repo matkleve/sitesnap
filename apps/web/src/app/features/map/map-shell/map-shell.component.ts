@@ -155,6 +155,7 @@ export class MapShellComponent implements OnDestroy {
       direction?: number;
       corrected?: boolean;
       uploading?: boolean;
+      sourceCells?: Array<{ lat: number; lng: number }>;
       /** DB UUID of the image — set for single-image markers only. */
       imageId?: string;
       /** True for markers added via upload before the next viewport query. */
@@ -589,7 +590,8 @@ export class MapShellComponent implements OnDestroy {
     const merged = this.mergeOverlappingClusters(data as ViewportRow[]);
 
     // Build the incoming marker set keyed the same way we store them.
-    const incoming = new Map<string, ViewportRow>();
+    type MergedRow = ViewportRow & { sourceCells: Array<{ lat: number; lng: number }> };
+    const incoming = new Map<string, MergedRow>();
     for (const row of merged) {
       if (typeof row.cluster_lat !== 'number' || typeof row.cluster_lng !== 'number') continue;
       const key = this.toMarkerKey(row.cluster_lat, row.cluster_lng);
@@ -629,8 +631,12 @@ export class MapShellComponent implements OnDestroy {
           existing.direction = direction;
           existing.corrected = corrected;
           existing.thumbnailSourcePath = thumbnailSourcePath;
+          existing.sourceCells = row.sourceCells;
           existing.optimistic = false;
           this.refreshPhotoMarker(key);
+        } else {
+          // Always keep sourceCells in sync even if visuals haven't changed.
+          existing.sourceCells = row.sourceCells;
         }
         continue;
       }
@@ -648,6 +654,7 @@ export class MapShellComponent implements OnDestroy {
         count,
         lat: row.cluster_lat,
         lng: row.cluster_lng,
+        sourceCells: row.sourceCells,
         direction,
         corrected,
         thumbnailSourcePath,
@@ -710,9 +717,10 @@ export class MapShellComponent implements OnDestroy {
     this.setSelectedMarker(markerKey);
     this.photoPanelOpen.set(true);
 
-    // Load images at this marker's grid position into the workspace view.
+    // Load images at this marker's grid position(s) into the workspace view.
     const zoom = Math.round(this.map?.getZoom() ?? 13);
-    void this.workspaceViewService.loadClusterImages(markerState.lat, markerState.lng, zoom);
+    const cells = markerState.sourceCells ?? [{ lat: markerState.lat, lng: markerState.lng }];
+    void this.workspaceViewService.loadMultiClusterImages(cells, zoom);
 
     // Single-image marker: also jump directly to detail view.
     if (markerState.count === 1 && markerState.imageId) {
@@ -1000,8 +1008,9 @@ export class MapShellComponent implements OnDestroy {
       exif_longitude: number | null;
       created_at: string | null;
     },
-  >(rows: T[]): T[] {
-    if (!this.map || rows.length === 0) return rows;
+  >(rows: T[]): Array<T & { sourceCells: Array<{ lat: number; lng: number }> }> {
+    if (!this.map || rows.length === 0)
+      return rows.map((r) => ({ ...r, sourceCells: [{ lat: r.cluster_lat, lng: r.cluster_lng }] }));
 
     const minDist = PHOTO_MARKER_ICON_SIZE[0] * 1.2; // 64 px + 20 % gap
     const minDistSq = minDist * minDist;
@@ -1012,7 +1021,7 @@ export class MapShellComponent implements OnDestroy {
     );
 
     const consumed = new Set<number>();
-    const result: T[] = [];
+    const result: Array<T & { sourceCells: Array<{ lat: number; lng: number }> }> = [];
 
     for (let i = 0; i < rows.length; i++) {
       if (consumed.has(i)) continue;
@@ -1021,6 +1030,11 @@ export class MapShellComponent implements OnDestroy {
       let totalCount = Number(rows[i].image_count);
       let wLat = rows[i].cluster_lat * totalCount;
       let wLng = rows[i].cluster_lng * totalCount;
+
+      // Track original grid-cell centres so we can query all of them on click.
+      const sourceCells: Array<{ lat: number; lng: number }> = [
+        { lat: rows[i].cluster_lat, lng: rows[i].cluster_lng },
+      ];
 
       for (let j = i + 1; j < rows.length; j++) {
         if (consumed.has(j)) continue;
@@ -1032,6 +1046,7 @@ export class MapShellComponent implements OnDestroy {
           wLat += rows[j].cluster_lat * jCount;
           wLng += rows[j].cluster_lng * jCount;
           totalCount += jCount;
+          sourceCells.push({ lat: rows[j].cluster_lat, lng: rows[j].cluster_lng });
         }
       }
 
@@ -1049,7 +1064,8 @@ export class MapShellComponent implements OnDestroy {
         exif_latitude: isSingle ? rows[i].exif_latitude : null,
         exif_longitude: isSingle ? rows[i].exif_longitude : null,
         created_at: isSingle ? rows[i].created_at : null,
-      } as T);
+        sourceCells,
+      } as T & { sourceCells: Array<{ lat: number; lng: number }> });
     }
 
     return result;
