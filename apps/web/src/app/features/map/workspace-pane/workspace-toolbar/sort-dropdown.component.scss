@@ -66,13 +66,12 @@
   border-radius: var(--radius-sm);
   background: transparent;
   font-size: 0.8125rem;
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
   cursor: pointer;
   transition: background 80ms ease-out;
 
   &:hover {
     background: color-mix(in srgb, var(--color-text-secondary) 8%, transparent);
-    color: var(--color-text-primary);
   }
 
   &--active {
