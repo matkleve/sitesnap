@@ -701,9 +701,7 @@ describe('ImageDetailViewComponent', () => {
 
       component.openAddressSearch();
 
-      expect(component.addressSearchQuery()).toBe(
-        'Stephansplatz, Wien, Innere Stadt, Austria',
-      );
+      expect(component.addressSearchQuery()).toBe('Stephansplatz, Wien, Innere Stadt, Austria');
       expect(component.editingField()).toBe('address_search');
     });
 
@@ -890,15 +888,7 @@ describe('ImageDetailViewComponent', () => {
 
     it('limits results to 5 suggestions', () => {
       const { component } = setup();
-      component.allMetadataKeyNames.set([
-        'A1',
-        'A2',
-        'A3',
-        'A4',
-        'A5',
-        'A6',
-        'A7',
-      ]);
+      component.allMetadataKeyNames.set(['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7']);
       component.metadata.set([]);
 
       component.onMetadataKeyInput('A');
@@ -1002,10 +992,6 @@ describe('ImageDetailViewComponent', () => {
       await component.clearCapturedAt();
 
       expect(component.image()!.captured_at).toBe(original);
-    });
-  });
-
-      expect(emitted).toBe(false);
     });
   });
 
