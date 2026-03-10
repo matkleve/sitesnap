@@ -22,7 +22,9 @@ export interface GroupingProperty {
         <div class="grouping-section__header">
           <span class="dd-section-label">Grouped by</span>
           @if (activeGroupings().length > 0) {
-            <button class="grouping-clear-btn" (click)="clearGroupings()">Empty</button>
+            <button class="dd-reset-btn" (click)="clearGroupings()" aria-label="Reset grouping">
+              <span class="material-icons">restart_alt</span>
+            </button>
           }
         </div>
         <div

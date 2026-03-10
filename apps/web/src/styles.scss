@@ -311,6 +311,7 @@ router-outlet + * {
 //   .dd-divider         horizontal 1px separator
 //   .dd-empty           centered empty-state / hint text
 //   .dd-action-row      ghost "add" / "new" action at bottom
+//   .dd-reset-btn       inline reset / clear button (e.g. "Empty" in grouping header)
 //   .dd-drag-handle     trailing drag indicator (quiet-actions pattern)
 
 .dd-search {
@@ -368,6 +369,7 @@ router-outlet + * {
   align-items: center;
   gap: var(--spacing-2);
   width: 100%;
+  min-height: 2rem;
   padding: var(--spacing-1) var(--spacing-2);
   border: none;
   border-radius: var(--radius-sm);
@@ -396,16 +398,17 @@ router-outlet + * {
 
 .dd-item--danger {
   color: var(--color-danger);
-
-  .dd-item__icon {
-    color: var(--color-danger);
-  }
 }
 
 .dd-item__icon {
   font-size: 1rem;
   color: var(--color-text-secondary);
   flex-shrink: 0;
+
+  .dd-item--active &,
+  .dd-item--danger & {
+    color: inherit;
+  }
 }
 
 .dd-item__label {
@@ -460,6 +463,32 @@ router-outlet + * {
   &:hover {
     background: color-mix(in srgb, var(--color-clay) 8%, transparent);
     color: var(--color-text-primary);
+  }
+}
+
+.dd-reset-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    background 80ms ease-out,
+    color 80ms ease-out;
+
+  .material-icons {
+    font-size: 0.875rem;
+  }
+
+  &:hover {
+    background: color-mix(in srgb, var(--color-clay) 8%, transparent);
+    color: var(--color-clay);
   }
 }
 
