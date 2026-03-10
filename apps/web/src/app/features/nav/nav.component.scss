@@ -1,0 +1,309 @@
+// NavComponent styles — LeftSidebar (desktop) / bottom tab bar (mobile).
+//
+// Design spec reference: design.md §3.3
+//   collapsed  → 48px (3rem) icon rail, icons centred
+//   expanded   → 240px (15rem) panel, icon + label
+//   Frosted glass: surface at 85% opacity + 16px blur
+//   Active link: --color-clay accent
+//   Ghost buttons: transparent bg, fill on hover (Notion pattern)
+//
+// Mobile: fixed full-width bottom tab bar, icons only, 56px tall.
+
+// ── Host ──────────────────────────────────────────────────────────────────────
+
+:host {
+  display: contents;
+}
+
+// ── LeftSidebar — trigger zone ───────────────────────────────────────────────
+
+.sidebar {
+  --sidebar-width-collapsed: var(--layout-sidebar-width-collapsed);
+  --sidebar-width-expanded: var(--layout-sidebar-width-expanded);
+  --sidebar-row-padding-inline: var(--layout-sidebar-row-padding-inline);
+  --sidebar-row-padding-block: var(--layout-sidebar-row-padding-block);
+  --sidebar-row-gap: var(--layout-sidebar-row-gap);
+  --sidebar-row-height: var(--layout-sidebar-row-height);
+  --sidebar-media-size: var(--layout-sidebar-media-size);
+  --sidebar-icon-size: var(--layout-sidebar-icon-size);
+  --sidebar-label-size: var(--layout-sidebar-label-size);
+
+  position: fixed;
+  z-index: var(--z-panel);
+
+  @media (min-width: 768px) {
+    top: 50%;
+    left: var(--container-inset);
+    transform: translateY(-50%);
+    width: var(--sidebar-width-collapsed);
+    height: auto; // fit content
+    max-height: 80vh;
+    border-radius: var(--container-radius-panel);
+    display: flex;
+    align-items: stretch;
+    transition: width 180ms ease-out;
+
+    &:hover,
+    &:focus-within {
+      width: var(--sidebar-width-expanded);
+
+      .nav__label {
+        opacity: 1;
+        visibility: visible;
+        transition-delay: 0s;
+      }
+    }
+  }
+
+  @media (max-width: 767px) {
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: auto;
+    transform: none;
+    width: 100%;
+    height: 3.5rem; // 56px
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    background: var(--color-bg-surface);
+    border-top: 1px solid var(--color-border);
+    box-shadow: var(--elevation-subtle);
+  }
+}
+
+// ── Panel — visual container ─────────────────────────────────────────────────
+
+.sidebar__panel {
+  @media (min-width: 768px) {
+    --ui-container-radius: var(--container-radius-panel);
+
+    height: 100%;
+    width: 100%;
+    min-height: 0;
+
+    // Frosted glass
+    background: color-mix(in srgb, var(--color-bg-surface) 85%, transparent);
+    backdrop-filter: blur(16px) saturate(1.2);
+    -webkit-backdrop-filter: blur(16px) saturate(1.2);
+    box-shadow: var(--elevation-overlay);
+    border: 1px solid color-mix(in srgb, var(--color-border) 50%, transparent);
+  }
+
+  @media (max-width: 767px) {
+    display: flex;
+    flex-direction: row;
+    flex: 1 1 auto;
+    align-items: stretch;
+  }
+}
+
+// ── Nav list ──────────────────────────────────────────────────────────────────
+
+.nav__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  @media (min-width: 768px) {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ui-container-gap);
+    width: 100%;
+    min-height: 0;
+    flex: 1 1 auto;
+  }
+
+  @media (max-width: 767px) {
+    display: flex;
+    flex-direction: row;
+    flex: 1 1 auto;
+    align-items: stretch;
+    padding: 0;
+  }
+}
+
+.sidebar__item {
+  @media (min-width: 768px) {
+    width: 100%;
+  }
+
+  @media (max-width: 767px) {
+    flex: 1 1 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+.sidebar__item--spacer {
+  @media (max-width: 767px) {
+    display: none;
+  }
+}
+
+.sidebar__item--account {
+  @media (max-width: 767px) {
+    display: none;
+  }
+}
+
+// ── Nav link — ghost button pattern (Notion-inspired) ────────────────────────
+
+.nav__link {
+  --ui-item-min-height: var(--sidebar-row-height);
+  --ui-item-padding-inline: var(--sidebar-row-padding-inline);
+  --ui-item-padding-block: var(--sidebar-row-padding-block);
+  --ui-item-gap: var(--sidebar-row-gap);
+  --ui-item-radius: var(--container-radius-control);
+  --ui-item-media-size: var(--sidebar-media-size);
+
+  display: grid;
+  grid-template-columns: var(--sidebar-media-size) minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--sidebar-row-gap);
+  text-decoration: none;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  cursor: pointer;
+  margin: 0;
+  transition:
+    background 80ms ease-out,
+    color 80ms ease-out;
+
+  @media (min-width: 768px) {
+    width: 100%;
+    overflow: hidden;
+  }
+
+  @media (max-width: 767px) {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    min-height: 3rem; // 48px
+    padding: 0.25rem 0.5rem;
+    gap: 0.125rem;
+  }
+
+  // Ghost hover — transparent fill appears
+  &:hover {
+    background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+    color: var(--color-text-primary);
+  }
+
+  // Active route — clay accent
+  &--active {
+    color: var(--color-clay, var(--color-primary));
+    background: color-mix(in srgb, var(--color-clay, var(--color-primary)) 10%, transparent);
+
+    .nav__icon {
+      color: var(--color-clay, var(--color-primary));
+    }
+  }
+
+  &--active:hover {
+    background: color-mix(in srgb, var(--color-clay, var(--color-primary)) 14%, transparent);
+  }
+
+  &--disabled {
+    opacity: 0.3;
+    cursor: default;
+    pointer-events: none;
+    color: var(--color-text-disabled);
+  }
+}
+
+// ── Material Icon ─────────────────────────────────────────────────────────────
+
+.nav__icon {
+  font-size: var(--sidebar-icon-size);
+  line-height: 1;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.nav__media {
+  inline-size: var(--sidebar-media-size);
+  block-size: var(--sidebar-media-size);
+  min-inline-size: var(--sidebar-media-size);
+}
+
+// ── Label text ────────────────────────────────────────────────────────────────
+
+.nav__label {
+  font-size: var(--sidebar-label-size);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  color: inherit;
+  min-width: 0;
+  opacity: 0;
+  visibility: hidden;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition:
+    opacity 120ms ease-out,
+    visibility 0s linear 120ms;
+
+  @media (max-width: 767px) {
+    display: none; // icons only on mobile bottom bar
+  }
+}
+
+.nav__account-link {
+  color: var(--color-text-primary);
+}
+
+.nav__avatar-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--sidebar-media-size);
+  height: var(--sidebar-media-size);
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-clay, var(--color-primary));
+  color: #fff;
+  font-size: var(--sidebar-label-size);
+  font-weight: 600;
+  transition:
+    background 80ms ease-out,
+    transform 80ms ease-out;
+  user-select: none;
+
+  .nav__account-link:hover & {
+    background: color-mix(in srgb, var(--color-clay, var(--color-primary)) 85%, #000);
+    transform: scale(1.03);
+  }
+}
+
+.nav__avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+
+.nav__avatar-initial {
+  line-height: 1;
+}
+
+.nav__account-name {
+  color: var(--color-text-primary);
+}
+
+// ── Screen-reader only ────────────────────────────────────────────────────────
+
+.nav__sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

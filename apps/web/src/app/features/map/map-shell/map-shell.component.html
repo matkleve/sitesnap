@@ -1,0 +1,101 @@
+<!--
+  MapShellComponent — full-screen map shell.
+
+  Layout (left→right):
+    MapZone (flex-fill)
+      UploadButton (absolute, top-right, z-upload-button, visually over map)
+      LeafletMap
+      SearchBar (floating, top-center)
+        ResultsDropdown (conditional)
+      GPSButton (floating, bottom-right)
+      PlacementBanner (conditional)
+    DragDivider (hidden when PhotoPanel closed)
+    PhotoPanel (slides in from right / bottom)
+-->
+
+<!-- Map zone — fills remaining space -->
+<div class="map-zone">
+  <!-- Upload button — top-right of map zone, visually over map -->
+  <div class="upload-btn-zone" [class.upload-btn-zone--open]="uploadPanelOpen()">
+    <!-- Icon button (always visible) -->
+    <button
+      class="map-upload-btn"
+      type="button"
+      aria-label="Upload images"
+      title="Upload images"
+      [class.map-upload-btn--active]="uploadPanelOpen()"
+      (click)="toggleUploadPanel()"
+    >
+      <span class="material-icons" aria-hidden="true">add_photo_alternate</span>
+    </button>
+
+    <!-- Expanded panel -->
+    <div class="upload-expand" [class.upload-expand--visible]="uploadPanelOpen()">
+      <app-upload-panel
+        [visible]="uploadPanelOpen()"
+        (imageUploaded)="onImageUploaded($event)"
+        (placementRequested)="enterPlacementMode($event)"
+      />
+    </div>
+  </div>
+  <!-- Leaflet target -->
+  <div
+    #mapContainer
+    class="map-container"
+    [class.map-container--placing]="placementActive() || searchPlacementActive()"
+    aria-label="Site map"
+  ></div>
+
+  <ss-search-bar
+    (mapCenterRequested)="onSearchMapCenterRequested($event)"
+    (clearRequested)="onSearchClearRequested()"
+    (dropPinRequested)="onSearchDropPinRequested()"
+  />
+
+  <!-- GPS button — bottom-right of map zone -->
+  <button
+    class="map-gps-btn"
+    type="button"
+    [attr.aria-label]="gpsLocating() ? 'Finding my location' : 'Go to my location'"
+    [title]="gpsLocating() ? 'Finding my location' : 'Go to my location'"
+    [class.map-gps-btn--locating]="gpsLocating()"
+    (click)="goToUserPosition()"
+  >
+    @if (gpsLocating()) {
+      <span class="map-gps-btn__spinner" aria-hidden="true"></span>
+    } @else {
+      <span class="material-icons" aria-hidden="true">my_location</span>
+    }
+  </button>
+
+  <!-- Placement mode banner -->
+  @if (placementActive() || searchPlacementActive()) {
+    <div class="map-placement-banner" role="status" aria-live="assertive">
+      <span class="material-icons" aria-hidden="true">pin_drop</span>
+      {{ placementActive() ? 'Click the map to place the image' : 'Click the map to drop a pin' }}
+      <button class="map-placement-banner__cancel" type="button" (click)="cancelPlacement()">
+        Cancel
+      </button>
+    </div>
+  }
+</div>
+
+<!-- Drag divider (shown only when workspace pane is open, desktop only) -->
+@if (photoPanelOpen()) {
+  <app-drag-divider
+    [currentWidth]="workspacePaneWidth()"
+    [minWidth]="workspacePaneMinWidth"
+    [maxWidth]="workspacePaneMaxWidth()"
+    [defaultWidth]="workspacePaneDefaultWidth"
+    (widthChange)="onWorkspaceWidthChange($event)"
+  />
+
+  <app-workspace-pane
+    [style.width.px]="workspacePaneWidth()"
+    [detailImageId]="detailImageId()"
+    (closed)="closeWorkspacePane()"
+    (detailClosed)="closeDetailView()"
+    (detailRequested)="openDetailView($event)"
+    (editLocationRequested)="onEditLocationRequested($event)"
+  />
+}

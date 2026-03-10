@@ -1,0 +1,103 @@
+:host {
+  min-height: 0;
+  overflow-y: scroll;
+}
+
+.thumbnail-grid {
+  padding: var(--spacing-3);
+}
+
+.thumbnail-grid__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+  gap: var(--spacing-3);
+  padding: var(--spacing-1) 0;
+}
+
+.thumbnail-grid__empty {
+  text-align: center;
+  color: var(--color-text-secondary);
+  padding: var(--spacing-6) var(--spacing-4);
+  font-size: 0.875rem;
+}
+
+.thumbnail-grid__empty-selection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-2);
+  padding: var(--spacing-8) var(--spacing-4);
+  color: var(--color-text-secondary);
+  text-align: center;
+
+  p {
+    margin: 0;
+    font-size: 0.875rem;
+  }
+}
+
+.thumbnail-grid__empty-icon {
+  font-size: 2rem;
+  opacity: 0.5;
+}
+
+.thumbnail-grid__empty-hint {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.thumbnail-grid__filter-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-3);
+  padding: var(--spacing-8) var(--spacing-4);
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.thumbnail-grid__clear-btn {
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-primary);
+  padding: var(--spacing-1) var(--spacing-3);
+  border-radius: var(--radius-md);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition:
+    background 150ms ease,
+    border-color 150ms ease;
+
+  &:hover {
+    background: var(--color-bg-elevated, var(--color-bg-surface));
+    border-color: var(--color-clay);
+  }
+}
+
+.thumbnail-grid__skeleton {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+  gap: var(--spacing-3);
+  padding: var(--spacing-1) 0;
+}
+
+.thumbnail-grid__skeleton-card {
+  width: 128px;
+  height: 128px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated, var(--color-bg-surface));
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}

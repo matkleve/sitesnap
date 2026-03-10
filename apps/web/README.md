@@ -44,6 +44,16 @@ To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use th
 ng test
 ```
 
+## Linting
+
+To run the warning-only ESLint guidance for maintainability, use:
+
+```bash
+npm run lint
+```
+
+The lint config is intentionally forward-looking. It warns on unusually large TypeScript files, long functions, and higher cyclomatic complexity without forcing broad refactors across the current codebase.
+
 ## Running end-to-end tests
 
 For end-to-end (e2e) testing, run:

@@ -1,0 +1,285 @@
+/**
+ * Shared auth layout styles.
+ *
+ * Ground rule: all auth component SCSS files import this partial.
+ * Never duplicate these rules in individual component files.
+ * M-UI1: raw hex values replaced with design-system tokens.
+ */
+
+// Full-viewport centered shell
+.auth-shell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100dvh;
+  min-height: 100vh;
+  background: var(--color-bg-base);
+  padding: 1.5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+// Optional fixed city map background for login/register only
+.auth-shell--map {
+  background:
+    radial-gradient(circle at 16% 20%, rgba(204, 122, 74, 0.2), transparent 46%),
+    radial-gradient(circle at 84% 84%, rgba(37, 99, 235, 0.2), transparent 40%),
+    var(--color-bg-base);
+}
+
+.auth-map-bg {
+  position: absolute;
+  inset: -4rem;
+  z-index: 0;
+  pointer-events: none;
+  filter: saturate(0.9) contrast(1.02);
+  transform: scale(1.08);
+}
+
+.auth-map-frame {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.auth-map-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      160deg,
+      rgba(249, 247, 244, 0.75),
+      rgba(249, 247, 244, 0.35) 46%,
+      rgba(249, 247, 244, 0.72)
+    ),
+    linear-gradient(0deg, rgba(249, 247, 244, 0.22), rgba(249, 247, 244, 0.22));
+}
+
+:root.dark .auth-map-overlay,
+[data-theme='dark'] .auth-map-overlay {
+  background:
+    linear-gradient(
+      160deg,
+      rgba(15, 14, 12, 0.74),
+      rgba(15, 14, 12, 0.4) 46%,
+      rgba(15, 14, 12, 0.78)
+    ),
+    linear-gradient(0deg, rgba(15, 14, 12, 0.26), rgba(15, 14, 12, 0.26));
+}
+
+// Card container
+.auth-card {
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elevation-dropdown);
+  padding: 2.5rem 2rem;
+  width: 100%;
+  max-width: 420px;
+  max-height: calc(100dvh - 3rem);
+  position: relative;
+  z-index: 2;
+  overflow: hidden;
+}
+
+.auth-card-scroll {
+  max-height: calc(100dvh - 3rem - 8.25rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 0.25rem;
+  position: relative;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
+  background:
+    linear-gradient(var(--color-bg-surface) 45%, rgba(255, 255, 255, 0)) center top,
+    linear-gradient(rgba(255, 255, 255, 0), var(--color-bg-surface) 55%) center bottom,
+    radial-gradient(farthest-side at 50% 0, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0))
+      center top,
+    radial-gradient(farthest-side at 50% 100%, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0))
+      center bottom;
+  background-repeat: no-repeat;
+  background-size:
+    100% 1.5rem,
+    100% 1.5rem,
+    100% 0.9rem,
+    100% 0.9rem;
+  background-attachment: local, local, scroll, scroll;
+}
+
+.auth-card-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.auth-card-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.auth-card-scroll::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-border-strong) 74%, transparent);
+  border-radius: 999px;
+}
+
+.auth-card-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-strong);
+}
+
+:root.dark .auth-card-scroll,
+[data-theme='dark'] .auth-card-scroll {
+  background:
+    linear-gradient(var(--color-bg-surface) 45%, rgba(15, 14, 12, 0)) center top,
+    linear-gradient(rgba(15, 14, 12, 0), var(--color-bg-surface) 55%) center bottom,
+    radial-gradient(farthest-side at 50% 0, rgba(237, 235, 231, 0.16), rgba(237, 235, 231, 0))
+      center top,
+    radial-gradient(farthest-side at 50% 100%, rgba(237, 235, 231, 0.16), rgba(237, 235, 231, 0))
+      center bottom;
+}
+
+// Headings
+.auth-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 0 0.25rem;
+  color: var(--color-text-primary);
+}
+
+.auth-subtitle {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  margin: 0 0 1.75rem;
+}
+
+// Form fields
+.field {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1.1rem;
+
+  label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    margin-bottom: 0.35rem;
+  }
+
+  input {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 0.6rem 0.75rem;
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.15s;
+    background: var(--color-bg-surface);
+    color: var(--color-text-primary);
+
+    &:focus {
+      border-color: var(--color-primary);
+      box-shadow: var(--shadow-focus);
+    }
+
+    &::placeholder {
+      color: var(--color-text-disabled);
+    }
+  }
+}
+
+.field-error {
+  font-size: 0.78rem;
+  color: var(--color-danger);
+  margin-top: 0.3rem;
+}
+
+// Forgot password link inside label
+.forgot-link {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--color-primary);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+// Alert banners
+.alert {
+  border-radius: var(--radius-md);
+  padding: 0.65rem 0.85rem;
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+}
+
+.alert-error {
+  background: #fee2e2; // derived from --color-danger; no exact token for tinted backgrounds
+  color: var(--color-danger);
+  border: 1px solid #fca5a5;
+}
+
+// Primary button
+.btn-primary {
+  width: 100%;
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 0.7rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  margin-top: 0.5rem;
+
+  &:hover:not(:disabled) {
+    background: var(--color-primary-hover);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+// Footer links
+.auth-footer {
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  margin-top: 1.5rem;
+
+  a {
+    color: var(--color-primary);
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}
+
+@media (max-width: 640px) {
+  .auth-shell {
+    padding: 1rem;
+  }
+
+  .auth-card {
+    padding: 1.5rem 1rem;
+    max-height: calc(100dvh - 2rem);
+  }
+
+  .auth-card-scroll {
+    max-height: calc(100dvh - 2rem - 7.25rem);
+  }
+}
+
+// Success state
+.auth-success {
+  text-align: center;
+
+  p {
+    color: var(--color-text-secondary);
+    line-height: 1.6;
+  }
+}

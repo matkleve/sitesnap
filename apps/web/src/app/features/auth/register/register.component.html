@@ -1,0 +1,107 @@
+<div class="auth-shell auth-shell--map">
+  <div class="auth-map-bg" aria-hidden="true">
+    <iframe
+      class="auth-map-frame"
+      src="https://www.openstreetmap.org/export/embed.html?bbox=8.46%2C47.34%2C8.62%2C47.43&amp;layer=mapnik&amp;marker=47.3769%2C8.5417"
+      tabindex="-1"
+      title="Decorative city map background"
+    ></iframe>
+  </div>
+  <div class="auth-map-overlay" aria-hidden="true"></div>
+  <div class="auth-card">
+    @if (success()) {
+      <div class="auth-success">
+        <h1 class="auth-title">Check your email</h1>
+        <p>
+          We sent a confirmation link to <strong>{{ form.controls.email.value }}</strong
+          >. Click it to activate your account.
+        </p>
+        <p class="auth-footer"><a routerLink="/auth/login">Back to sign in</a></p>
+      </div>
+    } @else {
+      <h1 class="auth-title">Create account</h1>
+      <p class="auth-subtitle">Start documenting your sites</p>
+
+      <div class="auth-card-scroll" role="region" aria-label="Create account form">
+        <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+          <!-- Full name -->
+          <div class="field">
+            <label for="fullName">Full name</label>
+            <input
+              id="fullName"
+              type="text"
+              formControlName="fullName"
+              autocomplete="name"
+              placeholder="Jane Smith"
+            />
+            @if (form.controls.fullName.touched && form.controls.fullName.hasError('required')) {
+              <span class="field-error">Full name is required.</span>
+            }
+          </div>
+
+          <!-- Email -->
+          <div class="field">
+            <label for="email">Email</label>
+            <input
+              id="email"
+              type="email"
+              formControlName="email"
+              autocomplete="email"
+              placeholder="you@example.com"
+            />
+            @if (form.controls.email.touched && form.controls.email.hasError('required')) {
+              <span class="field-error">Email is required.</span>
+            } @else if (form.controls.email.touched && form.controls.email.hasError('email')) {
+              <span class="field-error">Enter a valid email address.</span>
+            }
+          </div>
+
+          <!-- Password -->
+          <div class="field">
+            <label for="password">Password</label>
+            <input
+              id="password"
+              type="password"
+              formControlName="password"
+              autocomplete="new-password"
+              placeholder="Min. 6 characters"
+            />
+            @if (form.controls.password.touched && form.controls.password.hasError('minlength')) {
+              <span class="field-error">Password must be at least 6 characters.</span>
+            }
+          </div>
+
+          <!-- Confirm password -->
+          <div class="field">
+            <label for="confirmPassword">Confirm password</label>
+            <input
+              id="confirmPassword"
+              type="password"
+              formControlName="confirmPassword"
+              autocomplete="new-password"
+              placeholder="••••••••"
+            />
+            @if (form.controls.confirmPassword.touched && form.hasError('passwordsMismatch')) {
+              <span class="field-error">Passwords do not match.</span>
+            }
+          </div>
+
+          <!-- Error banner -->
+          @if (errorMessage()) {
+            <div class="alert alert-error" role="alert">{{ errorMessage() }}</div>
+          }
+
+          <button type="submit" class="btn-primary" [disabled]="loading()">
+            @if (loading()) {
+              Creating account…
+            } @else {
+              Create account
+            }
+          </button>
+        </form>
+
+        <p class="auth-footer">Already have an account? <a routerLink="/auth/login">Sign in</a></p>
+      </div>
+    }
+  </div>
+</div>

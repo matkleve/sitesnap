@@ -1,0 +1,134 @@
+<div class="search-bar ui-container" [class.search-bar--expanded]="dropdownOpen()" role="search">
+  <div class="search-bar__input-row">
+    <span class="search-bar__slot-wrapper" aria-hidden="true">
+      <span class="search-bar__icon-slot ui-item-media" aria-hidden="true">
+        <span class="material-icons search-bar__icon">search</span>
+      </span>
+    </span>
+
+    <input
+      #searchInput
+      class="search-bar__input"
+      type="search"
+      role="combobox"
+      autocomplete="off"
+      aria-autocomplete="list"
+      aria-haspopup="listbox"
+      [attr.aria-expanded]="dropdownOpen()"
+      [attr.aria-controls]="dropdownOpen() ? 'search-results-listbox' : null"
+      [attr.aria-activedescendant]="activeIndex() >= 0 ? optionIdFor(activeIndex()) : null"
+      placeholder="Search address, project, group…"
+      [value]="query()"
+      (focus)="onFocus()"
+      (input)="onInput($event)"
+      (keydown)="onInputKeydown($event)"
+    />
+
+    @if (committedCandidate()) {
+      <button
+        class="search-bar__clear"
+        type="button"
+        aria-label="Clear search"
+        (mousedown)="$event.preventDefault()"
+        (click)="onClearClick()"
+      >
+        <span class="search-bar__slot-wrapper" aria-hidden="true">
+          <span class="search-bar__clear-slot ui-item-media" aria-hidden="true">
+            <span class="material-icons">close</span>
+          </span>
+        </span>
+      </button>
+    }
+  </div>
+
+  <div
+    class="search-bar__dropdown"
+    [attr.aria-hidden]="!dropdownOpen()"
+    id="search-results-listbox"
+    role="listbox"
+  >
+    <div class="search-bar__dropdown-content">
+      @if (showingRecentSearches()) {
+        <div class="search-bar__section-label" role="presentation">Recent searches</div>
+
+        @if (recentSearches().length === 0) {
+          <div class="search-bar__empty-copy" role="presentation">No recent searches yet.</div>
+        } @else {
+          @for (candidate of recentSearches(); track candidate.id; let index = $index) {
+            <ss-search-dropdown-item
+              [candidate]="candidate"
+              [active]="activeIndex() === index"
+              [optionId]="optionIdFor(index)"
+              (selected)="onCandidateSelected($event)"
+            />
+          }
+        }
+      } @else {
+        @if (sections().dbAddress.items.length > 0) {
+          <div class="search-bar__section-label" role="presentation">Addresses</div>
+          @for (candidate of sections().dbAddress.items; track candidate.id; let index = $index) {
+            <ss-search-dropdown-item
+              [candidate]="candidate"
+              [active]="activeIndex() === index"
+              [optionId]="optionIdFor(index)"
+              (selected)="onCandidateSelected($event)"
+            />
+          }
+        }
+
+        @if (sections().dbContent.items.length > 0) {
+          <div class="search-bar__section-label" role="presentation">Projects &amp; Groups</div>
+          @for (candidate of sections().dbContent.items; track candidate.id; let index = $index) {
+            <ss-search-dropdown-item
+              [candidate]="candidate"
+              [active]="activeIndex() === contentOptionIndex(index)"
+              [optionId]="optionIdFor(contentOptionIndex(index))"
+              (selected)="onCandidateSelected($event)"
+            />
+          }
+        }
+
+        @if (sections().dbAddress.items.length > 0 && sections().geocoder.items.length > 0) {
+          <div class="search-bar__divider" role="presentation"></div>
+        }
+
+        @if (sections().geocoder.items.length > 0 || geocoderLoading()) {
+          <div class="search-bar__section-label" role="presentation">Places</div>
+
+          @if (geocoderLoading()) {
+            <div class="search-bar__skeleton-list" aria-hidden="true">
+              <div class="search-bar__skeleton-row"></div>
+              <div class="search-bar__skeleton-row"></div>
+            </div>
+          }
+
+          @for (candidate of sections().geocoder.items; track candidate.id; let index = $index) {
+            <ss-search-dropdown-item
+              [candidate]="candidate"
+              [active]="activeIndex() === geocoderOptionIndex(index)"
+              [optionId]="optionIdFor(geocoderOptionIndex(index))"
+              (selected)="onCandidateSelected($event)"
+            />
+          }
+        }
+
+        @if (showingEmptyState()) {
+          <div class="search-bar__empty-state" role="presentation">
+            <p class="search-bar__empty-title">No address found for {{ query().trim() }}</p>
+            <p class="search-bar__empty-copy">Try a different address or pin manually.</p>
+            <button
+              class="search-bar__ghost-action"
+              type="button"
+              (mousedown)="$event.preventDefault()"
+              (click)="onDropPinClick()"
+            >
+              Drop pin
+            </button>
+          </div>
+        }
+      }
+    </div>
+  </div>
+
+  <span class="search-bar__sr-only" aria-live="polite">{{ liveRegionText() }}</span>
+</div>

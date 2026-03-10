@@ -1,0 +1,204 @@
+<!-- ImageDetailViewComponent — full detail view of a single photo. -->
+
+<!-- Loading state -->
+@if (loading()) {
+  <div class="detail-loading" role="status" aria-label="Loading image details">
+    <span class="detail-loading__spinner" aria-hidden="true"></span>
+    <span class="detail-loading__text">Loading…</span>
+  </div>
+}
+
+<!-- Error state -->
+@if (error() && !loading()) {
+  <div class="detail-error" role="alert">
+    <span class="material-icons" aria-hidden="true">error_outline</span>
+    <span>{{ error() }}</span>
+  </div>
+}
+
+<!-- Content (visible when image is loaded) -->
+@if (image() && !loading()) {
+  <!-- DetailHeader: back button + title + context menu -->
+  <div class="detail-header">
+    <!-- BackButton / CloseButton (closes detail, returns to grid) -->
+    <button
+      class="detail-back-btn"
+      type="button"
+      aria-label="Back to gallery"
+      title="Back to gallery"
+      (click)="close()"
+    >
+      <span class="material-icons" aria-hidden="true">arrow_back</span>
+    </button>
+
+    <!-- ImageTitle -->
+    <span class="detail-title" [title]="displayTitle()">{{ displayTitle() }}</span>
+
+    <!-- Context menu trigger -->
+    <button
+      class="detail-actions-btn"
+      type="button"
+      aria-label="More actions"
+      title="More actions"
+      aria-haspopup="true"
+      [attr.aria-expanded]="showContextMenu()"
+      (click)="toggleContextMenu()"
+    >
+      <span class="material-icons" aria-hidden="true">more_vert</span>
+    </button>
+
+    <!-- ContextMenu -->
+    @if (showContextMenu()) {
+      <div class="detail-context-menu" role="menu" (keydown.escape)="closeContextMenu()">
+        <button
+          class="detail-context-menu__item detail-context-menu__item--danger"
+          type="button"
+          role="menuitem"
+          (click)="confirmDelete()"
+        >
+          <span class="material-icons" aria-hidden="true">delete</span>
+          Delete image
+        </button>
+        <button
+          class="detail-context-menu__item"
+          type="button"
+          role="menuitem"
+          (click)="copyCoordinates()"
+        >
+          <span class="material-icons" aria-hidden="true">content_copy</span>
+          Copy coordinates
+        </button>
+      </div>
+      <!-- Click-outside overlay -->
+      <div
+        class="detail-context-menu-overlay"
+        aria-hidden="true"
+        (click)="closeContextMenu()"
+      ></div>
+    }
+  </div>
+
+  <!-- FullResImage: scrollable image area, progressive load -->
+  <div class="detail-image-wrap">
+    <!-- Thumbnail shown while full-res loads -->
+    @if (thumbnailUrl() && !fullResLoaded()) {
+      <img
+        class="detail-image detail-image--thumb"
+        [src]="thumbnailUrl()"
+        alt="Photo preview"
+        aria-hidden="true"
+      />
+    }
+    <!-- Full-res image (loads on demand) -->
+    @if (fullResUrl()) {
+      <img
+        class="detail-image detail-image--full"
+        [class.detail-image--loaded]="fullResLoaded()"
+        [src]="fullResUrl()"
+        [alt]="displayTitle()"
+        (load)="onFullResLoaded()"
+      />
+    }
+  </div>
+
+  <!-- MetadataSection -->
+  <div class="detail-metadata">
+    <!-- TimestampRow -->
+    @if (captureDate()) {
+      <div class="detail-metadata__row detail-metadata__row--static">
+        <span class="detail-metadata__key">Captured</span>
+        <span class="detail-metadata__value">{{ captureDate() }}</span>
+      </div>
+    }
+
+    <!-- CoordinatesRow -->
+    @if (image()!.latitude != null) {
+      <div class="detail-metadata__row detail-metadata__row--static">
+        <span class="detail-metadata__key">
+          Location
+          @if (isCorrected()) {
+            <!-- CorrectionBadge -->
+            <span class="detail-correction-badge">Corrected</span>
+          }
+        </span>
+        <span class="detail-metadata__value detail-metadata__value--mono">
+          {{ formatCoord(image()!.latitude) }}°, {{ formatCoord(image()!.longitude) }}°
+        </span>
+      </div>
+    }
+
+    <!-- MetadataPropertyRow × N (editable) -->
+    @for (entry of metadata(); track entry.metadataKeyId) {
+      <app-metadata-property-row
+        [key]="entry.key"
+        [value]="entry.value"
+        (valueChanged)="saveMetadata(entry, $event)"
+      />
+    }
+
+    <!-- CorrectionHistory (shown only when corrected — Honesty principle) -->
+    @if (isCorrected()) {
+      <div class="detail-correction-history">
+        <p class="detail-correction-history__label">Location history</p>
+        <div class="detail-correction-history__row">
+          <span class="detail-correction-history__key">Original EXIF</span>
+          <span class="detail-correction-history__value detail-metadata__value--mono">
+            {{ formatCoord(image()!.exif_latitude) }}°, {{ formatCoord(image()!.exif_longitude) }}°
+          </span>
+        </div>
+        <div class="detail-correction-history__row">
+          <span class="detail-correction-history__key">Corrected</span>
+          <span class="detail-correction-history__value detail-metadata__value--mono">
+            {{ formatCoord(image()!.latitude) }}°, {{ formatCoord(image()!.longitude) }}°
+          </span>
+        </div>
+      </div>
+    }
+  </div>
+
+  <!-- DetailActions: ghost buttons at the bottom -->
+  <div class="ui-spacer"></div>
+  <div class="detail-actions">
+    <!-- EditLocationButton -->
+    <button
+      class="detail-actions__btn"
+      type="button"
+      aria-label="Edit location on map"
+      (click)="requestEditLocation()"
+    >
+      <span class="material-icons" aria-hidden="true">edit_location</span>
+      Edit location
+    </button>
+
+    <!-- AddToProjectButton -->
+    <button
+      class="detail-actions__btn"
+      type="button"
+      aria-label="Add to project"
+      (click)="openProjectPicker()"
+    >
+      <span class="material-icons" aria-hidden="true">folder_open</span>
+      Add to project
+    </button>
+  </div>
+}
+
+<!-- Delete confirmation dialog -->
+@if (showDeleteConfirm()) {
+  <div class="detail-delete-overlay" role="dialog" aria-modal="true" aria-label="Confirm deletion">
+    <div class="detail-delete-dialog">
+      <h2 class="detail-delete-dialog__title">Delete this image?</h2>
+      <p class="detail-delete-dialog__body">
+        This will permanently remove the image and all its metadata. This cannot be undone.
+      </p>
+      <div class="detail-delete-dialog__actions">
+        <button class="detail-delete-dialog__cancel" type="button" (click)="cancelDelete()">
+          Cancel
+        </button>
+        <button class="detail-delete-dialog__confirm" type="button" (click)="executeDelete()">
+          Delete
+        </button>
+      </div>
+    </div>
+  </div>
+}

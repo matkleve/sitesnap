@@ -1,0 +1,610 @@
+// MapShellComponent styles — full-screen map shell.
+// All colours use design-system tokens. No raw hex values.
+
+// ── Host — horizontal flex row ────────────────────────────────────────────────
+
+:host {
+  display: flex;
+  flex-direction: row;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background: var(--color-bg-base);
+}
+
+// ── Upload button zone — fixed top-right, expands into panel ─────────────────
+
+.upload-btn-zone {
+  position: absolute;
+  top: var(--spacing-3);
+  right: var(--spacing-3);
+  z-index: var(--z-upload-button);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--spacing-2);
+}
+
+.map-upload-btn {
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--color-clay);
+  color: var(--color-bg-surface);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--elevation-overlay);
+  transition:
+    background 120ms ease-out,
+    transform 120ms ease-out;
+  flex-shrink: 0;
+
+  .material-icons {
+    font-size: 1.25rem;
+  }
+
+  &:hover {
+    background: color-mix(in srgb, var(--color-clay) 80%, var(--color-text-primary));
+    transform: scale(1.04);
+  }
+
+  &--active {
+    background: color-mix(in srgb, var(--color-clay) 80%, var(--color-text-primary));
+  }
+}
+
+// Expanded panel slides down from upload button.
+.upload-expand {
+  display: none;
+  flex-direction: column;
+  width: min(340px, calc(100vw - var(--spacing-6)));
+  max-height: 46vh;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-bg-surface) 95%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: var(--elevation-overlay);
+
+  &--visible {
+    display: flex;
+  }
+}
+
+// ── Map zone — fills remaining width ─────────────────────────────────────────
+
+.map-zone {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+// ── Leaflet container ─────────────────────────────────────────────────────────
+
+.map-container {
+  width: 100%;
+  height: 100%;
+  z-index: var(--z-map);
+
+  &--placing {
+    cursor: crosshair !important;
+
+    * {
+      cursor: crosshair !important;
+    }
+  }
+}
+
+:host ::ng-deep .map-user-location-marker {
+  width: 18px !important;
+  height: 18px !important;
+  margin: 0 !important;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  border: 3px solid var(--color-bg-surface);
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--color-primary) 28%, transparent),
+    var(--elevation-subtle);
+}
+
+:host ::ng-deep .map-search-location-marker {
+  width: 20px !important;
+  height: 20px !important;
+  margin: 0 !important;
+  border-radius: var(--radius-full);
+  background: var(--color-clay);
+  border: 3px solid var(--color-bg-surface);
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--color-clay) 30%, transparent),
+    var(--elevation-subtle);
+}
+
+:host ::ng-deep .map-photo-marker-wrapper {
+  background: none !important;
+  border: none !important;
+  --ui-item-media-size: var(--ui-item-media-size-default);
+}
+
+:host ::ng-deep .map-photo-marker {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  width: var(--photo-marker-hit-size);
+  height: var(--photo-marker-hit-size);
+  filter: drop-shadow(var(--photo-marker-drop-shadow));
+  transform-origin: center center;
+  transition: transform 200ms ease-in-out;
+
+  .map-photo-marker__hit-zone {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    width: var(--photo-marker-hit-size);
+    height: 100%;
+    padding-top: calc((var(--photo-marker-hit-size) - var(--photo-marker-body-size)) / 2);
+  }
+
+  .map-photo-marker__body {
+    width: var(--photo-marker-body-size);
+    height: var(--photo-marker-body-size);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    border: 2px solid var(--color-bg-surface);
+  }
+
+  .map-photo-marker__correction-dot {
+    position: absolute;
+    top: calc(((var(--photo-marker-hit-size) - var(--photo-marker-body-size)) / 2) - 1px);
+    right: calc((var(--photo-marker-hit-size) - var(--photo-marker-body-size)) / 2);
+    width: var(--photo-marker-correction-dot-size);
+    height: var(--photo-marker-correction-dot-size);
+    border-radius: var(--radius-full);
+    border: 2px solid var(--color-bg-surface);
+    background: var(--color-accent);
+  }
+
+  .map-photo-marker__pending-ring {
+    position: absolute;
+    inset: calc((var(--photo-marker-hit-size) - var(--photo-marker-body-size)) / 2);
+    width: var(--photo-marker-body-size);
+    height: var(--photo-marker-body-size);
+    border-radius: calc(var(--radius-md) + 2px);
+    border: 2px solid color-mix(in srgb, var(--color-warning) 82%, transparent);
+    animation: map-photo-marker-pulse 1200ms ease-in-out infinite;
+  }
+
+  .map-photo-marker__direction-cone {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: calc(var(--photo-marker-body-size) * 1.6);
+    height: calc(var(--photo-marker-body-size) * 1.6);
+    background: color-mix(in srgb, var(--color-primary) 18%, transparent);
+    clip-path: polygon(50% 50%, 100% 38%, 100% 62%);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 120ms ease-out;
+  }
+}
+
+:host ::ng-deep .map-photo-marker--selected {
+  transform: scale(var(--photo-marker-selected-scale));
+
+  .map-photo-marker__body {
+    box-shadow: 0 0 0 2px var(--color-accent);
+  }
+}
+
+:host ::ng-deep .map-photo-marker--zoom-far {
+  transform: scale(0.94);
+}
+
+:host ::ng-deep .map-photo-marker--zoom-near {
+  transform: scale(1.06);
+}
+
+:host ::ng-deep .map-photo-marker--selected.map-photo-marker--zoom-far {
+  transform: scale(calc(0.94 * var(--photo-marker-selected-scale)));
+}
+
+:host ::ng-deep .map-photo-marker--selected.map-photo-marker--zoom-near {
+  transform: scale(calc(1.06 * var(--photo-marker-selected-scale)));
+}
+
+:host ::ng-deep .map-photo-marker--has-bearing:hover .map-photo-marker__direction-cone,
+:host ::ng-deep .map-photo-marker--has-bearing:focus-within .map-photo-marker__direction-cone,
+:host
+  ::ng-deep
+  .map-photo-marker--has-bearing.map-photo-marker--long-pressed
+  .map-photo-marker__direction-cone {
+  opacity: 1;
+}
+
+:host ::ng-deep .map-photo-marker--single {
+  .map-photo-marker__body {
+    background: var(--color-bg-surface);
+  }
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  // Fallback when img onerror fires (broken signed URL).
+  .map-photo-marker__body--error {
+    background: linear-gradient(
+      135deg,
+      var(--color-bg-subtle, var(--color-bg-surface)) 0%,
+      var(--color-bg-muted, var(--color-bg-base)) 100%
+    );
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &::after {
+      content: '';
+      display: block;
+      width: 50%;
+      height: 50%;
+      background: var(--color-text-disabled);
+      mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 15.2l3.4-2.8L18 15V6H6v7.6L9 11l3 4.2zM20 4v16H4V4h16zm-8.5 6a1.5 1.5 0 100-3 1.5 1.5 0 000 3z'/%3E%3C/svg%3E");
+      mask-size: contain;
+      mask-repeat: no-repeat;
+      mask-position: center;
+      -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 15.2l3.4-2.8L18 15V6H6v7.6L9 11l3 4.2zM20 4v16H4V4h16zm-8.5 6a1.5 1.5 0 100-3 1.5 1.5 0 000 3z'/%3E%3C/svg%3E");
+      -webkit-mask-size: contain;
+      -webkit-mask-repeat: no-repeat;
+      -webkit-mask-position: center;
+    }
+  }
+}
+
+:host ::ng-deep .map-photo-marker--placeholder {
+  .map-photo-marker__body {
+    background: linear-gradient(
+      135deg,
+      var(--color-bg-subtle, var(--color-bg-surface)) 0%,
+      var(--color-bg-muted, var(--color-bg-base)) 100%
+    );
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .map-photo-marker__placeholder-icon {
+    display: block;
+    width: 50%;
+    height: 50%;
+    background: var(--color-text-disabled);
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 15.2l3.4-2.8L18 15V6H6v7.6L9 11l3 4.2zM20 4v16H4V4h16zm-8.5 6a1.5 1.5 0 100-3 1.5 1.5 0 000 3z'/%3E%3C/svg%3E");
+    mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 15.2l3.4-2.8L18 15V6H6v7.6L9 11l3 4.2zM20 4v16H4V4h16zm-8.5 6a1.5 1.5 0 100-3 1.5 1.5 0 000 3z'/%3E%3C/svg%3E");
+    -webkit-mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+  }
+
+  &.is-loading .map-photo-marker__body {
+    animation: map-photo-marker-placeholder-pulse 1400ms ease-in-out infinite;
+  }
+}
+
+@keyframes map-photo-marker-placeholder-pulse {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+:host ::ng-deep .map-photo-marker--count {
+  .map-photo-marker__body {
+    background: var(--color-bg-elevated);
+    color: var(--color-text-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: var(--photo-marker-cluster-font-size);
+    width: auto;
+    min-width: var(--photo-marker-body-size);
+    padding-inline: var(--spacing-1, 4px);
+  }
+}
+
+:host ::ng-deep .map-photo-marker--count.map-photo-marker--selected {
+  .map-photo-marker__count-label {
+    color: var(--color-clay);
+  }
+}
+
+@keyframes map-photo-marker-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.96);
+  }
+
+  50% {
+    opacity: 0.85;
+    transform: scale(1.05);
+  }
+}
+
+// ── GPS button — bottom-right of map zone ─────────────────────────────────────
+
+.map-gps-btn {
+  position: absolute;
+  bottom: var(--spacing-5);
+  right: var(--spacing-4);
+  z-index: var(--z-upload-button);
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--elevation-overlay);
+  transition:
+    background 120ms ease-out,
+    color 120ms ease-out,
+    transform 120ms ease-out;
+
+  .material-icons {
+    font-size: 1.25rem;
+  }
+
+  &:hover {
+    background: var(--color-bg-elevated);
+    color: var(--color-text-primary);
+    transform: scale(1.04);
+  }
+
+  &__spinner {
+    width: 1.1rem;
+    height: 1.1rem;
+    border-radius: var(--radius-full);
+    border: 2px solid color-mix(in srgb, currentcolor 24%, transparent);
+    border-top-color: currentcolor;
+    animation: gps-btn-spin 700ms linear infinite;
+  }
+}
+
+@keyframes gps-btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+// ── Placement mode banner — bottom-center ─────────────────────────────────────
+
+.map-placement-banner {
+  position: absolute;
+  bottom: var(--spacing-5);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--z-upload-button);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  padding: var(--spacing-2) var(--spacing-4);
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-full);
+  box-shadow: var(--elevation-overlay);
+  color: var(--color-text-primary);
+  font-size: 0.875rem;
+  white-space: nowrap;
+
+  .material-icons {
+    font-size: 1rem;
+    color: var(--color-warning);
+  }
+
+  &__cancel {
+    padding: 0.125rem var(--spacing-3); // 2px top/bottom
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-full);
+    background: none;
+    color: var(--color-text-secondary);
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: background 80ms ease-out;
+
+    &:hover {
+      background: var(--color-bg-base);
+    }
+  }
+}
+
+// ── Drag divider — styles moved to DragDividerComponent ──────────────────────
+
+// ── Photo panel — slides in from right (desktop) / bottom (mobile) ────────────
+
+.photo-panel {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-surface);
+  box-shadow: var(--elevation-overlay);
+
+  @media (min-width: 768px) {
+    width: 22.5rem; // 360px default; overridden by inline style via workspacePaneWidth signal
+    height: 100%;
+    overflow: hidden;
+    animation: map-panel-clip-in-right 200ms ease-out;
+  }
+
+  @media (max-width: 767px) {
+    width: 100% !important; // override inline [style.width.px] from workspacePaneWidth signal
+    height: 40vh;
+    position: fixed;
+    bottom: 3.5rem; // above 56px mobile nav bar
+    left: 0;
+    right: 0;
+    z-index: var(--z-panel);
+    border-radius: 0;
+    animation: map-panel-clip-in-up 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    padding: var(--spacing-2) var(--spacing-3);
+    border-bottom: 1px solid var(--color-border);
+    flex-shrink: 0;
+  }
+
+  &__header-title {
+    flex: 1 1 auto;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+  }
+
+  &__close-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border: none;
+    border-radius: var(--radius-md);
+    background: none;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition:
+      background 80ms ease-out,
+      color 80ms ease-out;
+
+    .material-icons {
+      font-size: 1.25rem;
+    }
+
+    &:hover {
+      background: var(--color-bg-base);
+      color: var(--color-text-primary);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 2px;
+    }
+  }
+
+  &__tabs {
+    display: flex;
+    flex-direction: row;
+    border-bottom: 1px solid var(--color-border);
+    padding: 0 var(--spacing-3);
+    flex-shrink: 0;
+  }
+
+  &__tab {
+    padding: var(--spacing-3) var(--spacing-3);
+    border: none;
+    background: none;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition:
+      color 120ms ease-out,
+      border-color 120ms ease-out;
+    margin-bottom: -1px;
+
+    &--active {
+      color: var(--color-primary);
+      border-bottom-color: var(--color-primary);
+    }
+
+    &:hover {
+      color: var(--color-text-primary);
+    }
+  }
+
+  &__grid {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: var(--spacing-4);
+  }
+
+  &__empty {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+    text-align: center;
+    padding: var(--spacing-6) 0;
+  }
+
+  &__preview-btn {
+    display: block;
+    width: 100%;
+    border: none;
+    background: none;
+    padding: 0;
+    cursor: pointer;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+
+    &:hover {
+      opacity: 0.9;
+    }
+
+    &:disabled {
+      cursor: default;
+      opacity: 1;
+    }
+  }
+
+  &__preview {
+    width: 100%;
+    border-radius: var(--radius-md);
+    object-fit: cover;
+    display: block;
+  }
+}
+
+// clip-path reveal: panel stays in its flex position but is clipped from the
+// left edge inward, so it appears to slide in from the right with no layout gap.
+@keyframes map-panel-clip-in-right {
+  from {
+    clip-path: inset(0 0 0 100%);
+  }
+
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+// clip-path reveal from bottom: same technique for mobile bottom sheet.
+@keyframes map-panel-clip-in-up {
+  from {
+    clip-path: inset(100% 0 0 0);
+  }
+
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}

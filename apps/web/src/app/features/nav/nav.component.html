@@ -1,0 +1,73 @@
+<!--
+  NavComponent — LeftSidebar: floating sidebar panel (desktop) /
+  fixed bottom tab bar (mobile < 768 px).
+
+  Desktop: vertically centred compact rail at rest (icon-only) →
+           expands right on hover to show icon + label (150 ms ease-out).
+  Mobile:  full-width bottom tab bar (unchanged behaviour).
+-->
+<nav class="sidebar" aria-label="Main navigation">
+  <!-- Desktop sidebar panel -->
+  <div class="sidebar__panel ui-container">
+    <ul class="nav__list" role="list">
+      @for (item of navItems; track item.route) {
+        <li class="sidebar__item">
+          @if (item.disabled) {
+            <span
+              class="nav__link nav__link--disabled ui-item"
+              role="link"
+              aria-disabled="true"
+              tabindex="-1"
+              [title]="'Coming soon: ' + item.label"
+              [attr.aria-describedby]="'nav-disabled-tip'"
+            >
+              <span class="nav__media ui-item-media" aria-hidden="true">
+                <span class="nav__icon material-icons">{{ item.icon }}</span>
+              </span>
+              <span class="nav__label ui-item-label">{{ item.label }}</span>
+            </span>
+          } @else {
+            <a
+              class="nav__link ui-item"
+              [routerLink]="item.route"
+              routerLinkActive="nav__link--active"
+              [routerLinkActiveOptions]="item.route === '/' ? { exact: true } : { exact: false }"
+              [attr.aria-current]="null"
+              [title]="item.label"
+            >
+              <span class="nav__media ui-item-media" aria-hidden="true">
+                <span class="nav__icon material-icons">{{ item.icon }}</span>
+              </span>
+              <span class="nav__label ui-item-label">{{ item.label }}</span>
+            </a>
+          }
+        </li>
+      }
+
+      <li class="sidebar__item sidebar__item--spacer ui-spacer" aria-hidden="true"></li>
+
+      <li class="sidebar__item sidebar__item--account">
+        <a
+          class="nav__link nav__account-link ui-item"
+          routerLink="/account"
+          routerLinkActive="nav__link--active"
+          title="Account"
+          aria-label="Go to Account page"
+        >
+          <span class="nav__media ui-item-media" aria-hidden="true">
+            <span class="nav__avatar-badge">
+              @if (avatarUrl(); as avatarImage) {
+                <img class="nav__avatar-image" [src]="avatarImage" alt="" />
+              } @else {
+                <span class="nav__avatar-initial">{{ avatarInitial() }}</span>
+              }
+            </span>
+          </span>
+          <span class="nav__label nav__account-name ui-item-label">{{ displayName() }}</span>
+        </a>
+      </li>
+    </ul>
+  </div>
+
+  <span id="nav-disabled-tip" class="nav__sr-only">This feature is coming soon.</span>
+</nav>

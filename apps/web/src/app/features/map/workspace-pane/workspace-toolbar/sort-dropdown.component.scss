@@ -1,0 +1,107 @@
+:host {
+  display: block;
+}
+
+.sort-dropdown {
+  padding-block: var(--spacing-2);
+}
+
+.sort-search {
+  padding: var(--spacing-1) var(--spacing-3);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.sort-search__input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 0.8125rem;
+  color: var(--color-text-primary);
+  padding: var(--spacing-1) 0;
+
+  &::placeholder {
+    color: var(--color-text-disabled);
+  }
+}
+
+.sort-options {
+  padding: var(--spacing-1) var(--spacing-2);
+  max-height: 18rem;
+  overflow-y: auto;
+}
+
+.sort-option {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  width: 100%;
+  padding: var(--spacing-1) var(--spacing-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background 80ms ease-out;
+
+  &:hover {
+    background: color-mix(in srgb, var(--color-text-secondary) 8%, transparent);
+    color: var(--color-text-primary);
+  }
+
+  &--active {
+    color: var(--color-primary);
+  }
+}
+
+.sort-option__icon {
+  font-size: 1rem;
+}
+
+.sort-option__label {
+  flex: 1 1 auto;
+  text-align: left;
+}
+
+.sort-option__check {
+  font-size: 1rem;
+  color: var(--color-primary);
+}
+
+.sort-option__direction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 80ms ease-out;
+
+  .sort-option:hover & {
+    opacity: 1;
+  }
+
+  .sort-option--active & {
+    opacity: 1;
+  }
+
+  &:hover {
+    background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+    color: var(--color-primary);
+  }
+}
+
+.sort-empty {
+  padding: var(--spacing-3);
+  font-size: 0.8125rem;
+  color: var(--color-text-disabled);
+  text-align: center;
+}

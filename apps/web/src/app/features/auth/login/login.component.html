@@ -1,0 +1,68 @@
+<div class="auth-shell auth-shell--map">
+  <div class="auth-map-bg" aria-hidden="true">
+    <iframe
+      class="auth-map-frame"
+      src="https://www.openstreetmap.org/export/embed.html?bbox=8.46%2C47.34%2C8.62%2C47.43&amp;layer=mapnik&amp;marker=47.3769%2C8.5417"
+      tabindex="-1"
+      title="Decorative city map background"
+    ></iframe>
+  </div>
+  <div class="auth-map-overlay" aria-hidden="true"></div>
+  <div class="auth-card">
+    <h1 class="auth-title">Sign in</h1>
+    <p class="auth-subtitle">Welcome back to SiteSnap</p>
+
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <!-- Email -->
+      <div class="field">
+        <label for="email">Email</label>
+        <input
+          id="email"
+          type="email"
+          formControlName="email"
+          autocomplete="email"
+          placeholder="you@example.com"
+        />
+        @if (form.controls.email.touched && form.controls.email.hasError('required')) {
+          <span class="field-error">Email is required.</span>
+        } @else if (form.controls.email.touched && form.controls.email.hasError('email')) {
+          <span class="field-error">Enter a valid email address.</span>
+        }
+      </div>
+
+      <!-- Password -->
+      <div class="field">
+        <label for="password">
+          Password
+          <a routerLink="/auth/reset-password" class="forgot-link">Forgot password?</a>
+        </label>
+        <input
+          id="password"
+          type="password"
+          formControlName="password"
+          autocomplete="current-password"
+          placeholder="••••••••"
+        />
+        @if (form.controls.password.touched && form.controls.password.hasError('required')) {
+          <span class="field-error">Password is required.</span>
+        }
+      </div>
+
+      <!-- Error banner -->
+      @if (errorMessage()) {
+        <div class="alert alert-error" role="alert">{{ errorMessage() }}</div>
+      }
+
+      <!-- Submit -->
+      <button type="submit" class="btn-primary" [disabled]="loading()">
+        @if (loading()) {
+          Signing in…
+        } @else {
+          Sign in
+        }
+      </button>
+    </form>
+
+    <p class="auth-footer">Don't have an account? <a routerLink="/auth/register">Create one</a></p>
+  </div>
+</div>

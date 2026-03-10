@@ -1,0 +1,15 @@
+<!-- Workspace Pane — right panel (desktop), bottom sheet (mobile, future) -->
+<div class="workspace-pane ui-container" role="region" aria-label="Workspace pane">
+  <app-pane-header (close)="close()"></app-pane-header>
+  <app-workspace-toolbar />
+
+  @if (detailImageId()) {
+    <app-image-detail-view
+      [imageId]="detailImageId()"
+      (closed)="onDetailClose()"
+      (editLocationRequested)="onEditLocation($event)"
+    />
+  } @else {
+    <app-thumbnail-grid (thumbnailClicked)="onThumbnailClick($event)" />
+  }
+</div>

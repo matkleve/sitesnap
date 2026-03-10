@@ -1,1 +1,292 @@
-/* You can add global styles to this file, and also import other style files */
+// ── Tailwind CSS directives ───────────────────────────────────────────────────
+// Must appear before any other CSS or SCSS rules.
+//
+//   @tailwind base      — Preflight (normalize) + base element styles.
+//   @tailwind components — Component class utilities (none currently defined,
+//                          but required so the layer is available for @layer).
+//   @tailwind utilities  — All generated utility classes (JIT, tree-shaken).
+//
+// Dark mode activates via [data-theme="dark"] on <html>,
+// mirroring the CSS custom property tokens below.
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =============================================================
+   SiteSnap — Global Styles & Design Token System
+   M-UI1: All CSS custom property tokens from design.md §3.
+   ============================================================= */
+
+// ── Light-mode tokens (default) ──────────────────────────────────────────────
+:root {
+  // Backgrounds (warm off-whites, never cold grays)
+  --color-bg-base: #f9f7f4;
+  --color-bg-surface: #ffffff;
+  --color-bg-elevated: #ffffff;
+
+  // Borders
+  --color-border: #e8e4de;
+  --color-border-strong: #c8c1b8;
+
+  // Text (warm near-black / warm secondary)
+  --color-text-primary: #1a1714;
+  --color-text-secondary: #6b6259;
+  --color-text-disabled: #a89e95;
+
+  // Brand / semantic
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-success: #16a34a;
+  --color-warning: #c2610a;
+  --color-danger: #dc2626;
+  --color-accent: #7c3aed;
+  --color-clay: #cc7a4a; // upload CTA, active selection — used sparingly
+
+  // Border radius
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 16px;
+  --radius-full: 9999px;
+
+  // Shadows — warm-tinted black (not cold blue)
+  // Physical shadow scale: sm → md → lg → xl
+  --shadow-sm: 0 1px 3px rgba(15, 14, 12, 0.12), 0 1px 2px rgba(15, 14, 12, 0.08);
+  --shadow-md: 0 4px 12px rgba(15, 14, 12, 0.15), 0 2px 4px rgba(15, 14, 12, 0.1);
+  --shadow-lg: 0 8px 24px rgba(15, 14, 12, 0.18), 0 4px 8px rgba(15, 14, 12, 0.12);
+  --shadow-xl: 0 16px 48px rgba(15, 14, 12, 0.22), 0 6px 16px rgba(15, 14, 12, 0.14);
+  --shadow-focus: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
+
+  // Elevation layers — semantic aliases; every element uses a layer, not a raw shadow.
+  // All elements at the same visual plane share the same layer → same shadow.
+  --elevation-base: none; // flush with page background
+  --elevation-subtle: var(--shadow-sm); // subtle lift: mobile bottom bar, dividers
+  --elevation-overlay: var(
+    --shadow-md
+  ); // map overlays: sidebar, search bar, FAB, GPS, markers, banners
+  --elevation-dropdown: var(--shadow-lg); // dropdowns, context menus, popovers
+  --elevation-modal: var(--shadow-xl); // modals, dialogs, image detail overlay
+
+  // Z-index stacking ladder (audit issue #2, #13)
+  --z-map: 0;
+  --z-panel: 300;
+  --z-upload-button: 350;
+  --z-dropdown: 400;
+  --z-modal: 500;
+
+  // Spacing scale — 4 px base unit
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-5: 24px;
+  --spacing-6: 32px;
+  --spacing-7: 48px;
+  --spacing-8: 64px;
+
+  // Container geometry — containers define the alignment boundaries that
+  // nested content, dropdowns, and panels should inherit.
+  --container-inset: var(--spacing-3);
+  --container-inset-mobile: var(--spacing-3);
+  --container-padding-inline-panel: var(--spacing-1);
+  --container-padding-block-panel: var(--spacing-1);
+  --container-padding-inline-compact: var(--spacing-3);
+  --container-padding-block-compact: var(--spacing-2);
+  --container-gap-panel: var(--spacing-1);
+  --container-gap: var(--spacing-2);
+  --container-radius-control: var(--radius-md);
+  --container-radius-panel: var(--radius-lg);
+  --container-radius-pill: var(--radius-full);
+
+  // Shared media sizing primitives
+  --ui-item-media-size-default: var(--spacing-6);
+
+  // Photo marker geometry derives from the shared media token system.
+  --photo-marker-body-size: calc(var(--ui-item-media-size-default) * 1.25);
+  --photo-marker-hit-size: 2.5rem;
+  --photo-marker-correction-dot-size: 8px;
+  --photo-marker-drop-shadow: 0 1px 3px rgba(15, 14, 12, 0.45);
+  --photo-marker-selected-scale: 1.05;
+  --photo-marker-cluster-font-size: 0.875rem;
+
+  // Sidebar layout dimensions — standardized from docs/design/tokens.md.
+  --layout-sidebar-width-collapsed: var(--spacing-7);
+  --layout-sidebar-width-expanded: 15rem;
+  --layout-sidebar-row-padding-inline: var(--spacing-1);
+  --layout-sidebar-row-padding-block: var(--spacing-1);
+  --layout-sidebar-row-gap: var(--spacing-3);
+  --layout-sidebar-media-size: var(--spacing-6);
+  --layout-sidebar-row-height: calc(
+    var(--layout-sidebar-media-size) + (var(--layout-sidebar-row-padding-block) * 2)
+  );
+  --layout-sidebar-icon-size: 1.25rem;
+  --layout-sidebar-label-size: 0.8125rem;
+}
+
+// ── Dark-mode tokens — explicit attribute (set by theme script / toggle) ─────
+[data-theme='dark'] {
+  --color-bg-base: #0f0e0c;
+  --color-bg-surface: #1a1917;
+  --color-bg-elevated: #252320;
+
+  --color-border: #2e2b27;
+  --color-border-strong: #3d3830;
+
+  --color-text-primary: #edebe7;
+  --color-text-secondary: #908880;
+  --color-text-disabled: #4a4540;
+
+  --color-primary: #3b82f6;
+  --color-primary-hover: #60a5fa;
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-accent: #a78bfa;
+  --color-clay: #d9895a;
+
+  // Shadows — higher opacity so they punch through dark surfaces
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.28), 0 1px 2px rgba(0, 0, 0, 0.18);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.38), 0 2px 4px rgba(0, 0, 0, 0.22);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.48), 0 4px 8px rgba(0, 0, 0, 0.28);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.56), 0 6px 16px rgba(0, 0, 0, 0.32);
+  --photo-marker-drop-shadow: 0 1px 4px rgba(0, 0, 0, 0.65);
+}
+
+// ── Dark-mode tokens — system preference fallback (audit issue #10) ───────────
+// Applies dark tokens when the user's OS is in dark mode and they haven't
+// explicitly set a preference in the app.
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --color-bg-base: #0f0e0c;
+    --color-bg-surface: #1a1917;
+    --color-bg-elevated: #252320;
+
+    --color-border: #2e2b27;
+    --color-border-strong: #3d3830;
+
+    --color-text-primary: #edebe7;
+    --color-text-secondary: #908880;
+    --color-text-disabled: #4a4540;
+
+    --color-primary: #3b82f6;
+    --color-primary-hover: #60a5fa;
+    --color-success: #22c55e;
+    --color-warning: #f59e0b;
+    --color-danger: #ef4444;
+    --color-accent: #a78bfa;
+    --color-clay: #d9895a;
+
+    // Shadows — higher opacity so they punch through dark surfaces
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.28), 0 1px 2px rgba(0, 0, 0, 0.18);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.38), 0 2px 4px rgba(0, 0, 0, 0.22);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.48), 0 4px 8px rgba(0, 0, 0, 0.28);
+    --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.56), 0 6px 16px rgba(0, 0, 0, 0.32);
+    --photo-marker-drop-shadow: 0 1px 4px rgba(0, 0, 0, 0.65);
+  }
+}
+
+// ── Global Reset ──────────────────────────────────────────────────────────────
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  background: var(--color-bg-base);
+  color: var(--color-text-primary);
+}
+
+app-root {
+  display: block;
+  height: 100%;
+}
+
+// ── App layout helpers ─────────────────────────────────────────────────────────
+// router-outlet host needs full height. Nav is floating (position: fixed),
+// so no margin offset is needed for the map view.
+// Non-map pages (photos, groups…) add their own padding if needed.
+router-outlet + * {
+  display: block;
+  height: 100%;
+}
+
+// ── Shared container layout helpers ─────────────────────────────────────────
+.ui-container {
+  --ui-container-padding-inline: var(--container-padding-inline-panel);
+  --ui-container-padding-block: var(--container-padding-block-panel);
+  --ui-container-gap: var(--container-gap-panel);
+  --ui-container-radius: var(--container-radius-panel);
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-container-gap);
+  padding-block: var(--ui-container-padding-block);
+  padding-inline: var(--ui-container-padding-inline);
+  border-radius: var(--ui-container-radius);
+}
+
+.ui-container--compact {
+  --ui-container-padding-inline: var(--container-padding-inline-compact);
+  --ui-container-padding-block: var(--container-padding-block-compact);
+}
+
+.ui-item {
+  --ui-item-min-height: 2.5rem;
+  --ui-item-padding-inline: var(--container-padding-inline-compact);
+  --ui-item-padding-block: var(--container-padding-block-compact);
+  --ui-item-gap: var(--container-gap);
+  --ui-item-radius: var(--container-radius-control);
+  --ui-item-media-size: var(--ui-item-media-size-default);
+  --ui-item-content-gap: var(--container-gap-panel);
+
+  display: grid;
+  grid-template-columns: var(--ui-item-media-size) minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--ui-item-gap);
+  min-height: var(--ui-item-min-height);
+  padding-block: var(--ui-item-padding-block);
+  padding-inline: var(--ui-item-padding-inline);
+  border-radius: var(--ui-item-radius);
+}
+
+.ui-item-media {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--ui-item-media-size);
+  block-size: var(--ui-item-media-size);
+  min-inline-size: var(--ui-item-media-size);
+  flex-shrink: 0;
+}
+
+.ui-item-label {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--ui-item-content-gap);
+}
+
+.ui-item-label > * {
+  min-width: 0;
+}
+
+.ui-spacer {
+  flex: 1 1 auto;
+  min-block-size: var(--spacing-2);
+}

@@ -1,0 +1,36 @@
+.pane-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-2) var(--spacing-4);
+  border-bottom: 1px solid var(--color-border);
+  background: transparent;
+}
+
+.pane-header__title {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--color-text-primary);
+}
+
+.pane-header__close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  transition: background 120ms ease-out;
+
+  &:hover {
+    background: color-mix(in srgb, var(--color-text-secondary) 12%, transparent);
+  }
+
+  .material-icons {
+    font-size: 1.25rem;
+  }
+}

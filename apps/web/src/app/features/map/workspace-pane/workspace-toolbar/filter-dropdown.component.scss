@@ -1,0 +1,137 @@
+:host {
+  display: block;
+}
+
+.filter-dropdown {
+  padding-block: var(--spacing-2);
+  min-width: 22rem; // wider per spec — Notion filter rows need space
+}
+
+.filter-empty {
+  padding: var(--spacing-3);
+  font-size: 0.8125rem;
+  color: var(--color-text-disabled);
+  text-align: center;
+}
+
+.filter-rules {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+  padding: var(--spacing-1) var(--spacing-2);
+  max-height: 20rem;
+  overflow-y: auto;
+}
+
+.filter-rule {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  padding: var(--spacing-1);
+
+  &:hover .filter-rule__remove {
+    opacity: 1;
+  }
+}
+
+.filter-rule__conj {
+  flex: 0 0 auto;
+  min-width: 3rem;
+  padding: var(--spacing-1) var(--spacing-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  text-align: center;
+
+  &:hover {
+    background: color-mix(in srgb, var(--color-text-secondary) 8%, transparent);
+  }
+}
+
+.filter-rule__select {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: var(--spacing-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-elevated);
+  font-size: 0.75rem;
+  color: var(--color-text-primary);
+  cursor: pointer;
+
+  &:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -1px;
+  }
+}
+
+.filter-rule__value {
+  flex: 1.5 1 0;
+  min-width: 0;
+  padding: var(--spacing-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-size: 0.75rem;
+  color: var(--color-text-primary);
+
+  &::placeholder {
+    color: var(--color-text-disabled);
+  }
+
+  &:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -1px;
+  }
+}
+
+.filter-rule__remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 80ms ease-out;
+
+  .material-icons {
+    font-size: 0.875rem;
+  }
+
+  &:hover {
+    background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+    color: var(--color-danger);
+  }
+}
+
+.filter-add {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  margin: var(--spacing-1) var(--spacing-3);
+  padding: var(--spacing-1) var(--spacing-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+
+  .material-icons {
+    font-size: 1rem;
+  }
+
+  &:hover {
+    background: color-mix(in srgb, var(--color-text-secondary) 8%, transparent);
+    color: var(--color-text-primary);
+  }
+}

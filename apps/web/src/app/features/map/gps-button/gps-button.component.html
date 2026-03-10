@@ -1,0 +1,26 @@
+<!-- Floating GPS Button for Map Zone -->
+<button
+  type="button"
+  class="ss-gps-btn"
+  [attr.aria-pressed]="gpsState() === 'active'"
+  (click)="onClick()"
+  [disabled]="gpsState() === 'seeking'"
+>
+  <span class="icon-wrap">
+    <ng-container [ngSwitch]="gpsState()">
+      <svg *ngSwitchCase="'active'" class="icon active" viewBox="0 0 24 24" aria-hidden="true">
+        <!-- filled location icon -->
+        <circle cx="12" cy="12" r="8" fill="currentColor" />
+      </svg>
+      <svg *ngSwitchCase="'seeking'" class="icon seeking" viewBox="0 0 24 24" aria-hidden="true">
+        <!-- crosshair icon -->
+        <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2" fill="none" />
+      </svg>
+      <svg *ngSwitchDefault class="icon idle" viewBox="0 0 24 24" aria-hidden="true">
+        <!-- crosshair icon -->
+        <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2" fill="none" />
+      </svg>
+    </ng-container>
+    <span *ngIf="gpsState() === 'seeking'" class="pulse-ring" aria-hidden="true"></span>
+  </span>
+</button>

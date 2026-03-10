@@ -1,0 +1,79 @@
+.workspace-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  padding: var(--spacing-2) var(--spacing-4);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+// ── Ghost button (compact, .btn-compact height) ─────────────────────────
+.toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  height: 1.75rem; // 28px — .btn-compact spec
+  padding-inline: var(--spacing-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 0.8125rem; // --text-small
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 120ms ease-out,
+    color 120ms ease-out,
+    font-weight 120ms ease-out;
+
+  &:hover {
+    background: color-mix(in srgb, var(--color-clay) 14%, transparent);
+    color: var(--color-clay);
+    font-weight: 600;
+  }
+
+  &--active {
+    background: color-mix(in srgb, var(--color-clay) 14%, transparent);
+    color: var(--color-clay);
+    font-weight: 600;
+  }
+
+  &--open {
+    background: color-mix(in srgb, var(--color-clay) 18%, transparent);
+    color: var(--color-clay);
+    font-weight: 600;
+  }
+}
+
+// ── Active dot indicator ────────────────────────────────────────────────
+.toolbar-btn__dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-clay);
+  flex-shrink: 0;
+}
+
+// ── Chevron icon ────────────────────────────────────────────────────────
+.toolbar-btn__chevron {
+  font-size: 1rem;
+  line-height: 1;
+  transition: transform 150ms ease-out;
+
+  .toolbar-btn--open & {
+    transform: rotate(180deg);
+  }
+}
+
+// ── Dropdown container (fixed to viewport, escapes overflow) ─────────
+.toolbar-dropdown {
+  position: fixed;
+  z-index: var(--z-dropdown);
+  min-width: 15rem; // 240px base
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elevation-dropdown);
+}

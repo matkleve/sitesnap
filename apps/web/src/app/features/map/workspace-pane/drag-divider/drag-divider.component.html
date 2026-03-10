@@ -1,0 +1,14 @@
+<!-- Hit zone — transparent tap target, min-width 2.75rem (44px) -->
+<div
+  class="drag-divider__hit-zone"
+  (pointerdown)="onPointerDown($event)"
+  (dblclick)="onDoubleClick()"
+>
+  <!-- Bar — 2px visual line, centered in hit zone -->
+  <div class="drag-divider__bar"></div>
+
+  <!-- Grip indicator — pill badge with drag icon -->
+  <div class="drag-divider__grip" aria-hidden="true">
+    <span class="material-icons drag-divider__grip-icon">drag_indicator</span>
+  </div>
+</div>
