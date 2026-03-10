@@ -1,0 +1,80 @@
+<!-- CapturedDateEditorComponent — Notion-style calendar + time editor -->
+<div class="captured-date-editor" (keydown)="onKeydown($event)">
+  <!-- Header: date + time split fields -->
+  <div class="captured-date-editor__header">
+    <span class="captured-date-editor__date-display">{{ formattedDate() }}</span>
+    <input
+      #timeField
+      class="captured-date-editor__time-input"
+      type="text"
+      inputmode="numeric"
+      placeholder="None"
+      [value]="timeInput()"
+      aria-label="Edit time (24h format)"
+      (input)="timeInput.set(timeField.value)"
+      (blur)="onTimeBlur()"
+      (keydown)="onTimeKeydown($event)"
+    />
+  </div>
+
+  <!-- Month navigation -->
+  <div class="captured-date-editor__month-nav">
+    <span class="captured-date-editor__month-label">{{ monthLabel() }}</span>
+    <button
+      class="captured-date-editor__now-btn"
+      type="button"
+      (click)="setNow()"
+    >Now</button>
+    <button
+      class="captured-date-editor__nav-btn"
+      type="button"
+      aria-label="Previous month"
+      (click)="prevMonth()"
+    >
+      <span class="material-icons" aria-hidden="true">chevron_left</span>
+    </button>
+    <button
+      class="captured-date-editor__nav-btn"
+      type="button"
+      aria-label="Next month"
+      (click)="nextMonth()"
+    >
+      <span class="material-icons" aria-hidden="true">chevron_right</span>
+    </button>
+  </div>
+
+  <!-- Calendar grid -->
+  <div class="captured-date-editor__grid">
+    <!-- Weekday headers -->
+    @for (day of weekdays; track day) {
+      <span class="captured-date-editor__weekday">{{ day }}</span>
+    }
+    <!-- Day cells -->
+    @for (day of calendarDays(); track day.date) {
+      <button
+        class="captured-date-editor__day"
+        type="button"
+        [class.captured-date-editor__day--other-month]="!day.isCurrentMonth"
+        [class.captured-date-editor__day--today]="day.isToday"
+        [class.captured-date-editor__day--selected]="day.isSelected"
+        [attr.aria-label]="day.date"
+        [attr.aria-current]="day.isToday ? 'date' : null"
+        (click)="selectDay(day)"
+      >{{ day.day }}</button>
+    }
+  </div>
+
+  <!-- Action row -->
+  <div class="captured-date-editor__actions">
+    <button
+      class="captured-date-editor__clear-btn"
+      type="button"
+      (click)="emitClear()"
+    >Clear</button>
+    <button
+      class="captured-date-editor__done-btn"
+      type="button"
+      (click)="emitSave()"
+    >Done</button>
+  </div>
+</div>

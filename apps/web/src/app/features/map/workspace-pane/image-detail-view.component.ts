@@ -1,17 +1,3 @@
-/**
- * ImageDetailViewComponent — full detail view for a single photo.
- *
- * Desktop: fills the Workspace Pane content area, replacing the thumbnail grid.
- * Mobile: renders as a full-screen overlay.
- *
- * Ground rules:
- *  - All data is loaded from Supabase when `imageId` input changes.
- *  - Signals for all local state; no RxJS subjects.
- *  - Never calls Supabase client directly — calls go through SupabaseService.
- *  - Full-res image loads on demand (thumbnail shown first).
- *  - Metadata edits patch `image_metadata` via upsert.
- */
-
 import {
   Component,
   OnDestroy,
@@ -23,54 +9,17 @@ import {
   signal,
 } from '@angular/core';
 import { MetadataPropertyRowComponent } from './metadata-property-row.component';
+import { CapturedDateEditorComponent } from './captured-date-editor.component';
 import { SupabaseService } from '../../../core/supabase.service';
 import { ForwardGeocodeResult, GeocodingService } from '../../../core/geocoding.service';
-
-// ── Types ──────────────────────────────────────────────────────────────────────
-
-export interface ImageRecord {
-  id: string;
-  user_id: string;
-  organization_id: string | null;
-  project_id: string | null;
-  storage_path: string;
-  thumbnail_path: string | null;
-  /** Active latitude (may be corrected, or same as exif_latitude). */
-  latitude: number | null;
-  /** Active longitude (may be corrected, or same as exif_longitude). */
-  longitude: number | null;
-  /** Original EXIF latitude — never mutated after insert. */
-  exif_latitude: number | null;
-  /** Original EXIF longitude — never mutated after insert. */
-  exif_longitude: number | null;
-  captured_at: string | null;
-  created_at: string;
-  address_label: string | null;
-  street: string | null;
-  city: string | null;
-  district: string | null;
-  country: string | null;
-  direction: number | null;
-  location_unresolved: boolean | null;
-}
-
-export interface MetadataEntry {
-  metadataKeyId: string;
-  key: string;
-  value: string;
-}
-
-interface SelectOption {
-  id: string;
-  label: string;
-}
-
-// ── Component ──────────────────────────────────────────────────────────────────
+import { ImageRecord, MetadataEntry, SelectOption } from './image-detail-view.types';
+import { AddressSearchHelper } from './address-search.helper';
+export type { ImageRecord, MetadataEntry } from './image-detail-view.types';
 
 @Component({
   selector: 'app-image-detail-view',
   standalone: true,
-  imports: [MetadataPropertyRowComponent],
+  imports: [MetadataPropertyRowComponent, CapturedDateEditorComponent],
   templateUrl: './image-detail-view.component.html',
   styleUrl: './image-detail-view.component.scss',
 })
@@ -78,106 +27,46 @@ export class ImageDetailViewComponent implements OnDestroy {
   private readonly supabaseService = inject(SupabaseService);
   private readonly geocodingService = inject(GeocodingService);
 
-  // ── Inputs / outputs ───────────────────────────────────────────────────────
-
-  /** The DB UUID of the image to display. Null hides the component. */
   readonly imageId = input<string | null>(null);
-
-  /** Emitted when the user clicks back/close. Parent sets detailImageId → null. */
   readonly closed = output<void>();
-
-  /** Emitted when "Edit location" is clicked. Payload is the imageId. */
   readonly editLocationRequested = output<string>();
 
-  // ── State signals ──────────────────────────────────────────────────────────
-
-  /** The full image record fetched from `images`. */
   readonly image = signal<ImageRecord | null>(null);
-
-  /** Ordered list of metadata key/value pairs. */
   readonly metadata = signal<MetadataEntry[]>([]);
-
-  /** Whether the full-res image has finished loading. */
   readonly fullResLoaded = signal(false);
-
-  /** Whether the thumbnail has finished loading. */
   readonly thumbnailLoaded = signal(false);
-
-  /** Whether image loading errored. */
   readonly imageErrored = signal(false);
-
-  /** Whether data is currently loading from Supabase. */
   readonly loading = signal(false);
-
-  /** Error message if the load failed. */
   readonly error = signal<string | null>(null);
-
-  /** Controls context menu visibility. */
   readonly showContextMenu = signal(false);
-
-  /** Controls delete confirmation dialog visibility. */
   readonly showDeleteConfirm = signal(false);
-
-  /** Whether a save operation is in progress. */
   readonly saving = signal(false);
-
-  /** Available projects for the project dropdown. */
   readonly projectOptions = signal<SelectOption[]>([]);
-
-  /** Whether the add-metadata row is visible. */
   readonly showAddMetadata = signal(false);
-
-  /** Which core field is currently being edited ('address_label', 'captured_at', 'project_id', etc.). */
   readonly editingField = signal<string | null>(null);
-
-  /** Signed URL for the full-resolution image (loaded on demand). */
   readonly fullResUrl = signal<string | null>(null);
-
-  /** Signed URL for the thumbnail (shown until full-res loads). */
   readonly thumbnailUrl = signal<string | null>(null);
-
-  /** Controls lightbox overlay visibility. */
   readonly showLightbox = signal(false);
-
-  /** Address search query string. */
   readonly addressSearchQuery = signal('');
-
-  /** Address search results from geocoder. */
   readonly addressSuggestions = signal<ForwardGeocodeResult[]>([]);
-
-  /** Whether address search is in progress. */
   readonly addressSearchLoading = signal(false);
-
-  /** Metadata key suggestions for autocomplete. */
   readonly metadataKeySuggestions = signal<string[]>([]);
-
-  /** All known metadata key names for the org (loaded once). */
   readonly allMetadataKeyNames = signal<string[]>([]);
-
-  /** Date portion being edited (YYYY-MM-DD). */
   readonly editDate = signal('');
-
-  /** Time portion being edited (HH:MM). */
   readonly editTime = signal('');
 
-  // ── Derived ────────────────────────────────────────────────────────────────
-
-  /** True when the image has been manually corrected. */
-  /** True when the image has been manually corrected (active coords differ from EXIF). */
   readonly isCorrected = computed(() => {
     const img = this.image();
     if (!img || img.latitude == null || img.exif_latitude == null) return false;
     return img.latitude !== img.exif_latitude || img.longitude !== img.exif_longitude;
   });
 
-  /** Display title: address label or truncated filename. */
   readonly displayTitle = computed(() => {
     const img = this.image();
     if (!img) return '';
     return img.address_label ?? img.storage_path.split('/').pop() ?? 'Photo';
   });
 
-  /** Formatted capture date. */
   readonly captureDate = computed(() => {
     const img = this.image();
     if (!img) return null;
@@ -188,10 +77,10 @@ export class ImageDetailViewComponent implements OnDestroy {
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
+      hour12: false,
     });
   });
 
-  /** Formatted upload date (always created_at, read-only). */
   readonly uploadDate = computed(() => {
     const img = this.image();
     if (!img) return null;
@@ -204,7 +93,6 @@ export class ImageDetailViewComponent implements OnDestroy {
     });
   });
 
-  /** Display name of the currently assigned project. */
   readonly projectName = computed(() => {
     const img = this.image();
     if (!img?.project_id) return '';
@@ -212,33 +100,37 @@ export class ImageDetailViewComponent implements OnDestroy {
     return match?.label ?? '';
   });
 
-  /** Assembled full address string for the search trigger. */
   readonly fullAddress = computed(() => {
     const img = this.image();
     if (!img) return '';
     return [img.street, img.city, img.district, img.country].filter(Boolean).join(', ');
   });
 
-  /** True when the image is still loading (placeholder should pulse). */
   readonly isImageLoading = computed(() => {
-    // Loading if we don't have a URL yet, or have a URL but img hasn't loaded
     const hasThumbUrl = !!this.thumbnailUrl();
-    const hasFullUrl = !!this.fullResUrl();
     if (this.imageErrored()) return false;
-    if (!hasThumbUrl && !hasFullUrl) return true; // No URLs yet
+    if (!hasThumbUrl && !this.fullResUrl()) return true;
     if (hasThumbUrl && !this.thumbnailLoaded() && !this.fullResLoaded()) return true;
     return false;
   });
 
-  /** True when the image is ready to display (thumbnail or full-res loaded). */
   readonly imageReady = computed(() => {
     if (this.imageErrored()) return false;
     return this.thumbnailLoaded() || this.fullResLoaded();
   });
 
-  // ── Lifecycle ──────────────────────────────────────────────────────────────
-
   private abortController: AbortController | null = null;
+
+  readonly addressHelper = new AddressSearchHelper(
+    this.geocodingService,
+    this.supabaseService,
+    this.image,
+    this.editingField,
+    this.addressSearchQuery,
+    this.addressSuggestions,
+    this.addressSearchLoading,
+    () => this.fullAddress(),
+  );
 
   constructor() {
     // Reload whenever imageId changes.
@@ -255,8 +147,6 @@ export class ImageDetailViewComponent implements OnDestroy {
   ngOnDestroy(): void {
     this.abortController?.abort();
   }
-
-  // ── Data loading ───────────────────────────────────────────────────────────
 
   private reset(): void {
     this.image.set(null);
@@ -354,14 +244,11 @@ export class ImageDetailViewComponent implements OnDestroy {
     return result.data?.signedUrl ?? null;
   }
 
-  // ── Actions ────────────────────────────────────────────────────────────────
 
-  /** Action #1 / #2 — back arrow (desktop) or close button (mobile). */
   close(): void {
     this.closed.emit();
   }
 
-  /** Save an image field (address_label, captured_at, project_id, street, city, district, country). */
   async saveImageField(field: string, newValue: string): Promise<void> {
     const img = this.image();
     if (!img) return;
@@ -387,7 +274,6 @@ export class ImageDetailViewComponent implements OnDestroy {
     this.saving.set(false);
   }
 
-  /** Save custom metadata value (Actions #11 / #12). */
   async saveMetadata(entry: MetadataEntry, newValue: string): Promise<void> {
     if (newValue === entry.value) return;
     const id = this.imageId();
@@ -417,7 +303,6 @@ export class ImageDetailViewComponent implements OnDestroy {
     }
   }
 
-  /** Action #13/#14 — add a new metadata entry (creates key if needed). */
   async addMetadata(keyName: string, value: string): Promise<void> {
     const img = this.image();
     if (!img || !keyName.trim() || !value.trim()) return;
@@ -470,7 +355,6 @@ export class ImageDetailViewComponent implements OnDestroy {
     this.saving.set(false);
   }
 
-  /** Action #16 — remove a metadata entry. */
   async removeMetadata(entry: MetadataEntry): Promise<void> {
     const id = this.imageId();
     if (!id) return;
@@ -490,19 +374,11 @@ export class ImageDetailViewComponent implements OnDestroy {
     }
   }
 
-  /** Action #18 — opens location correction mode in the parent. */
   requestEditLocation(): void {
     const id = this.imageId();
     if (id) this.editLocationRequested.emit(id);
   }
 
-  /** Action #19 — "Add to project" (placeholder — project picker integration pending). */
-  openProjectPicker(): void {
-    // Project picker will be integrated when ProjectPickerComponent is implemented.
-    // This action slot is wired here per the spec.
-  }
-
-  /** Action #20 — triggers delete confirmation dialog. */
   confirmDelete(): void {
     this.showDeleteConfirm.set(true);
     this.showContextMenu.set(false);
@@ -532,22 +408,18 @@ export class ImageDetailViewComponent implements OnDestroy {
     this.showContextMenu.set(false);
   }
 
-  /** Called when the full-res img element fires (load). */
   onFullResLoaded(): void {
     this.fullResLoaded.set(true);
   }
 
-  /** Called when the thumbnail img element fires (load). */
   onThumbnailLoaded(): void {
     this.thumbnailLoaded.set(true);
   }
 
-  /** Called when any image element fires (error). */
   onImageError(): void {
     this.imageErrored.set(true);
   }
 
-  /** Coordinate copy helper. */
   copyCoordinates(): void {
     const img = this.image();
     if (!img || img.latitude == null || img.longitude == null) return;
@@ -558,40 +430,30 @@ export class ImageDetailViewComponent implements OnDestroy {
     this.showContextMenu.set(false);
   }
 
-  /** Opens the captured_at editor, pre-filling date and time from current value. */
   openCapturedAtEditor(): void {
     const img = this.image();
     if (img?.captured_at) {
       const d = new Date(img.captured_at);
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
-      this.editDate.set(`${yyyy}-${mm}-${dd}`);
-      const hh = String(d.getHours()).padStart(2, '0');
-      const min = String(d.getMinutes()).padStart(2, '0');
-      this.editTime.set(`${hh}:${min}`);
+      this.editDate.set(
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
+      );
+      this.editTime.set(
+        `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
+      );
     } else {
-      // Default to today, no time
       const now = new Date();
-      const yyyy = now.getFullYear();
-      const mm = String(now.getMonth() + 1).padStart(2, '0');
-      const dd = String(now.getDate()).padStart(2, '0');
-      this.editDate.set(`${yyyy}-${mm}-${dd}`);
+      this.editDate.set(
+        `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`,
+      );
       this.editTime.set('');
     }
     this.editingField.set('captured_at');
   }
 
-  /** Saves the combined date+time from the split editor. */
-  async saveCapturedAt(): Promise<void> {
-    const dateVal = this.editDate();
-    if (!dateVal) return;
-    const timeVal = this.editTime() || '00:00';
-    const combined = `${dateVal}T${timeVal}:00`;
+  async saveCapturedAt(combined: string): Promise<void> {
     await this.saveImageField('captured_at', combined);
   }
 
-  /** Clears captured_at (sets to null). */
   async clearCapturedAt(): Promise<void> {
     const img = this.image();
     if (!img) return;
@@ -614,7 +476,6 @@ export class ImageDetailViewComponent implements OnDestroy {
     return value.toFixed(6);
   }
 
-  // ── Private helpers ────────────────────────────────────────────────────────
 
   private async loadProjects(organizationId: string): Promise<void> {
     const { data } = await this.supabaseService.client
@@ -640,112 +501,26 @@ export class ImageDetailViewComponent implements OnDestroy {
     }
   }
 
-  // ── Address search ─────────────────────────────────────────────────────────
 
-  private addressSearchTimeout: ReturnType<typeof setTimeout> | null = null;
-
-  /** Opens address search mode, pre-filling with the current full address. */
   openAddressSearch(): void {
-    const currentAddress = this.fullAddress();
-    this.addressSearchQuery.set(currentAddress);
-    this.editingField.set('address_search');
-    // Auto-trigger search if there's existing address text
-    if (currentAddress.trim()) {
-      this.searchAddress(currentAddress);
-    }
+    this.addressHelper.open();
   }
 
-  /** Cancels address search and clears state. */
   cancelAddressSearch(): void {
-    this.editingField.set(null);
-    this.addressSearchQuery.set('');
-    this.addressSuggestions.set([]);
+    this.addressHelper.cancel();
   }
 
   onAddressSearchInput(query: string): void {
-    this.addressSearchQuery.set(query);
-    if (this.addressSearchTimeout) clearTimeout(this.addressSearchTimeout);
-
-    if (!query.trim()) {
-      this.addressSuggestions.set([]);
-      return;
-    }
-
-    // Debounce 400ms to respect Nominatim rate limits
-    this.addressSearchTimeout = setTimeout(() => this.searchAddress(query), 400);
-  }
-
-  private async searchAddress(query: string): Promise<void> {
-    this.addressSearchLoading.set(true);
-    const result = await this.geocodingService.forward(query);
-    this.addressSearchLoading.set(false);
-
-    if (result) {
-      this.addressSuggestions.set([result]);
-    } else {
-      this.addressSuggestions.set([]);
-    }
+    this.addressHelper.onInput(query);
   }
 
   selectFirstAddressResult(): void {
-    const results = this.addressSuggestions();
-    if (results.length > 0) {
-      this.applyAddressSuggestion(results[0]);
-    }
+    this.addressHelper.selectFirst();
   }
 
   async applyAddressSuggestion(suggestion: ForwardGeocodeResult): Promise<void> {
-    const img = this.image();
-    if (!img) return;
-
-    // Optimistic update all address fields
-    this.image.update((prev) =>
-      prev
-        ? {
-            ...prev,
-            street: suggestion.street,
-            city: suggestion.city,
-            district: suggestion.district,
-            country: suggestion.country,
-            address_label: suggestion.addressLabel,
-          }
-        : prev,
-    );
-
-    this.editingField.set(null);
-    this.addressSearchQuery.set('');
-    this.addressSuggestions.set([]);
-
-    // Persist to DB
-    const { error } = await this.supabaseService.client
-      .from('images')
-      .update({
-        street: suggestion.street,
-        city: suggestion.city,
-        district: suggestion.district,
-        country: suggestion.country,
-        address_label: suggestion.addressLabel,
-      })
-      .eq('id', img.id);
-
-    if (error) {
-      // Roll back on failure
-      this.image.update((prev) =>
-        prev
-          ? {
-              ...prev,
-              street: img.street,
-              city: img.city,
-              district: img.district,
-              country: img.country,
-              address_label: img.address_label,
-            }
-          : prev,
-      );
-    }
+    await this.addressHelper.apply(suggestion);
   }
-
-  // ── Metadata key autocomplete ──────────────────────────────────────────────
 
   onMetadataKeyInput(query: string): void {
     if (!query.trim()) {

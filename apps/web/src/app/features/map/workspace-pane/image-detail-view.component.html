@@ -185,52 +185,13 @@
           <span class="material-icons detail-row__icon" aria-hidden="true">schedule</span>
           <span class="detail-row__label">Captured</span>
           @if (editingField() === 'captured_at') {
-            <div class="detail-datetime-editor" (keydown.escape)="editingField.set(null)">
-              <div class="detail-datetime-editor__row">
-                <span class="material-icons detail-datetime-editor__icon" aria-hidden="true"
-                  >calendar_today</span
-                >
-                <input
-                  #dateInput
-                  class="detail-datetime-editor__input"
-                  type="date"
-                  [value]="editDate()"
-                  aria-label="Edit date"
-                  (input)="editDate.set(dateInput.value)"
-                />
-              </div>
-              <div class="detail-datetime-editor__row">
-                <span class="material-icons detail-datetime-editor__icon" aria-hidden="true"
-                  >access_time</span
-                >
-                <input
-                  #timeInput
-                  class="detail-datetime-editor__input"
-                  type="time"
-                  [value]="editTime()"
-                  aria-label="Edit time"
-                  (input)="editTime.set(timeInput.value)"
-                  (keydown.enter)="saveCapturedAt()"
-                />
-              </div>
-              <div class="detail-datetime-editor__actions">
-                <button
-                  class="detail-datetime-editor__clear dd-item dd-item--muted"
-                  type="button"
-                  (click)="clearCapturedAt()"
-                >
-                  <span class="dd-item__label">Clear</span>
-                </button>
-                <button
-                  class="detail-datetime-editor__done dd-item"
-                  type="button"
-                  (click)="saveCapturedAt()"
-                >
-                  <span class="material-icons dd-item__icon" aria-hidden="true">check</span>
-                  <span class="dd-item__label">Done</span>
-                </button>
-              </div>
-            </div>
+            <app-captured-date-editor
+              [initialDate]="editDate()"
+              [initialTime]="editTime()"
+              (save)="saveCapturedAt($event)"
+              (clear)="clearCapturedAt()"
+              (cancel)="editingField.set(null)"
+            />
           } @else {
             <button class="detail-row__value" type="button" (click)="openCapturedAtEditor()">
               {{ captureDate() ?? '—' }}

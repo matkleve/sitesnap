@@ -399,7 +399,13 @@
   }
 
   &--editing {
+    flex-wrap: wrap;
     background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+
+    app-captured-date-editor {
+      flex: 1 1 100%;
+      margin-top: var(--spacing-1);
+    }
   }
 
   &--readonly {
@@ -494,63 +500,6 @@
     flex-shrink: 0;
     transition: opacity 80ms ease-out;
     pointer-events: none;
-  }
-}
-
-// ── DateTime editor ──
-
-.detail-datetime-editor {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-1);
-  background: var(--color-bg-base);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: var(--spacing-2);
-
-  &__row {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-2);
-  }
-
-  &__icon {
-    font-size: 0.875rem;
-    color: var(--color-text-disabled);
-    flex-shrink: 0;
-  }
-
-  &__input {
-    flex: 1 1 auto;
-    min-width: 0;
-    font-size: 0.8125rem;
-    color: var(--color-text-primary);
-    background: var(--color-bg-surface);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-sm);
-    padding: 0.25rem var(--spacing-2);
-    font-family: inherit;
-    outline: none;
-
-    &:focus {
-      border-color: var(--color-primary);
-      box-shadow: var(--shadow-focus);
-    }
-  }
-
-  &__actions {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-top: var(--spacing-1);
-  }
-
-  &__clear,
-  &__done {
-    padding: var(--spacing-1) var(--spacing-2);
-    min-height: 1.75rem;
-    font-size: 0.75rem;
   }
 }
 

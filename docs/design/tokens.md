@@ -19,8 +19,8 @@ Design tokens are CSS custom properties. All components use tokens — never raw
 | `--color-text-primary`   | `#1A1714`   | `#EDEBE7`  | Headlines, body, labels — warm near-black / warm near-white                            |
 | `--color-text-secondary` | `#6B6259`   | `#908880`  | Subtext, timestamps, metadata labels                                                   |
 | `--color-text-disabled`  | `#A89E95`   | `#4A4540`  | Disabled states                                                                        |
-| `--color-primary`        | `#2563EB`   | `#3B82F6`  | Primary actions, active markers, focus rings                                           |
-| `--color-primary-hover`  | `#1D4ED8`   | `#60A5FA`  | Hover state for primary                                                                |
+| `--color-primary`        | `#CC7A4A`   | `#D9895A`  | Primary actions, active markers, focus rings                                           |
+| `--color-primary-hover`  | `#B8663A`   | `#E89A6E`  | Hover state for primary                                                                |
 | `--color-success`        | `#16A34A`   | `#22C55E`  | Upload success, confirmed correction                                                   |
 | `--color-warning`        | `#C2610A`   | `#F59E0B`  | Missing GPS, low-confidence EXIF                                                       |
 | `--color-danger`         | `#DC2626`   | `#EF4444`  | Upload error, deletion confirmation                                                    |

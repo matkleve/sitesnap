@@ -930,38 +930,31 @@ describe('ImageDetailViewComponent', () => {
       expect(component.editingField()).toBe('captured_at');
     });
 
-    it('saveCapturedAt combines date and time and saves', async () => {
+    it('saveCapturedAt saves the combined date-time string', async () => {
       const { component, fake } = setup();
       component.image.set({ ...MOCK_IMAGE });
-      component.editDate.set('2025-07-20');
-      component.editTime.set('14:30');
 
-      await component.saveCapturedAt();
+      await component.saveCapturedAt('2025-07-20T14:30:00');
 
-      expect(component.image()!.captured_at).toBe('2025-07-20T14:30:00');
       expect(fake.updateFn).toHaveBeenCalledWith({ captured_at: '2025-07-20T14:30:00' });
     });
 
-    it('saveCapturedAt defaults time to midnight when time is empty', async () => {
+    it('saveCapturedAt saves date with midnight when no time', async () => {
       const { component } = setup();
       component.image.set({ ...MOCK_IMAGE });
-      component.editDate.set('2025-07-20');
-      component.editTime.set('');
 
-      await component.saveCapturedAt();
+      await component.saveCapturedAt('2025-07-20T00:00:00');
 
       expect(component.image()!.captured_at).toBe('2025-07-20T00:00:00');
     });
 
-    it('saveCapturedAt does nothing when date is empty', async () => {
+    it('saveCapturedAt delegates to saveImageField', async () => {
       const { component, fake } = setup();
       component.image.set({ ...MOCK_IMAGE });
-      component.editDate.set('');
-      fake.updateFn.mockClear();
 
-      await component.saveCapturedAt();
+      await component.saveCapturedAt('2025-01-15T09:00:00');
 
-      expect(fake.updateFn).not.toHaveBeenCalled();
+      expect(fake.updateFn).toHaveBeenCalledWith({ captured_at: '2025-01-15T09:00:00' });
     });
 
     it('clearCapturedAt sets captured_at to null', async () => {
