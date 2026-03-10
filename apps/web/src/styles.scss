@@ -185,6 +185,19 @@
   }
 }
 
+// ── Leaflet overrides — neutralise default blue strokes / focus rings ────────
+// leaflet.css (loaded before this file) hard-codes blue on interactive SVG
+// paths and the tile-pane focus outline. Override here so all Leaflet chrome
+// uses the app's orange primary token instead.
+.leaflet-interactive:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.leaflet-container a {
+  color: var(--color-primary);
+}
+
 // ── Global Reset ──────────────────────────────────────────────────────────────
 *,
 *::before,
