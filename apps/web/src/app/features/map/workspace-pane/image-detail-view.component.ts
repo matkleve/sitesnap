@@ -23,7 +23,6 @@ import {
   signal,
 } from '@angular/core';
 import { MetadataPropertyRowComponent } from './metadata-property-row.component';
-import { EditablePropertyRowComponent, SelectOption } from './editable-property-row.component';
 import { SupabaseService } from '../../../core/supabase.service';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -60,12 +59,17 @@ export interface MetadataEntry {
   value: string;
 }
 
+interface SelectOption {
+  id: string;
+  label: string;
+}
+
 // ── Component ──────────────────────────────────────────────────────────────────
 
 @Component({
   selector: 'app-image-detail-view',
   standalone: true,
-  imports: [MetadataPropertyRowComponent, EditablePropertyRowComponent],
+  imports: [MetadataPropertyRowComponent],
   templateUrl: './image-detail-view.component.html',
   styleUrl: './image-detail-view.component.scss',
 })

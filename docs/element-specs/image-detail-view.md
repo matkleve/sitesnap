@@ -10,15 +10,138 @@ The full detail view of a single photo. Shows the full-resolution image with all
 
 ## What It Looks Like
 
+### Toolbar Behavior
+
+When the detail view is open, the **Workspace Toolbar** (operators: Grouping, Filter, Sort, Projects) is **hidden**. The detail view fills the full content area below the pane header. Operators are irrelevant when viewing a single photo — removing them reclaims vertical space and reduces visual noise. The toolbar reappears when the user navigates back to the thumbnail grid.
+
+### Layout Modes
+
 **Wide pane (≥ 640px):** Two-column layout — photo on the left (flexible width), metadata panel on the right (fixed ~320px). The photo fills the available height with `object-fit: contain` against a dark letterbox. The metadata panel scrolls independently.
 
 **Narrow pane (< 640px):** Single-column stack — photo on top (full width, `max-height: 55vw`), then Details, Custom Metadata, and Actions below. On mobile this is a full-screen overlay with a close button top-right.
 
 The entire detail container is capped at `900px` max-width and centered (`margin: 0 auto`) so it doesn't stretch uncomfortably in very wide panes.
 
-All property rows follow the **Notion pattern**: click the value → inline edit → save on Enter/blur → no separate "Edit" button. Project assignment uses a `<select>` dropdown. Captured date uses a `datetime-local` input. Editable values show a subtle underline-on-hover affordance (dashed bottom border, `--color-primary` on hover).
+### Metadata Content Width
+
+The metadata content area (both in single-column and as the right panel in two-column) is **capped at `max-width: 400px`**. This keeps labels and values close together so the eye doesn't have to travel across wide empty space. In single-column mode, the metadata block centers itself horizontally.
+
+### Visual Hierarchy (top to bottom)
+
+The design follows a strict information hierarchy. Each data field is placed according to its importance to the field technician's workflow:
+
+#### 1. Header Bar (CRITICAL — navigation + identity)
+Back arrow + editable title (address label) + context menu trigger. Follows current pattern. The title is the most prominent text element — `--text-h2` weight 600. Uses `dd-item` style context menu.
+
+#### 2. Hero Photo (HIGHEST — the content itself)
+Full-resolution image with progressive loading (placeholder → thumbnail → full-res). The photo is the reason the user is here. It gets maximum visual real estate.
+
+#### 3. Quick Info Bar (HIGH — at-a-glance context)
+Immediately below the photo, a horizontal row of **info chips** provides the most important metadata at a glance without scrolling:
+
+- **Project chip**: folder icon + project name. Filled `--color-primary` if assigned, outlined `--color-border` if none. Click opens project picker.
+- **Date chip**: calendar icon + formatted capture date. Click enters edit mode (datetime-local).
+- **GPS chip**: location icon + "GPS" or "Corrected". `--color-success` tint if has coords, `--color-warning` if missing. Click copies coordinates.
+
+Chips use `rounded-full` radius, `--text-caption` size (12px), compact padding (`--spacing-1` block, `--spacing-2` inline). They sit in a horizontal flex row that wraps on narrow panes.
+
+#### 4. Details Section (MEDIUM-HIGH — editable properties)
+Section heading uses the **`dd-section-label`** style: `0.6875rem`, uppercase, `600` weight, `--color-text-disabled`, `letter-spacing: 0.06em`.
+
+Each property row is redesigned with **leading icons**:
+
+```pseudo
+┌─ icon ─┬─ label ──────┬─ value (click to edit) ─┬─ edit-icon ─┐
+│  🏠    │  Street      │  123 Main St            │  ✏️ (hover)  │
+└────────┴──────────────┴─────────────────────────┴─────────────┘
+```
+
+- **Leading icon**: `1rem` Material icon, `--color-text-secondary`. Provides instant visual identification.
+- **Label**: `--text-small` (13px), `--color-text-secondary`.
+- **Value**: `--text-body` (15px), `--color-text-primary`. Click activates inline edit.
+- **Edit icon**: `edit` Material icon, hidden at rest, appears on row hover. Uses the `dd-drag-handle` visibility pattern (hidden → visible on parent hover).
+- **Row hover**: warm clay tint (`color-mix(in srgb, var(--color-clay) 8%, transparent)`), matching all dropdown hover states.
+- **Row geometry**: follows `dd-item` pattern — `gap: --spacing-2`, `padding: --spacing-1 --spacing-2`, `--radius-sm`.
+
+Property row icon mapping:
+
+| Field        | Icon              | Importance | Notes                          |
+| ------------ | ----------------- | ---------- | ------------------------------ |
+| Captured     | `schedule`        | High       | When the photo was taken       |
+| Project      | `folder`          | High       | Organizational grouping        |
+| Street       | `signpost`        | Medium     | Part of address group          |
+| City         | `location_city`   | Medium     | Part of address group          |
+| District     | `map`             | Low-Medium | Part of address group          |
+| Country      | `public`          | Low        | Part of address group          |
+| Location     | `my_location`     | Medium     | GPS coords, read-only          |
+| Uploaded     | `cloud_upload`    | Low        | Informational, read-only, muted|
+
+Read-only rows (Location, Uploaded) display with `--color-text-secondary` value text and no edit icon on hover.
+
+#### 5. Address Group
+Street, City, District, Country are visually grouped under a **"Location"** section heading (dd-section-label). They share the same edit pattern. The GPS coordinates row appears at the bottom of this group with the correction badge if applicable.
+
+#### 6. Custom Metadata Section (VARIABLE)
+Section heading: "Metadata" (dd-section-label style). Same icon + label + value row pattern. Chip-type metadata renders inline chip groups. Delete icon appears on hover (right side).
 
 **Chip-type metadata** renders inline as a horizontal chip group. The selected chip gets a filled style (`--color-primary` bg), unselected chips are outlined. Clicking a chip saves immediately — no confirm step needed (it's a single-select categorical value). On narrow layouts, chips wrap.
+
+#### 7. Actions Section (LOW priority but accessible)
+Actions use **`dd-item`** button styling — not bordered outline buttons. Each action is a full-width row with:
+- Leading Material icon (`1rem`, `--color-text-secondary`)
+- Label text (`0.8125rem`)
+- `dd-item` hover (warm clay tint)
+- `--radius-sm` border radius
+
+```pseudo
+┌─ 🗺️  Edit location          ─┐   ← dd-item style, clay hover
+├─ 📁  Add to project          ─┤   ← dd-item style, clay hover
+├─ 📋  Copy coordinates        ─┤   ← dd-item style, clay hover
+├──────────────────────────────-─┤   ← dd-divider
+└─ 🗑️  Delete image            ─┘   ← dd-item--danger style
+```
+
+### Correction History
+When the image has a corrected location, a subtle callout appears below the GPS row using `--color-accent` tinting (already implemented). Shows original EXIF vs corrected coordinates.
+
+### Interaction Pseudo Code
+
+```pseudo
+WHEN detail view opens:
+  workspace-toolbar.hidden = true
+  detail-view fills pane content area (below pane-header)
+  load image data, metadata, project options
+  show progressive image (placeholder → thumbnail → full-res)
+
+WHEN detail view closes:
+  workspace-toolbar.hidden = false
+  return to thumbnail grid
+
+ON property row hover:
+  show warm clay background tint
+  show edit icon (pencil) on right side
+  
+ON property row click (editable):
+  replace value text with inline input (text / datetime-local / select)
+  focus input
+  ON Enter or blur → save to Supabase (optimistic update)
+  ON Escape → cancel, restore previous value
+
+ON quick-info chip click:
+  project chip → open project select dropdown
+  date chip → enter date edit mode  
+  gps chip → copy coordinates to clipboard (toast confirmation)
+
+ON action row click:
+  "Edit location" → emit editLocationRequested
+  "Add to project" → open project picker
+  "Copy coordinates" → clipboard + toast
+  "Delete image" → show delete confirmation dialog
+
+ON action row hover:
+  warm clay tint (color-mix(in srgb, var(--color-clay) 8%, transparent))
+  matches all dropdown item hover states
+```
 
 ## Responsive Layout
 
@@ -113,57 +236,71 @@ onDestroy: observer.disconnect();
 ImageDetailView                            ← fills Workspace Pane content area (desktop) or full-screen (mobile)
 │                                             max-width: 900px, margin: 0 auto, width: 100%
 │                                             ResizeObserver on host → paneWidth signal
+│                                             PARENT HIDES workspace-toolbar when this is shown
 │
 ├── DetailHeader                           ← always full width, sticky top
 │   ├── BackButton (←)                     ← desktop: back to grid; mobile: close overlay
-│   ├── ImageTitle                         ← address label, click-to-edit inline
+│   ├── ImageTitle                         ← address label, click-to-edit inline, --text-h2 weight 600
 │   │   └── [editing] InlineInput          ← replaces title text, saves on Enter/blur
 │   └── ContextMenuTrigger (⋯)
-│       └── [open] ContextMenu             ← Delete, Copy coordinates
+│       └── [open] ContextMenu             ← uses dd-items / dd-item / dd-item--danger classes
 │
 ├── [paneWidth ≥ 640] TwoColumnLayout      ← grid: minmax(300px, 1fr) 320px
 │   ├── PhotoColumn                        ← flexible, fills available height
-│   │   ├── PhotoViewer                    ← object-fit: contain, background: #111
-│   │   │   ├── [not loaded] Placeholder   ← CSS gradient + camera icon + "Loading…"
-│   │   │   ├── [tier 2] ThumbnailPreview  ← 256×256 signed URL (blurred)
-│   │   │   └── [tier 3] FullResImage      ← original res, crossfades over thumbnail
-│   │   └── CoordinatesBar                 ← lat/lng below photo, subtle
-│   │       └── [corrected] CorrectionBadge
-│   └── MetadataColumn                     ← fixed ~320px, scrolls independently
+│   │   └── PhotoViewer                    ← object-fit: contain, background: #111
+│   │       ├── [not loaded] Placeholder   ← CSS gradient + camera icon + "Loading…"
+│   │       ├── [tier 2] ThumbnailPreview  ← 256×256 signed URL (blurred)
+│   │       └── [tier 3] FullResImage      ← original res, crossfades over thumbnail
+│   └── MetadataColumn                     ← fixed ~320px, max-width: 400px, scrolls independently
+│       ├── QuickInfoBar
 │       ├── DetailsSection
+│       ├── LocationSection
 │       ├── MetadataSection
 │       └── ActionsSection
 │
 ├── [paneWidth < 640] SingleColumnLayout
 │   ├── PhotoViewer                        ← full width, max-height: 55vw
-│   ├── DetailsSection
-│   ├── MetadataSection
-│   └── ActionsSection
+│   └── MetadataContent                   ← max-width: 400px, margin: 0 auto
+│       ├── QuickInfoBar
+│       ├── DetailsSection
+│       ├── LocationSection
+│       ├── MetadataSection
+│       └── ActionsSection
 │
-├── DetailsSection                         ← "Details" heading, property rows (key: value)
-│   ├── EditablePropertyRow "Captured"     ← datetime-local input on edit
-│   ├── EditablePropertyRow "Project"      ← <select> dropdown with org projects
-│   ├── EditablePropertyRow "Street"       ← inline text input on edit
-│   ├── EditablePropertyRow "City"         ← inline text input on edit
-│   ├── EditablePropertyRow "District"     ← inline text input on edit
-│   ├── EditablePropertyRow "Country"      ← inline text input on edit
-│   ├── ReadOnlyRow "Location"             ← lat/lng (edited via map, not inline)
-│   ├── TimestampRow "Uploaded"            ← created_at (read-only)
-│   └── [corrected] CorrectionHistory      ← original EXIF vs corrected coords
+├── QuickInfoBar                           ← horizontal chip row below photo
+│   ├── ProjectChip                        ← folder icon + name, filled if assigned
+│   ├── DateChip                           ← calendar icon + date, click to edit
+│   └── GpsChip                            ← location icon + status, click copies coords
 │
-├── MetadataSection                        ← "Custom Metadata" heading
-│   ├── [chip type] ChipRow × N           ← key label + inline chip group (see below)
+├── DetailsSection                         ← dd-section-label "Details"
+│   ├── IconPropertyRow "Captured"         ← schedule icon, datetime-local on edit
+│   ├── IconPropertyRow "Project"          ← folder icon, <select> dropdown on edit
+│   └── IconPropertyRow "Uploaded"         ← cloud_upload icon, read-only, muted
+│
+├── LocationSection                        ← dd-section-label "Location"
+│   ├── IconPropertyRow "Street"           ← signpost icon, text input on edit
+│   ├── IconPropertyRow "City"             ← location_city icon, text input on edit
+│   ├── IconPropertyRow "District"         ← map icon, text input on edit
+│   ├── IconPropertyRow "Country"          ← public icon, text input on edit
+│   ├── IconPropertyRow "Coordinates"      ← my_location icon, read-only mono
+│   │   └── [corrected] CorrectionBadge
+│   └── [corrected] CorrectionHistory      ← original EXIF vs corrected, accent tint
+│
+├── MetadataSection                        ← dd-section-label "Metadata"
+│   ├── [chip type] ChipRow × N           ← key label + inline chip group
 │   │   └── ChipGroup                     ← horizontal wrap, single-select, save-on-click
 │   │       └── Chip × M                  ← selected: filled --color-primary, unselected: outlined
-│   ├── MetadataPropertyRow × N            ← text/date/number types: key | value (click-to-edit) | [hover] delete
+│   ├── MetadataPropertyRow × N            ← icon + key + value (click-to-edit) + [hover] delete
 │   │   └── [editing] InlineInput
-│   ├── AddMetadataRow                     ← typeahead key + schema-aware value (see below)
-│   └── AddMetadataButton                  ← "+ Add metadata" ghost button → shows AddMetadataRow
+│   ├── AddMetadataRow                     ← typeahead key + schema-aware value
+│   └── AddMetadataButton                  ← dd-action-row style "+ Add metadata"
 │
-├── ActionsSection
-│   ├── EditLocationButton                 ← ghost button "Edit location"
-│   ├── AddToProjectButton                 ← ghost button "Add to project"
-│   └── ContextMenu (⋯)                   ← Delete, Copy coordinates, etc.
+├── ActionsSection                         ← dd-section-label "Actions", dd-item styled rows
+│   ├── EditLocationAction                 ← dd-item: edit_location icon + "Edit location"
+│   ├── AddToProjectAction                 ← dd-item: folder_open icon + "Add to project"
+│   ├── CopyCoordinatesAction              ← dd-item: content_copy icon + "Copy coordinates"
+│   ├── dd-divider
+│   └── DeleteAction                       ← dd-item--danger: delete icon + "Delete image"
 │
 └── [confirm] DeleteConfirmDialog          ← modal with cancel/confirm
 ```
@@ -430,15 +567,44 @@ sequenceDiagram
 
 ## Acceptance Criteria
 
-### Responsive Layout
+### Toolbar & Layout
 
+- [ ] Workspace toolbar (operators) is **hidden** when detail view is open
+- [ ] Workspace toolbar reappears when detail view closes (back to grid)
 - [ ] Uses `ResizeObserver` on host element to measure pane width (not `window.innerWidth`)
 - [ ] Wide pane (≥ 640px): two-column grid — photo left (flexible), metadata right (~320px fixed)
 - [ ] Narrow pane (< 640px): single-column stack — photo on top, metadata below
 - [ ] Detail container capped at 900px max-width, centered via `margin: 0 auto`
+- [ ] Metadata content area capped at **400px max-width** — centers in available space
 - [ ] Photo viewer: wide layout uses `object-fit: contain`, `max-height: calc(100vh - 60px)`, `background: #111`
 - [ ] Photo viewer: narrow layout uses full width, `max-height: 55vw`, `object-fit: contain`
 - [ ] Metadata column scrolls independently from photo column in wide layout
+
+### Quick Info Bar
+
+- [ ] Horizontal chip row below photo with Project, Date, GPS chips
+- [ ] Project chip: filled `--color-primary` when assigned, outlined when empty
+- [ ] Date chip: calendar icon + formatted date, click enters date edit
+- [ ] GPS chip: `--color-success` tint with coordinates, `--color-warning` if missing GPS
+- [ ] Chips use `rounded-full`, `--text-caption` size, compact padding
+- [ ] Chips wrap on narrow panes
+
+### Visual Design — Property Rows  
+
+- [ ] All property rows have **leading Material icon** (1rem, `--color-text-secondary`)
+- [ ] Row hover uses **warm clay tint** (`color-mix(in srgb, var(--color-clay) 8%, transparent)`)
+- [ ] Hover reveals **edit pencil icon** on right (hidden at rest, like dd-drag-handle)
+- [ ] Row geometry follows dd-item pattern: `gap: --spacing-2`, `padding: --spacing-1 --spacing-2`, `--radius-sm`
+- [ ] Section headings use **dd-section-label** style: `0.6875rem`, uppercase, `600`, `--color-text-disabled`
+- [ ] Read-only rows (Location, Uploaded) show muted value text, no edit icon on hover
+
+### Visual Design — Actions Section
+
+- [ ] Actions use **dd-item** button styling (not bordered outline buttons)
+- [ ] Each action: leading icon + label text, `0.8125rem` font
+- [ ] Hover uses warm clay tint matching all dropdown items
+- [ ] Delete action uses `dd-item--danger` style (red icon + label)
+- [ ] `dd-divider` separates destructive actions from normal ones
 
 ### Navigation
 
