@@ -97,12 +97,24 @@
       aria-label="View full-size photo"
       (click)="showLightbox.set(true)"
     >
+      <!-- Placeholder: pulsing gradient while loading -->
+      @if (!imageReady()) {
+        <div
+          class="detail-image-placeholder"
+          [class.detail-image-placeholder--loading]="isImageLoading()"
+          [class.detail-image-placeholder--no-photo]="!isImageLoading()"
+        >
+          <span class="detail-image-placeholder__icon" aria-hidden="true"></span>
+        </div>
+      }
       @if (thumbnailUrl() && !fullResLoaded()) {
         <img
           class="detail-image detail-image--thumb"
           [src]="thumbnailUrl()"
           alt="Photo preview"
           aria-hidden="true"
+          (load)="onThumbnailLoaded()"
+          (error)="onImageError()"
         />
       }
       @if (fullResUrl()) {
@@ -112,6 +124,7 @@
           [src]="fullResUrl()"
           [alt]="displayTitle()"
           (load)="onFullResLoaded()"
+          (error)="onImageError()"
         />
       }
     </button>
@@ -253,7 +266,7 @@
                 aria-label="Search for an address"
                 [value]="addressSearchQuery()"
                 (input)="onAddressSearchInput(addressSearchInput.value)"
-                (keydown.escape)="editingField.set(null); addressSearchQuery.set('')"
+                (keydown.escape)="cancelAddressSearch()"
                 (keydown.enter)="selectFirstAddressResult()"
               />
               @if (addressSearchQuery()) {
@@ -288,7 +301,7 @@
             <button
               class="detail-address-search__trigger dd-item dd-item--muted"
               type="button"
-              (click)="editingField.set('address_search')"
+              (click)="openAddressSearch()"
             >
               <span class="material-icons dd-item__icon" aria-hidden="true">search</span>
               <span class="dd-item__label">{{ fullAddress() || 'Search address…' }}</span>

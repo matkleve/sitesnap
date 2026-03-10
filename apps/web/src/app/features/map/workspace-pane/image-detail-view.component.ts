@@ -100,6 +100,12 @@ export class ImageDetailViewComponent implements OnDestroy {
   /** Whether the full-res image has finished loading. */
   readonly fullResLoaded = signal(false);
 
+  /** Whether the thumbnail has finished loading. */
+  readonly thumbnailLoaded = signal(false);
+
+  /** Whether image loading errored. */
+  readonly imageErrored = signal(false);
+
   /** Whether data is currently loading from Supabase. */
   readonly loading = signal(false);
 
@@ -207,6 +213,23 @@ export class ImageDetailViewComponent implements OnDestroy {
     return [img.street, img.city, img.district, img.country].filter(Boolean).join(', ');
   });
 
+  /** True when the image is still loading (placeholder should pulse). */
+  readonly isImageLoading = computed(() => {
+    // Loading if we don't have a URL yet, or have a URL but img hasn't loaded
+    const hasThumbUrl = !!this.thumbnailUrl();
+    const hasFullUrl = !!this.fullResUrl();
+    if (this.imageErrored()) return false;
+    if (!hasThumbUrl && !hasFullUrl) return true; // No URLs yet
+    if (hasThumbUrl && !this.thumbnailLoaded() && !this.fullResLoaded()) return true;
+    return false;
+  });
+
+  /** True when the image is ready to display (thumbnail or full-res loaded). */
+  readonly imageReady = computed(() => {
+    if (this.imageErrored()) return false;
+    return this.thumbnailLoaded() || this.fullResLoaded();
+  });
+
   // ── Lifecycle ──────────────────────────────────────────────────────────────
 
   private abortController: AbortController | null = null;
@@ -233,6 +256,8 @@ export class ImageDetailViewComponent implements OnDestroy {
     this.image.set(null);
     this.metadata.set([]);
     this.fullResLoaded.set(false);
+    this.thumbnailLoaded.set(false);
+    this.imageErrored.set(false);
     this.fullResUrl.set(null);
     this.thumbnailUrl.set(null);
     this.error.set(null);
@@ -256,6 +281,8 @@ export class ImageDetailViewComponent implements OnDestroy {
     this.loading.set(true);
     this.error.set(null);
     this.fullResLoaded.set(false);
+    this.thumbnailLoaded.set(false);
+    this.imageErrored.set(false);
     this.fullResUrl.set(null);
     this.thumbnailUrl.set(null);
 
@@ -504,6 +531,16 @@ export class ImageDetailViewComponent implements OnDestroy {
     this.fullResLoaded.set(true);
   }
 
+  /** Called when the thumbnail img element fires (load). */
+  onThumbnailLoaded(): void {
+    this.thumbnailLoaded.set(true);
+  }
+
+  /** Called when any image element fires (error). */
+  onImageError(): void {
+    this.imageErrored.set(true);
+  }
+
   /** Coordinate copy helper. */
   copyCoordinates(): void {
     const img = this.image();
@@ -549,6 +586,24 @@ export class ImageDetailViewComponent implements OnDestroy {
   // ── Address search ─────────────────────────────────────────────────────────
 
   private addressSearchTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  /** Opens address search mode, pre-filling with the current full address. */
+  openAddressSearch(): void {
+    const currentAddress = this.fullAddress();
+    this.addressSearchQuery.set(currentAddress);
+    this.editingField.set('address_search');
+    // Auto-trigger search if there's existing address text
+    if (currentAddress.trim()) {
+      this.searchAddress(currentAddress);
+    }
+  }
+
+  /** Cancels address search and clears state. */
+  cancelAddressSearch(): void {
+    this.editingField.set(null);
+    this.addressSearchQuery.set('');
+    this.addressSuggestions.set([]);
+  }
 
   onAddressSearchInput(query: string): void {
     this.addressSearchQuery.set(query);

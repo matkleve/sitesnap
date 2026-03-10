@@ -179,22 +179,26 @@
 // ── Full-res image ──
 
 .detail-image-wrap {
-  position: relative;
   flex-shrink: 0;
-  // Golden ratio: ~1/3 of available pane height
-  width: calc(100% - var(--spacing-4) * 2);
-  max-height: 33vh;
+  // Grid stacking — all children in the same cell, largest defines size
+  display: grid;
+  place-items: center;
+  width: fit-content;
+  max-width: calc(100% - var(--spacing-4) * 2);
   margin: var(--spacing-3) auto 0;
   background: var(--color-bg-base);
   border-radius: var(--radius-lg);
   overflow: hidden;
-  aspect-ratio: 4 / 3;
   cursor: pointer;
   // Reset button styles
   border: none;
   padding: 0;
-  display: block;
   transition: box-shadow 120ms ease-out;
+
+  // Stack all children in the same grid cell
+  > * {
+    grid-area: 1 / 1;
+  }
 
   &:hover {
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 30%, transparent);
@@ -206,13 +210,49 @@
   }
 }
 
-.detail-image {
-  position: absolute;
-  inset: 0;
+// Loading placeholder (matches thumbnail-card pattern)
+
+.detail-image-placeholder {
+  // Placeholder defines initial size before any image loads
+  min-height: 8rem;
+  aspect-ratio: 4 / 3;
+  max-height: 33vh;
   width: 100%;
-  height: 100%;
-  object-fit: contain;
+  background: linear-gradient(
+    135deg,
+    var(--color-bg-subtle, var(--color-bg-surface)) 0%,
+    var(--color-bg-muted, var(--color-bg-base)) 100%
+  );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &--loading {
+    animation: detail-placeholder-pulse 1400ms ease-in-out infinite;
+  }
+
+  &--no-photo {
+    opacity: 0.55;
+  }
+
+  &__icon {
+    width: 2rem;
+    height: 2rem;
+    background: var(--color-text-disabled);
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 15.2l-3.6-4.8H8l-4 5.2V6c0-1.1.9-2 2-2h12c1.1 0 2 .9 2 2v7.6l-4-4.8-4 6.4zM2 4v16h20V4H2zm7-1a2 2 0 1 0 0 4 2 2 0 0 0 0-4z'/%3E%3C/svg%3E");
+    mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+  }
+}
+
+.detail-image {
+  // Images flow in grid cell — widest one defines container width
   display: block;
+  max-height: 33vh;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
 
   &--thumb {
     filter: blur(2px);
@@ -842,5 +882,15 @@
 @keyframes detail-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes detail-placeholder-pulse {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
   }
 }
