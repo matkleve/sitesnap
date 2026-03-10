@@ -3,7 +3,7 @@
 }
 
 .sort-dropdown {
-  padding-block: var(--spacing-2);
+  padding-block: var(--spacing-2) 0;
 }
 
 .sort-search {
@@ -53,7 +53,7 @@
 }
 
 .sort-options {
-  padding: var(--spacing-1) var(--spacing-2);
+  padding: var(--spacing-2) var(--spacing-2);
 }
 
 .sort-option {
