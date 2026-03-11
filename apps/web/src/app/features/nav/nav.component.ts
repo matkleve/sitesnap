@@ -17,7 +17,7 @@
  *  - routerLinkActive uses exact matching for '/' to avoid it always being active.
  */
 
-import { Component, computed, inject } from '@angular/core';
+import { Component, ElementRef, computed, inject, output } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 
@@ -35,9 +35,16 @@ export interface NavItem {
     imports: [RouterLink, RouterLinkActive],
     templateUrl: './nav.component.html',
     styleUrl: './nav.component.scss',
+    host: {
+        '(keydown)': 'onKeydown($event)',
+    },
 })
 export class NavComponent {
     private readonly authService = inject(AuthService);
+    private readonly elRef = inject(ElementRef<HTMLElement>);
+
+    /** Emitted when Escape is pressed inside the sidebar — parent should return focus to the map. */
+    readonly escapeFocused = output<void>();
 
     /** Nav items in display order. Items with disabled: true are visually greyed
      *  out and non-interactive — reserved for future features. */
@@ -75,4 +82,39 @@ export class NavComponent {
         const name = this.displayName();
         return name === 'Account' ? '?' : name[0].toUpperCase();
     });
+
+    /**
+     * Keyboard handler: ArrowUp/ArrowDown cycle through focusable nav links;
+     * Escape emits so the parent can return focus to the map.
+     */
+    onKeydown(event: KeyboardEvent): void {
+        if (event.key === 'Escape') {
+            this.escapeFocused.emit();
+            return;
+        }
+
+        if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') {
+            return;
+        }
+
+        event.preventDefault();
+
+        const navEl = this.elRef.nativeElement;
+        const focusable: HTMLElement[] = Array.from(
+            navEl.querySelectorAll('a[href], a[routerlink], button:not([disabled])'),
+        ) as HTMLElement[];
+
+        if (focusable.length === 0) return;
+
+        const current = document.activeElement as HTMLElement;
+        const idx = focusable.indexOf(current);
+
+        if (event.key === 'ArrowDown') {
+            const next = focusable[(idx + 1) % focusable.length];
+            next.focus();
+        } else {
+            const prev = focusable[(idx - 1 + focusable.length) % focusable.length];
+            prev.focus();
+        }
+    }
 }

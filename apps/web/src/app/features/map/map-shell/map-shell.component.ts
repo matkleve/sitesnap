@@ -36,6 +36,7 @@ import { WorkspaceViewService } from '../../../core/workspace-view.service';
 import { SearchBarComponent } from '../search-bar/search-bar.component';
 import { WorkspacePaneComponent } from '../workspace-pane/workspace-pane.component';
 import { DragDividerComponent } from '../workspace-pane/drag-divider/drag-divider.component';
+import { ActiveFilterChipsComponent } from '../filter-chips/active-filter-chips.component';
 import {
   buildPhotoMarkerHtml,
   PHOTO_MARKER_ICON_ANCHOR,
@@ -46,7 +47,7 @@ import {
 
 @Component({
   selector: 'app-map-shell',
-  imports: [UploadPanelComponent, SearchBarComponent, WorkspacePaneComponent, DragDividerComponent],
+  imports: [UploadPanelComponent, SearchBarComponent, WorkspacePaneComponent, DragDividerComponent, ActiveFilterChipsComponent],
   templateUrl: './map-shell.component.html',
   styleUrl: './map-shell.component.scss',
 })

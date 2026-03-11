@@ -208,11 +208,11 @@ Uses the same row shell as NavLink. The leading media column contains either the
 ### States (all required)
 
 - [x] NavLink default: transparent bg, `--color-text-secondary`
-- [ ] NavLink hover: `--color-bg-elevated` at 40%, `--color-text-primary`, 80ms
-- [ ] NavLink active route: `--color-clay` at 12% bg, `--color-clay` text/icon, 3px left border (desktop) / 2px bottom border (mobile)
-- [ ] NavLink focus-visible: 2px `--color-primary` ring, 2px offset
-- [ ] NavLink pressed: `--color-bg-elevated` at 55%
-- [ ] NavLink disabled: `--color-text-disabled`, `opacity: 0.6`, `pointer-events: none`, `aria-disabled`
+- [x] NavLink hover: `--color-bg-elevated` at 40%, `--color-text-primary`, 80ms
+- [x] NavLink active route: `--color-clay` at 12% bg, `--color-clay` text/icon, 3px left border (desktop) / 2px bottom border (mobile)
+- [x] NavLink focus-visible: 2px `--color-primary` ring, 2px offset
+- [x] NavLink pressed: `--color-bg-elevated` at 55%
+- [x] NavLink disabled: `--color-text-disabled`, `opacity: 0.6`, `pointer-events: none`, `aria-disabled`
 - [x] Account row uses the same row shell as nav items
 - [x] Expanded desktop account row shows avatar image or initial and visible account name
 - [x] Avatar loaded: avatar image when available, otherwise first letter of display name on `--color-clay` bg
@@ -230,14 +230,14 @@ Uses the same row shell as NavLink. The leading media column contains either the
 - [ ] Expanded desktop icon-to-label gap uses `0.75rem` (12px)
 - [x] Desktop expand/collapse only animates sidebar width and label opacity/visibility
 - [x] Desktop rows keep the same padding, alignment, margins, and media-column width in both states
-- [ ] Mobile: `h-14 px-4 justify-around` + `env(safe-area-inset-bottom)`
+- [x] Mobile: `h-14 px-4 justify-around` + `env(safe-area-inset-bottom)`
 
 ### Keyboard
 
 - [ ] `Tab` / `Shift+Tab` moves in/out of sidebar
-- [ ] `ArrowDown` / `ArrowUp` moves between nav links
+- [x] `ArrowDown` / `ArrowUp` moves between nav links
 - [x] `Enter` / `Space` activates focused link
-- [ ] `Escape` returns focus to map
+- [x] `Escape` returns focus to map
 - [x] Keyboard focus expands sidebar (same as hover)
 - [x] `aria-label="Main navigation"` on `<nav>`
-- [ ] `aria-current="page"` on active route link
+- [x] `aria-current="page"` on active route link

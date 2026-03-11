@@ -55,8 +55,8 @@ No own state — derived from `FilterService`. Chips appear/disappear reactively
 
 ## Acceptance Criteria
 
-- [ ] Only visible when at least one filter is active
-- [ ] Each chip shows a human-readable filter description
-- [ ] Clicking × removes that filter and updates the map
+- [x] Only visible when at least one filter is active
+- [x] Each chip shows a human-readable filter description
+- [x] Clicking × removes that filter and updates the map
 - [ ] Chips never reset by search actions (unless user explicitly clears)
-- [ ] Wraps gracefully when many filters are active
+- [x] Wraps gracefully when many filters are active

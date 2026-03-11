@@ -31,8 +31,9 @@
               class="nav__link ui-item"
               [routerLink]="item.route"
               routerLinkActive="nav__link--active"
+              #rla="routerLinkActive"
               [routerLinkActiveOptions]="item.route === '/' ? { exact: true } : { exact: false }"
-              [attr.aria-current]="null"
+              [attr.aria-current]="rla.isActive ? 'page' : null"
               [title]="item.label"
             >
               <span class="nav__media ui-item-media" aria-hidden="true">
@@ -51,6 +52,8 @@
           class="nav__link nav__account-link ui-item"
           routerLink="/account"
           routerLinkActive="nav__link--active"
+          #accountRla="routerLinkActive"
+          [attr.aria-current]="accountRla.isActive ? 'page' : null"
           title="Account"
           aria-label="Go to Account page"
         >

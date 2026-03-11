@@ -56,13 +56,16 @@
   }
 
   @media (max-width: 767px) {
+    --nav-safe-area-bottom: env(safe-area-inset-bottom);
+
     bottom: 0;
     left: 0;
     right: 0;
     top: auto;
     transform: none;
     width: 100%;
-    height: 3.5rem; // 56px
+    height: calc(3.5rem + var(--nav-safe-area-bottom)); // 56px + safe area
+    padding-bottom: var(--nav-safe-area-bottom);
     display: flex;
     flex-direction: row;
     align-items: stretch;
@@ -119,7 +122,8 @@
     flex-direction: row;
     flex: 1 1 auto;
     align-items: stretch;
-    padding: 0;
+    justify-content: space-around;
+    padding: 0 1rem; // px-4
   }
 }
 
@@ -187,31 +191,72 @@
     gap: 0.125rem;
   }
 
-  // Ghost hover — transparent fill appears
+  // Ghost hover — elevated bg at 40% opacity
   &:hover {
-    background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+    background: color-mix(in srgb, var(--color-bg-elevated) 40%, transparent);
     color: var(--color-text-primary);
   }
 
-  // Active route — clay accent
+  // Pressed state — elevated bg at 55% opacity
+  &:active {
+    background: color-mix(in srgb, var(--color-bg-elevated) 55%, transparent);
+    color: var(--color-text-primary);
+    transition-duration: 40ms;
+  }
+
+  // Active route — clay accent + left border (desktop) / bottom border (mobile)
   &--active {
     color: var(--color-clay, var(--color-primary));
-    background: color-mix(in srgb, var(--color-clay, var(--color-primary)) 10%, transparent);
+    background: color-mix(in srgb, var(--color-clay, var(--color-primary)) 12%, transparent);
 
     .nav__icon {
       color: var(--color-clay, var(--color-primary));
     }
+
+    @media (min-width: 768px) {
+      position: relative;
+      &::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 3px;
+        background: var(--color-clay, var(--color-primary));
+        border-radius: 0 2px 2px 0;
+      }
+    }
+
+    @media (max-width: 767px) {
+      position: relative;
+      &::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 10%;
+        right: 10%;
+        height: 2px;
+        background: var(--color-clay, var(--color-primary));
+        border-radius: 2px 2px 0 0;
+      }
+    }
   }
 
   &--active:hover {
-    background: color-mix(in srgb, var(--color-clay, var(--color-primary)) 14%, transparent);
+    background: color-mix(in srgb, var(--color-clay, var(--color-primary)) 16%, transparent);
   }
 
   &--disabled {
-    opacity: 0.3;
+    opacity: 0.6;
     cursor: default;
     pointer-events: none;
     color: var(--color-text-disabled);
+  }
+
+  // Focus-visible ring (keyboard navigation)
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
   }
 }
 

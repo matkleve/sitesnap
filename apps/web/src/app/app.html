@@ -1,6 +1,6 @@
 <!-- Floating sidebar nav only for authenticated app routes. -->
 @if (showNav()) {
-	<app-nav />
+	<app-nav (escapeFocused)="onNavEscape()" />
 }
 
 <!-- Full-screen page content — nav is floating, does not push layout. -->

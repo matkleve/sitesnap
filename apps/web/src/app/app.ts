@@ -1,4 +1,4 @@
-import { Component, computed, inject, OnInit } from '@angular/core';
+import { Component, ElementRef, computed, inject, OnInit } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { filter, map, startWith } from 'rxjs/operators';
@@ -16,6 +16,7 @@ export class App implements OnInit {
   private readonly router = inject(Router);
   private readonly locationResolver = inject(LocationResolverService);
   private readonly auth = inject(AuthService);
+  private readonly elRef = inject(ElementRef<HTMLElement>);
 
   private readonly currentUrl = toSignal(
     this.router.events.pipe(
@@ -33,6 +34,16 @@ export class App implements OnInit {
     // Runs at ~1 req/sec through all unresolved images — non-blocking.
     if (this.auth.user()) {
       this.locationResolver.startBackgroundResolution();
+    }
+  }
+
+  /** Called when Escape is pressed inside the nav; returns focus to the main content. */
+  onNavEscape(): void {
+    const mainContent = (this.elRef.nativeElement as HTMLElement).querySelector(
+      'router-outlet + * [tabindex], router-outlet + * .map-container',
+    ) as HTMLElement | null;
+    if (mainContent) {
+      mainContent.focus();
     }
   }
 }
