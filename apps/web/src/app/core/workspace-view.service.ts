@@ -397,7 +397,7 @@ interface RawClusterRow {
   latitude: number;
   longitude: number;
   thumbnail_path: string | null;
-  storage_path: string;
+  storage_path: string | null;
   captured_at: string | null;
   created_at: string;
   project_id: string | null;

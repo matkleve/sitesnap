@@ -400,6 +400,11 @@ export class UploadManagerService {
    * @returns        The job ID for tracking progress.
    */
   attachFile(imageId: string, file: File): string {
+    console.log('[upload-manager] attachFile called:', {
+      imageId,
+      fileName: file.name,
+      fileSize: file.size,
+    });
     const batchId = crypto.randomUUID();
     const jobId = crypto.randomUUID();
 
@@ -429,6 +434,7 @@ export class UploadManagerService {
     };
 
     this.jobState.addJobs([job]);
+    console.log('[upload-manager] attach job added to state, calling drainQueue. jobId:', jobId);
     this.drainQueue();
     return jobId;
   }
@@ -468,10 +474,24 @@ export class UploadManagerService {
   private drainQueue(): void {
     const jobs = this.jobState.snapshot();
     const slotsAvailable = this.queue.availableSlots;
-    if (slotsAvailable <= 0) return;
+    console.log('[upload-manager] drainQueue:', {
+      totalJobs: jobs.length,
+      slotsAvailable,
+      phases: jobs.map((j) => `${j.id.slice(0, 8)}:${j.phase}:${j.mode}`),
+    });
+    if (slotsAvailable <= 0) {
+      console.log('[upload-manager] drainQueue: no slots available, exiting');
+      return;
+    }
 
     const queued = jobs.filter((j) => j.phase === 'queued');
     const toStart = queued.slice(0, slotsAvailable);
+    console.log(
+      '[upload-manager] drainQueue: starting',
+      toStart.length,
+      'jobs:',
+      toStart.map((j) => `${j.id.slice(0, 8)}:${j.mode}`),
+    );
 
     for (const job of toStart) {
       this.queue.markRunning(job.id);
@@ -483,16 +503,28 @@ export class UploadManagerService {
   private async runPipeline(jobId: string): Promise<void> {
     try {
       const job = this.jobState.findJob(jobId);
-      if (!job) return;
+      if (!job) {
+        console.error('[upload-manager] runPipeline: job not found for', jobId);
+        return;
+      }
+
+      console.log(
+        `[upload-manager] runPipeline: routing job ${jobId.slice(0, 8)} via mode=${job.mode}, targetImageId=${job.targetImageId}`,
+      );
 
       if (job.mode === 'replace') {
+        console.log('[upload-manager] → replacePipeline.run()');
         await this.replacePipeline.run(jobId, this.pipelineCtx);
       } else if (job.mode === 'attach') {
+        console.log('[upload-manager] → attachPipeline.run()');
         await this.attachPipeline.run(jobId, this.pipelineCtx);
       } else {
+        console.log('[upload-manager] → newPipeline.run()');
         await this.newPipeline.run(jobId, this.pipelineCtx);
       }
+      console.log(`[upload-manager] runPipeline: job ${jobId.slice(0, 8)} pipeline finished`);
     } catch (err) {
+      console.error(`[upload-manager] runPipeline: job ${jobId.slice(0, 8)} threw:`, err);
       const current = this.jobState.findJob(jobId);
       this.failJob(
         jobId,

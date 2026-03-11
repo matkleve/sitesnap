@@ -9,7 +9,7 @@ export interface WorkspaceImage {
   latitude: number;
   longitude: number;
   thumbnailPath: string | null;
-  storagePath: string;
+  storagePath: string | null;
   capturedAt: string | null;
   createdAt: string;
   projectId: string | null;

@@ -98,7 +98,7 @@ export class PhotoLoadService {
    * Uses createSignedUrls for items with thumbnailPath, individual signing with transform for others.
    */
   async batchSign(
-    items: Array<{ id: string; storagePath: string; thumbnailPath?: string | null }>,
+    items: Array<{ id: string; storagePath: string | null; thumbnailPath?: string | null }>,
     size: PhotoSize,
   ): Promise<Map<string, SignedUrlResult>> {
     const results = new Map<string, SignedUrlResult>();
@@ -159,7 +159,7 @@ export class PhotoLoadService {
           const { data, error } = await this.supabase.client.storage
             .from('images')
             .createSignedUrl(
-              item.storagePath,
+              item.storagePath!,
               SIGN_EXPIRY_SECONDS,
               transform ? { transform } : undefined,
             );

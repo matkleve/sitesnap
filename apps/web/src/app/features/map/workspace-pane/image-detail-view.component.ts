@@ -719,14 +719,30 @@ export class ImageDetailViewComponent implements OnDestroy {
   onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
-    if (!file) return;
+    if (!file) {
+      console.warn('[detail-view] onFileSelected: no file selected');
+      return;
+    }
 
     const img = this.image();
-    if (!img) return;
+    if (!img) {
+      console.warn('[detail-view] onFileSelected: no image in view');
+      return;
+    }
+
+    console.log('[detail-view] onFileSelected:', {
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type,
+      imageId: img.id,
+      hasStoragePath: !!img.storage_path,
+      storagePath: img.storage_path,
+    });
 
     // Validate locally for instant feedback
     const validation = this.uploadService.validateFile(file);
     if (!validation.valid) {
+      console.error('[detail-view] validation failed:', validation.error);
       this.replaceError.set(validation.error!);
       return;
     }
@@ -734,16 +750,20 @@ export class ImageDetailViewComponent implements OnDestroy {
     this.replaceError.set(null);
 
     // Delegate to UploadManagerService — survives component destruction
+    const mode = img.storage_path ? 'replace' : 'attach';
+    console.log(`[detail-view] delegating to uploadManager.${mode}File(${img.id})`);
     const jobId = img.storage_path
       ? this.uploadManager.replaceFile(img.id, file)
       : this.uploadManager.attachFile(img.id, file);
 
+    console.log(`[detail-view] job created: ${jobId}, mode: ${mode}`);
     this.activeJobId.set(jobId);
   }
 
   // ── Upload event handlers ──────────────────────────────────────────────────
 
   private async handleImageReplaced(event: ImageReplacedEvent): Promise<void> {
+    console.log('[detail-view] handleImageReplaced received:', event);
     // UploadManagerService already called photoLoad.setLocalUrl → blob in cache, all surfaces updated
 
     // Update local record with new storage path
@@ -772,12 +792,14 @@ export class ImageDetailViewComponent implements OnDestroy {
   }
 
   private async handleImageAttached(event: ImageAttachedEvent): Promise<void> {
+    console.log('[detail-view] handleImageAttached received:', event);
     // UploadManagerService already called photoLoad.setLocalUrl → blob in cache, all surfaces updated
 
     // Update local record — now has a photo (switches from upload prompt to photo display)
-    this.image.update((prev) =>
-      prev ? { ...prev, storage_path: event.newStoragePath, thumbnail_path: null } : prev,
-    );
+    this.image.update((prev) => {
+      console.log('[detail-view] updating image record: storage_path =', event.newStoragePath);
+      return prev ? { ...prev, storage_path: event.newStoragePath, thumbnail_path: null } : prev;
+    });
 
     this.fullResPreloaded.set(false);
     this.activeJobId.set(null);

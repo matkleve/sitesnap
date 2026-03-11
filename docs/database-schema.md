@@ -272,7 +272,7 @@ Columns:
 - `user_id` (uuid, not null, references `auth.users(id)` ON DELETE CASCADE)
 - `organization_id` (uuid, not null, references `organizations(id)` ON DELETE CASCADE)
 - `project_id` (uuid, nullable, references `projects(id)` ON DELETE SET NULL)
-- `storage_path` (text, not null) — relative path in Supabase Storage (e.g., `{org_id}/{user_id}/{uuid}.jpg`). Not a full URL. URLs are generated at runtime (signed or public).
+- `storage_path` (text, nullable) — relative path in Supabase Storage (e.g., `{org_id}/{user_id}/{uuid}.jpg`). NULL for photoless datapoints (rows created via folder import or manual address entry that have no photo yet). Not a full URL. URLs are generated at runtime (signed or public).
 - `thumbnail_path` (text, not null) — relative path to the 128×128 JPEG thumbnail in Supabase Storage.
 - `exif_latitude` (numeric(10,7), nullable)
 - `exif_longitude` (numeric(11,7), nullable)
