@@ -18,6 +18,7 @@
 import { Injectable, Signal, computed, effect, inject, signal } from '@angular/core';
 import { Observable, Subject } from 'rxjs';
 import { AuthService } from './auth.service';
+import { computeContentHash, readFileHead } from './content-hash.util';
 import { GeocodingService } from './geocoding.service';
 import { SupabaseService } from './supabase.service';
 import { ExifCoords, ParsedExif, UploadService } from './upload.service';
@@ -48,6 +49,9 @@ export type UploadPhase =
   | 'queued'
   | 'validating'
   | 'parsing_exif'
+  | 'hashing'
+  | 'dedup_check'
+  | 'skipped'
   | 'extracting_title'
   | 'uploading'
   | 'saving_record'
@@ -59,6 +63,7 @@ export type UploadPhase =
 
 export interface UploadJob {
   id: string;
+  batchId: string;
   file: File;
   phase: UploadPhase;
   progress: number;
@@ -74,14 +79,20 @@ export interface UploadJob {
   submittedAt: Date;
   /** Cached EXIF parse to avoid re-parsing on retry. */
   parsedExif?: ParsedExif;
+  /** Dedup content hash (set after 'hashing' phase). */
+  contentHash?: string;
+  /** If phase === 'skipped', the existing image ID that matched. */
+  existingImageId?: string;
 }
 
 export interface SubmitOptions {
   projectId?: string;
+  batchLabel?: string;
 }
 
 export interface ImageUploadedEvent {
   jobId: string;
+  batchId: string;
   imageId: string;
   coords?: ExifCoords;
   direction?: number;
@@ -90,23 +101,80 @@ export interface ImageUploadedEvent {
 
 export interface UploadFailedEvent {
   jobId: string;
+  batchId: string;
   phase: UploadPhase;
   error: string;
 }
 
 export interface MissingDataEvent {
   jobId: string;
+  batchId: string;
   fileName: string;
   reason: 'no_gps_no_address';
 }
 
+export interface UploadSkippedEvent {
+  jobId: string;
+  batchId: string;
+  fileName: string;
+  contentHash: string;
+  existingImageId: string;
+}
+
+export interface JobPhaseChangedEvent {
+  jobId: string;
+  batchId: string;
+  previousPhase: UploadPhase;
+  currentPhase: UploadPhase;
+  fileName: string;
+}
+
+export interface BatchProgressEvent {
+  batchId: string;
+  label: string;
+  overallProgress: number;
+  uploadedPercent: number;
+  skippedPercent: number;
+  totalFiles: number;
+  completedFiles: number;
+  skippedFiles: number;
+  failedFiles: number;
+  activeFiles: number;
+}
+
+export interface BatchCompleteEvent {
+  batchId: string;
+  label: string;
+  totalFiles: number;
+  completedFiles: number;
+  skippedFiles: number;
+  failedFiles: number;
+  durationMs: number;
+}
+
+/** Tracks aggregate progress for a multi-file submission. */
+export interface UploadBatch {
+  id: string;
+  label: string;
+  totalFiles: number;
+  completedFiles: number;
+  skippedFiles: number;
+  failedFiles: number;
+  overallProgress: number;
+  status: 'scanning' | 'uploading' | 'complete' | 'cancelled';
+  startedAt: Date;
+  finishedAt?: Date;
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-const TERMINAL_PHASES: ReadonlySet<UploadPhase> = new Set(['complete', 'error', 'missing_data']);
+const TERMINAL_PHASES: ReadonlySet<UploadPhase> = new Set(['complete', 'error', 'missing_data', 'skipped']);
 
 const ACTIVE_PHASES: ReadonlySet<UploadPhase> = new Set([
   'validating',
   'parsing_exif',
+  'hashing',
+  'dedup_check',
   'extracting_title',
   'uploading',
   'saving_record',
@@ -122,6 +190,12 @@ function phaseLabel(phase: UploadPhase): string {
       return 'Validating…';
     case 'parsing_exif':
       return 'Reading EXIF…';
+    case 'hashing':
+      return 'Computing hash…';
+    case 'dedup_check':
+      return 'Checking duplicates…';
+    case 'skipped':
+      return 'Already uploaded';
     case 'extracting_title':
       return 'Checking filename…';
     case 'uploading':
@@ -153,6 +227,7 @@ export class UploadManagerService {
   // ── State ──────────────────────────────────────────────────────────────────
 
   private readonly _jobs = signal<UploadJob[]>([]);
+  private readonly _batches = signal<UploadBatch[]>([]);
 
   readonly jobs: Signal<ReadonlyArray<UploadJob>> = this._jobs.asReadonly();
 
@@ -166,15 +241,33 @@ export class UploadManagerService {
     () => this._jobs().filter((j) => ACTIVE_PHASES.has(j.phase)).length,
   );
 
+  readonly batches: Signal<ReadonlyArray<UploadBatch>> = this._batches.asReadonly();
+
+  readonly activeBatch: Signal<UploadBatch | null> = computed(
+    () => this._batches().find((b) => b.status !== 'complete' && b.status !== 'cancelled') ?? null,
+  );
+
+  /** Whether the File System Access API is available (Chromium only). */
+  readonly isFolderImportSupported =
+    typeof window !== 'undefined' && 'showDirectoryPicker' in window;
+
   // ── Events ─────────────────────────────────────────────────────────────────
 
   private readonly _imageUploaded$ = new Subject<ImageUploadedEvent>();
   private readonly _uploadFailed$ = new Subject<UploadFailedEvent>();
   private readonly _missingData$ = new Subject<MissingDataEvent>();
+  private readonly _uploadSkipped$ = new Subject<UploadSkippedEvent>();
+  private readonly _jobPhaseChanged$ = new Subject<JobPhaseChangedEvent>();
+  private readonly _batchProgress$ = new Subject<BatchProgressEvent>();
+  private readonly _batchComplete$ = new Subject<BatchCompleteEvent>();
 
   readonly imageUploaded$: Observable<ImageUploadedEvent> = this._imageUploaded$.asObservable();
   readonly uploadFailed$: Observable<UploadFailedEvent> = this._uploadFailed$.asObservable();
   readonly missingData$: Observable<MissingDataEvent> = this._missingData$.asObservable();
+  readonly uploadSkipped$: Observable<UploadSkippedEvent> = this._uploadSkipped$.asObservable();
+  readonly jobPhaseChanged$: Observable<JobPhaseChangedEvent> = this._jobPhaseChanged$.asObservable();
+  readonly batchProgress$: Observable<BatchProgressEvent> = this._batchProgress$.asObservable();
+  readonly batchComplete$: Observable<BatchCompleteEvent> = this._batchComplete$.asObservable();
 
   // ── Concurrency tracking ───────────────────────────────────────────────────
 
@@ -211,28 +304,101 @@ export class UploadManagerService {
   /**
    * Submit one or more files for upload. Returns immediately.
    * Each file becomes an UploadJob tracked in `jobs`.
+   * Files are grouped into a single batch for aggregate tracking.
+   *
+   * @returns The batch ID for tracking aggregate progress.
    */
-  submit(files: File[], _options?: SubmitOptions): string[] {
-    const ids: string[] = [];
+  submit(files: File[], options?: SubmitOptions): string {
+    const batchId = crypto.randomUUID();
+    const label = options?.batchLabel ?? `${files.length} file${files.length === 1 ? '' : 's'}`;
 
-    const newJobs: UploadJob[] = files.map((file) => {
-      const id = crypto.randomUUID();
-      ids.push(id);
-      return {
-        id,
-        file,
-        phase: 'queued' as UploadPhase,
-        progress: 0,
-        statusLabel: phaseLabel('queued'),
-        thumbnailUrl: URL.createObjectURL(file),
-        submittedAt: new Date(),
-      };
-    });
+    const batch: UploadBatch = {
+      id: batchId,
+      label,
+      totalFiles: files.length,
+      completedFiles: 0,
+      skippedFiles: 0,
+      failedFiles: 0,
+      overallProgress: 0,
+      status: 'uploading',
+      startedAt: new Date(),
+    };
+    this._batches.update((prev) => [...prev, batch]);
+
+    const newJobs: UploadJob[] = files.map((file) => ({
+      id: crypto.randomUUID(),
+      batchId,
+      file,
+      phase: 'queued' as UploadPhase,
+      progress: 0,
+      statusLabel: phaseLabel('queued'),
+      thumbnailUrl: URL.createObjectURL(file),
+      submittedAt: new Date(),
+    }));
 
     this._jobs.update((prev) => [...prev, ...newJobs]);
     this.drainQueue();
 
-    return ids;
+    return batchId;
+  }
+
+  /**
+   * Submit an entire folder for upload via the File System Access API.
+   * Recursively scans the directory for supported image types,
+   * creates a batch, and feeds files into the pipeline.
+   */
+  async submitFolder(
+    dirHandle: FileSystemDirectoryHandle,
+    options?: SubmitOptions,
+  ): Promise<string> {
+    const batchId = crypto.randomUUID();
+    const label = options?.batchLabel ?? dirHandle.name;
+
+    const batch: UploadBatch = {
+      id: batchId,
+      label,
+      totalFiles: 0,
+      completedFiles: 0,
+      skippedFiles: 0,
+      failedFiles: 0,
+      overallProgress: 0,
+      status: 'scanning',
+      startedAt: new Date(),
+    };
+    this._batches.update((prev) => [...prev, batch]);
+
+    // Recursively scan folder for image files.
+    const files: File[] = [];
+    await this.scanDirectory(dirHandle, files, batchId);
+
+    // Update batch with final count and switch to uploading.
+    this.updateBatch(batchId, {
+      totalFiles: files.length,
+      label: `${label} \u2014 ${files.length} image${files.length === 1 ? '' : 's'}`,
+      status: files.length > 0 ? 'uploading' : 'complete',
+    });
+
+    if (files.length === 0) {
+      this.updateBatch(batchId, { finishedAt: new Date() });
+      return batchId;
+    }
+
+    // Create jobs for all discovered files.
+    const newJobs: UploadJob[] = files.map((file) => ({
+      id: crypto.randomUUID(),
+      batchId,
+      file,
+      phase: 'queued' as UploadPhase,
+      progress: 0,
+      statusLabel: phaseLabel('queued'),
+      thumbnailUrl: URL.createObjectURL(file),
+      submittedAt: new Date(),
+    }));
+
+    this._jobs.update((prev) => [...prev, ...newJobs]);
+    this.drainQueue();
+
+    return batchId;
   }
 
   /** Retry a failed job from the beginning. */
@@ -292,6 +458,17 @@ export class UploadManagerService {
     });
 
     this.drainQueue();
+  }
+
+  /** Cancel all non-terminal jobs in a batch. */
+  cancelBatch(batchId: string): void {
+    const batchJobs = this._jobs().filter(
+      (j) => j.batchId === batchId && !TERMINAL_PHASES.has(j.phase),
+    );
+    for (const job of batchJobs) {
+      this.cancelJob(job.id);
+    }
+    this.updateBatch(batchId, { status: 'cancelled', finishedAt: new Date() });
   }
 
   /**
@@ -358,9 +535,49 @@ export class UploadManagerService {
       this.updateJob(jobId, { parsedExif });
 
       if (parsedExif.coords) {
-        // Path A: GPS found → upload → save → reverse-geocode (enrichment)
         this.updateJob(jobId, { coords: parsedExif.coords, direction: parsedExif.direction });
-        await this.runUploadPhase(jobId, parsedExif.coords, parsedExif);
+      }
+
+      // ── Phase: hashing ─────────────────────────────────────────────────
+      this.setPhase(jobId, 'hashing');
+      const fileHead = await readFileHead(job.file);
+      const contentHash = await computeContentHash({
+        fileHeadBytes: fileHead,
+        fileSize: job.file.size,
+        gpsCoords: parsedExif.coords
+          ? { lat: parsedExif.coords.lat, lng: parsedExif.coords.lng }
+          : undefined,
+        capturedAt: parsedExif.capturedAt?.toISOString(),
+        direction: parsedExif.direction,
+      });
+      this.updateJob(jobId, { contentHash });
+
+      // ── Phase: dedup_check ─────────────────────────────────────────────
+      this.setPhase(jobId, 'dedup_check');
+      const dedupResult = await this.checkDedupHash(contentHash);
+      if (dedupResult) {
+        this.setPhase(jobId, 'skipped');
+        this.updateJob(jobId, { existingImageId: dedupResult });
+        this.runningIds.delete(jobId);
+        this._uploadSkipped$.next({
+          jobId,
+          batchId: job.batchId,
+          fileName: job.file.name,
+          contentHash,
+          existingImageId: dedupResult,
+        });
+        this.emitBatchProgress(job.batchId);
+        this.checkBatchComplete(job.batchId);
+        this.drainQueue();
+        return;
+      }
+
+      // ── Routing by data availability ───────────────────────────────────
+      const updatedJob = this.findJob(jobId)!;
+
+      if (updatedJob.coords) {
+        // Path A: GPS found → upload → save → reverse-geocode (enrichment)
+        await this.runUploadPhase(jobId, updatedJob.coords, parsedExif);
         return;
       }
 
@@ -380,9 +597,12 @@ export class UploadManagerService {
       this.runningIds.delete(jobId);
       this._missingData$.next({
         jobId,
+        batchId: job.batchId,
         fileName: job.file.name,
         reason: 'no_gps_no_address',
       });
+      this.emitBatchProgress(job.batchId);
+      this.checkBatchComplete(job.batchId);
       this.drainQueue();
     } catch (err) {
       const current = this.findJob(jobId);
@@ -435,6 +655,20 @@ export class UploadManagerService {
       direction: result.direction,
     });
 
+    // ── Insert dedup hash ──────────────────────────────────────────────
+    const savedJob = this.findJob(jobId)!;
+    if (savedJob.contentHash && savedJob.imageId) {
+      // Fire-and-forget — dedup hash insert failure is non-critical.
+      this.supabase.client
+        .from('dedup_hashes')
+        .insert({
+          image_id: savedJob.imageId,
+          content_hash: savedJob.contentHash,
+          user_id: this.auth.user()?.id,
+        })
+        .then();
+    }
+
     // ── Post-upload enrichment ─────────────────────────────────────────
     const updatedJob = this.findJob(jobId)!;
 
@@ -453,12 +687,15 @@ export class UploadManagerService {
     const finalJob = this.findJob(jobId)!;
     this._imageUploaded$.next({
       jobId,
+      batchId: finalJob.batchId,
       imageId: finalJob.imageId!,
       coords: finalJob.coords,
       direction: finalJob.direction,
       thumbnailUrl: finalJob.thumbnailUrl,
     });
 
+    this.emitBatchProgress(finalJob.batchId);
+    this.checkBatchComplete(finalJob.batchId);
     this.drainQueue();
   }
 
@@ -553,10 +790,23 @@ export class UploadManagerService {
   }
 
   private setPhase(jobId: string, phase: UploadPhase): void {
+    const job = this.findJob(jobId);
+    const previousPhase = job?.phase ?? 'queued';
     this.updateJob(jobId, { phase, statusLabel: phaseLabel(phase) });
+
+    if (job) {
+      this._jobPhaseChanged$.next({
+        jobId,
+        batchId: job.batchId,
+        previousPhase,
+        currentPhase: phase,
+        fileName: job.file.name,
+      });
+    }
   }
 
   private failJob(jobId: string, failedAt: UploadPhase, error: string): void {
+    const job = this.findJob(jobId);
     this.runningIds.delete(jobId);
     this.updateJob(jobId, {
       phase: 'error',
@@ -564,7 +814,16 @@ export class UploadManagerService {
       error,
       failedAt,
     });
-    this._uploadFailed$.next({ jobId, phase: failedAt, error });
+    this._uploadFailed$.next({
+      jobId,
+      batchId: job?.batchId ?? '',
+      phase: failedAt,
+      error,
+    });
+    if (job) {
+      this.emitBatchProgress(job.batchId);
+      this.checkBatchComplete(job.batchId);
+    }
     this.drainQueue();
   }
 
@@ -582,5 +841,162 @@ export class UploadManagerService {
         failedAt: job.phase,
       });
     }
+  }
+
+  // ── Dedup helpers ──────────────────────────────────────────────────────────
+
+  /**
+   * Check a single content hash against the server.
+   * Returns the existing image ID if found, or null.
+   */
+  private async checkDedupHash(contentHash: string): Promise<string | null> {
+    try {
+      const { data, error } = await this.supabase.client.rpc('check_dedup_hashes', {
+        hashes: [contentHash],
+      });
+      if (error || !data || data.length === 0) return null;
+      return data[0].image_id;
+    } catch {
+      // Dedup check failure is non-critical — continue with upload.
+      return null;
+    }
+  }
+
+  // ── Folder scanning ────────────────────────────────────────────────────────
+
+  private static readonly SUPPORTED_IMAGE_TYPES = new Set([
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'image/heic',
+    'image/heif',
+    'image/tiff',
+  ]);
+
+  private static readonly SUPPORTED_EXTENSIONS = new Set([
+    '.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif', '.tiff', '.tif',
+  ]);
+
+  /**
+   * Recursively scan a directory handle for image files.
+   * Updates batch progress as files are discovered.
+   */
+  private async scanDirectory(
+    dirHandle: FileSystemDirectoryHandle,
+    files: File[],
+    batchId: string,
+  ): Promise<void> {
+    for await (const entry of (dirHandle as any).values()) {
+      if (entry.kind === 'file') {
+        const fileHandle = entry as FileSystemFileHandle;
+        const file = await fileHandle.getFile();
+        const ext = '.' + file.name.split('.').pop()?.toLowerCase();
+        if (
+          UploadManagerService.SUPPORTED_IMAGE_TYPES.has(file.type) ||
+          UploadManagerService.SUPPORTED_EXTENSIONS.has(ext)
+        ) {
+          files.push(file);
+          this.updateBatch(batchId, { totalFiles: files.length });
+          this._batchProgress$.next({
+            batchId,
+            label: this._batches().find((b) => b.id === batchId)?.label ?? '',
+            overallProgress: 0,
+            uploadedPercent: 0,
+            skippedPercent: 0,
+            totalFiles: files.length,
+            completedFiles: 0,
+            skippedFiles: 0,
+            failedFiles: 0,
+            activeFiles: 0,
+          });
+        }
+      } else if (entry.kind === 'directory') {
+        await this.scanDirectory(entry as FileSystemDirectoryHandle, files, batchId);
+      }
+    }
+  }
+
+  // ── Batch helpers ──────────────────────────────────────────────────────────
+
+  private updateBatch(batchId: string, patch: Partial<UploadBatch>): void {
+    this._batches.update((prev) =>
+      prev.map((b) => (b.id === batchId ? { ...b, ...patch } : b)),
+    );
+  }
+
+  /** Recompute and emit batch progress based on current job states. */
+  private emitBatchProgress(batchId: string): void {
+    const batch = this._batches().find((b) => b.id === batchId);
+    if (!batch) return;
+
+    const batchJobs = this._jobs().filter((j) => j.batchId === batchId);
+    const total = batch.totalFiles || batchJobs.length;
+    if (total === 0) return;
+
+    const completed = batchJobs.filter((j) => j.phase === 'complete').length;
+    const skipped = batchJobs.filter((j) => j.phase === 'skipped').length;
+    const failed = batchJobs.filter((j) => j.phase === 'error').length;
+    const active = batchJobs.filter((j) => ACTIVE_PHASES.has(j.phase)).length;
+    const terminal = completed + skipped + failed;
+    const overallProgress = Math.round((terminal / total) * 100);
+
+    this.updateBatch(batchId, {
+      completedFiles: completed,
+      skippedFiles: skipped,
+      failedFiles: failed,
+      overallProgress,
+    });
+
+    this._batchProgress$.next({
+      batchId,
+      label: batch.label,
+      overallProgress,
+      uploadedPercent: Math.round((completed / total) * 100),
+      skippedPercent: Math.round((skipped / total) * 100),
+      totalFiles: total,
+      completedFiles: completed,
+      skippedFiles: skipped,
+      failedFiles: failed,
+      activeFiles: active,
+    });
+  }
+
+  /** Check whether all jobs in a batch have reached a terminal state. */
+  private checkBatchComplete(batchId: string): void {
+    const batch = this._batches().find((b) => b.id === batchId);
+    if (!batch || batch.status === 'complete' || batch.status === 'cancelled') return;
+
+    const batchJobs = this._jobs().filter((j) => j.batchId === batchId);
+    const total = batch.totalFiles || batchJobs.length;
+    if (total === 0) return;
+
+    const allTerminal = batchJobs.length >= total &&
+      batchJobs.every((j) => TERMINAL_PHASES.has(j.phase));
+    if (!allTerminal) return;
+
+    const completed = batchJobs.filter((j) => j.phase === 'complete').length;
+    const skipped = batchJobs.filter((j) => j.phase === 'skipped').length;
+    const failed = batchJobs.filter((j) => j.phase === 'error').length;
+    const finishedAt = new Date();
+    const durationMs = finishedAt.getTime() - batch.startedAt.getTime();
+
+    this.updateBatch(batchId, {
+      status: 'complete',
+      finishedAt,
+      completedFiles: completed,
+      skippedFiles: skipped,
+      failedFiles: failed,
+      overallProgress: 100,
+    });
+
+    this._batchComplete$.next({
+      batchId,
+      label: batch.label,
+      totalFiles: total,
+      completedFiles: completed,
+      skippedFiles: skipped,
+      failedFiles: failed,
+      durationMs,
+    });
   }
 }

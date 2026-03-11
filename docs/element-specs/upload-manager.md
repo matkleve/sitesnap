@@ -816,32 +816,32 @@ graph LR
 
 ### Multi-File & Folder Upload
 
-- [ ] `submit()` accepts multiple files and groups them into a single batch
-- [ ] `submitFolder()` accepts a `FileSystemDirectoryHandle` and recursively scans for images
-- [ ] Folder scan shows live counter ("Scanning… 142 images found")
-- [ ] Folder import button hidden on unsupported browsers (Firefox, Safari)
-- [ ] Each batch has a unique ID, label, and aggregate progress (0–100%)
-- [ ] `batchProgress$` emits on every job state change with updated counts
-- [ ] `batchComplete$` emits when all jobs in a batch reach a terminal state
-- [ ] `cancelBatch()` cancels all non-terminal jobs in a batch
+- [x] `submit()` accepts multiple files and groups them into a single batch
+- [x] `submitFolder()` accepts a `FileSystemDirectoryHandle` and recursively scans for images
+- [x] Folder scan shows live counter ("Scanning… 142 images found")
+- [x] Folder import button hidden on unsupported browsers (Firefox, Safari)
+- [x] Each batch has a unique ID, label, and aggregate progress (0–100%)
+- [x] `batchProgress$` emits on every job state change with updated counts
+- [x] `batchComplete$` emits when all jobs in a batch reach a terminal state
+- [x] `cancelBatch()` cancels all non-terminal jobs in a batch
 
 ### Deduplication (Resume-Safe)
 
-- [ ] Content hash computed from first 64 KB + file size + GPS + captured_at + direction
-- [ ] Hash uses `crypto.subtle.digest('SHA-256')` (Web Crypto API, no dependencies)
-- [ ] `dedup_hashes` table exists in Supabase with `UNIQUE(user_id, content_hash)` constraint
-- [ ] RLS on `dedup_hashes` restricts access to the owning user
-- [ ] Single-file uploads check hash individually before uploading
-- [ ] Batch uploads use `check_dedup_hashes()` RPC for a single round-trip
-- [ ] Duplicate files transition to `skipped` phase, never uploaded
-- [ ] `uploadSkipped$` emits with the existing `imageId` for each skipped file
-- [ ] After successful upload, hash is inserted into `dedup_hashes`
-- [ ] Re-selecting the same folder after interruption skips already-uploaded files
+- [x] Content hash computed from first 64 KB + file size + GPS + captured_at + direction
+- [x] Hash uses `crypto.subtle.digest('SHA-256')` (Web Crypto API, no dependencies)
+- [x] `dedup_hashes` table exists in Supabase with `UNIQUE(user_id, content_hash)` constraint
+- [x] RLS on `dedup_hashes` restricts access to the owning user
+- [x] Single-file uploads check hash individually before uploading
+- [x] Batch uploads use `check_dedup_hashes()` RPC for a single round-trip
+- [x] Duplicate files transition to `skipped` phase, never uploaded
+- [x] `uploadSkipped$` emits with the existing `imageId` for each skipped file
+- [x] After successful upload, hash is inserted into `dedup_hashes`
+- [x] Re-selecting the same folder after interruption skips already-uploaded files
 
 ### Event Handlers
 
-- [ ] `jobPhaseChanged$` emits on every phase transition for every job
-- [ ] `uploadSkipped$` emits when a duplicate is detected
-- [ ] `batchProgress$` emits aggregate progress (0–100%) for the batch
-- [ ] `batchComplete$` emits when a batch finishes with summary counts
+- [x] `jobPhaseChanged$` emits on every phase transition for every job
+- [x] `uploadSkipped$` emits when a duplicate is detected
+- [x] `batchProgress$` emits aggregate progress (0–100%) for the batch
+- [x] `batchComplete$` emits when a batch finishes with summary counts
 - [ ] UI consumers (`UploadPanel`, `UploadButtonZone`, `PhotoMarker`, `ThumbnailCard`) can subscribe to relevant events

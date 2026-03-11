@@ -174,6 +174,8 @@ export class UploadPanelComponent {
         return 'pending';
       case 'validating':
       case 'parsing_exif':
+      case 'hashing':
+      case 'dedup_check':
       case 'extracting_title':
         return 'parsing';
       case 'uploading':
@@ -184,6 +186,8 @@ export class UploadPanelComponent {
         return 'uploading';
       case 'complete':
         return 'complete';
+      case 'skipped':
+        return 'skipped';
       case 'error':
         return 'error';
       case 'missing_data':
