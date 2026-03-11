@@ -1,0 +1,19 @@
+<div
+  class="lightbox"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Full-size photo"
+  (click)="closed.emit()"
+  (keydown.escape)="closed.emit()"
+  tabindex="-1"
+>
+  <button class="lightbox__close" type="button" aria-label="Close" (click)="closed.emit()">
+    <span class="material-icons" aria-hidden="true">close</span>
+  </button>
+  <img
+    class="lightbox__image"
+    [src]="imageUrl()"
+    [alt]="alt()"
+    (click)="$event.stopPropagation()"
+  />
+</div>

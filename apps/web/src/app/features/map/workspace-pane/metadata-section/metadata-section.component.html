@@ -1,0 +1,77 @@
+<div class="dd-section-label">Metadata</div>
+
+@for (entry of entries(); track entry.metadataKeyId) {
+  <div class="metadata-row-wrap">
+    <app-metadata-property-row
+      [key]="entry.key"
+      [value]="entry.value"
+      (valueChanged)="valueChanged.emit({ entry, newValue: $event })"
+    />
+    <button
+      class="metadata-delete"
+      type="button"
+      [attr.aria-label]="'Remove ' + entry.key"
+      title="Remove metadata"
+      (click)="entryRemoved.emit(entry)"
+    >
+      <span class="material-icons" aria-hidden="true">close</span>
+    </button>
+  </div>
+}
+
+@if (showAddForm()) {
+  <div class="add-metadata-row">
+    <div class="add-metadata-key-wrap">
+      <input
+        #newKeyInput
+        class="add-metadata-input"
+        type="text"
+        placeholder="Key"
+        aria-label="New metadata key"
+        (input)="onMetadataKeyInput(newKeyInput.value)"
+        (keydown.escape)="showAddForm.set(false); keySuggestions.set([])"
+        (keydown.enter)="newValueInput.focus()"
+      />
+      @if (keySuggestions().length > 0) {
+        <div class="add-metadata-suggestions dd-items">
+          @for (suggestion of keySuggestions(); track suggestion) {
+            <button
+              class="dd-item"
+              type="button"
+              (click)="
+                newKeyInput.value = suggestion; keySuggestions.set([]); newValueInput.focus()
+              "
+            >
+              <span class="material-icons dd-item__icon" aria-hidden="true">label</span>
+              <span class="dd-item__label">{{ suggestion }}</span>
+            </button>
+          }
+        </div>
+      }
+    </div>
+    <input
+      #newValueInput
+      class="add-metadata-input"
+      type="text"
+      placeholder="Value"
+      aria-label="New metadata value"
+      (keydown.enter)="addMetadata(newKeyInput.value, newValueInput.value)"
+      (keydown.escape)="showAddForm.set(false); keySuggestions.set([])"
+    />
+    <button
+      class="add-metadata-confirm dd-item"
+      type="button"
+      aria-label="Save new metadata"
+      (click)="addMetadata(newKeyInput.value, newValueInput.value)"
+    >
+      <span class="material-icons" aria-hidden="true">check</span>
+    </button>
+  </div>
+}
+
+@if (!showAddForm()) {
+  <button class="add-metadata-btn dd-action-row" type="button" (click)="showAddForm.set(true)">
+    <span class="material-icons" aria-hidden="true">add</span>
+    Add metadata
+  </button>
+}

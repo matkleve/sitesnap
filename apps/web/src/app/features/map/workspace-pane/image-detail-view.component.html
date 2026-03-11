@@ -131,50 +131,8 @@
 
     <!-- Metadata content area — capped width for readability -->
     <div class="detail-content">
-      <!-- Quick Info Bar: chips for at-a-glance context -->
-      <div class="detail-chips">
-        <!-- Project chip -->
-        <button
-          class="detail-chip"
-          [class.detail-chip--filled]="image()!.project_id"
-          type="button"
-          title="Project"
-          (click)="editingField.set('project_id')"
-        >
-          <span class="material-icons detail-chip__icon" aria-hidden="true">folder</span>
-          <span class="detail-chip__text">{{ projectName() || 'No project' }}</span>
-        </button>
-
-        <!-- Date chip -->
-        <button
-          class="detail-chip"
-          type="button"
-          title="Capture date"
-          (click)="editingField.set('captured_at')"
-        >
-          <span class="material-icons detail-chip__icon" aria-hidden="true">schedule</span>
-          <span class="detail-chip__text">{{ captureDate() ?? 'No date' }}</span>
-        </button>
-
-        <!-- GPS chip -->
-        <button
-          class="detail-chip"
-          [class.detail-chip--success]="image()!.latitude != null"
-          [class.detail-chip--warning]="image()!.latitude == null"
-          type="button"
-          [title]="image()!.latitude != null ? 'Copy coordinates' : 'No GPS data'"
-          (click)="copyCoordinates()"
-        >
-          <span class="material-icons detail-chip__icon" aria-hidden="true">my_location</span>
-          <span class="detail-chip__text">
-            @if (image()!.latitude != null) {
-              {{ isCorrected() ? 'Corrected' : 'GPS' }}
-            } @else {
-              No GPS
-            }
-          </span>
-        </button>
-      </div>
+      <!-- Quick Info Bar -->
+      <app-quick-info-chips [chips]="infoChips()" (chipClicked)="onChipClicked($event)" />
 
       <!-- Details Section -->
       <div class="detail-section">
@@ -245,62 +203,10 @@
         <div class="dd-section-label">Location</div>
 
         <!-- Address search bar -->
-        <div class="detail-address-search">
-          @if (editingField() === 'address_search') {
-            <div class="detail-address-search__input-wrap">
-              <span class="material-icons detail-address-search__icon" aria-hidden="true"
-                >search</span
-              >
-              <input
-                #addressSearchInput
-                class="detail-address-search__input"
-                type="text"
-                placeholder="Search address…"
-                aria-label="Search for an address"
-                [value]="addressSearchQuery()"
-                (input)="onAddressSearchInput(addressSearchInput.value)"
-                (keydown.escape)="cancelAddressSearch()"
-                (keydown.enter)="selectFirstAddressResult()"
-              />
-              @if (addressSearchQuery()) {
-                <button
-                  class="detail-address-search__clear"
-                  type="button"
-                  aria-label="Clear search"
-                  (click)="addressSearchQuery.set(''); addressSearchInput.focus()"
-                >
-                  <span class="material-icons" aria-hidden="true">close</span>
-                </button>
-              }
-            </div>
-            @if (addressSuggestions().length > 0) {
-              <div class="detail-address-search__results dd-items">
-                @for (suggestion of addressSuggestions(); track suggestion.addressLabel) {
-                  <button
-                    class="dd-item"
-                    type="button"
-                    (click)="applyAddressSuggestion(suggestion)"
-                  >
-                    <span class="material-icons dd-item__icon" aria-hidden="true">place</span>
-                    <span class="dd-item__label">{{ suggestion.addressLabel }}</span>
-                  </button>
-                }
-              </div>
-            }
-            @if (addressSearchLoading()) {
-              <div class="detail-address-search__loading">Searching…</div>
-            }
-          } @else {
-            <button
-              class="detail-address-search__trigger dd-item dd-item--muted"
-              type="button"
-              (click)="openAddressSearch()"
-            >
-              <span class="material-icons dd-item__icon" aria-hidden="true">search</span>
-              <span class="dd-item__label">{{ fullAddress() || 'Search address…' }}</span>
-            </button>
-          }
-        </div>
+        <app-address-search
+          [currentAddress]="fullAddress()"
+          (suggestionApplied)="applyAddressSuggestion($event)"
+        />
 
         <!-- Street -->
         <div class="detail-row" [class.detail-row--editing]="editingField() === 'street'">
@@ -432,165 +338,43 @@
 
       <!-- Custom Metadata Section -->
       <div class="detail-section">
-        <div class="dd-section-label">Metadata</div>
-
-        @for (entry of metadata(); track entry.metadataKeyId) {
-          <div class="detail-metadata-row-wrap">
-            <app-metadata-property-row
-              [key]="entry.key"
-              [value]="entry.value"
-              (valueChanged)="saveMetadata(entry, $event)"
-            />
-            <button
-              class="detail-metadata-delete"
-              type="button"
-              [attr.aria-label]="'Remove ' + entry.key"
-              title="Remove metadata"
-              (click)="removeMetadata(entry)"
-            >
-              <span class="material-icons" aria-hidden="true">close</span>
-            </button>
-          </div>
-        }
-
-        @if (showAddMetadata()) {
-          <div class="detail-add-metadata-row">
-            <div class="detail-add-metadata-key-wrap">
-              <input
-                #newKeyInput
-                class="detail-add-metadata-input"
-                type="text"
-                placeholder="Key"
-                aria-label="New metadata key"
-                (input)="onMetadataKeyInput(newKeyInput.value)"
-                (keydown.escape)="showAddMetadata.set(false); metadataKeySuggestions.set([])"
-                (keydown.enter)="newValueInput.focus()"
-              />
-              @if (metadataKeySuggestions().length > 0) {
-                <div class="detail-add-metadata-suggestions dd-items">
-                  @for (suggestion of metadataKeySuggestions(); track suggestion) {
-                    <button
-                      class="dd-item"
-                      type="button"
-                      (click)="
-                        newKeyInput.value = suggestion;
-                        metadataKeySuggestions.set([]);
-                        newValueInput.focus()
-                      "
-                    >
-                      <span class="material-icons dd-item__icon" aria-hidden="true">label</span>
-                      <span class="dd-item__label">{{ suggestion }}</span>
-                    </button>
-                  }
-                </div>
-              }
-            </div>
-            <input
-              #newValueInput
-              class="detail-add-metadata-input"
-              type="text"
-              placeholder="Value"
-              aria-label="New metadata value"
-              (keydown.enter)="addMetadata(newKeyInput.value, newValueInput.value)"
-              (keydown.escape)="showAddMetadata.set(false); metadataKeySuggestions.set([])"
-            />
-            <button
-              class="detail-add-metadata-confirm dd-item"
-              type="button"
-              aria-label="Save new metadata"
-              (click)="addMetadata(newKeyInput.value, newValueInput.value)"
-            >
-              <span class="material-icons" aria-hidden="true">check</span>
-            </button>
-          </div>
-        }
-
-        @if (!showAddMetadata()) {
-          <button
-            class="detail-add-metadata-btn dd-action-row"
-            type="button"
-            (click)="showAddMetadata.set(true)"
-          >
-            <span class="material-icons" aria-hidden="true">add</span>
-            Add metadata
-          </button>
-        }
+        <app-metadata-section
+          [entries]="metadata()"
+          [allKeyNames]="allMetadataKeyNames()"
+          (valueChanged)="saveMetadata($event.entry, $event.newValue)"
+          (entryRemoved)="removeMetadata($event)"
+          (entryAdded)="addMetadata($event.key, $event.value)"
+        />
       </div>
 
-      <!-- Actions Section — dd-item styled -->
-      <div class="detail-section detail-section--actions">
-        <div class="dd-section-label">Actions</div>
-
-        <button class="dd-item" type="button" (click)="requestEditLocation()">
-          <span class="material-icons dd-item__icon" aria-hidden="true">edit_location</span>
-          <span class="dd-item__label">Edit location</span>
-        </button>
-
-        <button class="dd-item" type="button" (click)="openProjectPicker()">
-          <span class="material-icons dd-item__icon" aria-hidden="true">folder_open</span>
-          <span class="dd-item__label">Add to project</span>
-        </button>
-
-        <button class="dd-item" type="button" (click)="copyCoordinates()">
-          <span class="material-icons dd-item__icon" aria-hidden="true">content_copy</span>
-          <span class="dd-item__label">Copy coordinates</span>
-        </button>
-
-        <div class="dd-divider"></div>
-
-        <button class="dd-item dd-item--danger" type="button" (click)="confirmDelete()">
-          <span class="material-icons dd-item__icon" aria-hidden="true">delete</span>
-          <span class="dd-item__label">Delete image</span>
-        </button>
-      </div>
+      <!-- Actions Section -->
+      <app-detail-actions
+        (editLocation)="requestEditLocation()"
+        (addToProject)="openProjectPicker()"
+        (copyCoordinates)="copyCoordinates()"
+        (deleteImage)="confirmDelete()"
+      />
     </div>
   </div>
 }
 
 <!-- Photo lightbox overlay -->
 @if (showLightbox() && fullResUrl()) {
-  <div
-    class="detail-lightbox"
-    role="dialog"
-    aria-modal="true"
-    aria-label="Full-size photo"
-    (click)="showLightbox.set(false)"
-    (keydown.escape)="showLightbox.set(false)"
-    tabindex="-1"
-  >
-    <button
-      class="detail-lightbox__close"
-      type="button"
-      aria-label="Close"
-      (click)="showLightbox.set(false)"
-    >
-      <span class="material-icons" aria-hidden="true">close</span>
-    </button>
-    <img
-      class="detail-lightbox__image"
-      [src]="fullResUrl()"
-      [alt]="displayTitle()"
-      (click)="$event.stopPropagation()"
-    />
-  </div>
+  <app-photo-lightbox
+    [imageUrl]="fullResUrl()!"
+    [alt]="displayTitle()"
+    (closed)="showLightbox.set(false)"
+  />
 }
 
 <!-- Delete confirmation dialog -->
 @if (showDeleteConfirm()) {
-  <div class="detail-delete-overlay" role="dialog" aria-modal="true" aria-label="Confirm deletion">
-    <div class="detail-delete-dialog">
-      <h2 class="detail-delete-dialog__title">Delete this image?</h2>
-      <p class="detail-delete-dialog__body">
-        This will permanently remove the image and all its metadata. This cannot be undone.
-      </p>
-      <div class="detail-delete-dialog__actions">
-        <button class="detail-delete-dialog__cancel" type="button" (click)="cancelDelete()">
-          Cancel
-        </button>
-        <button class="detail-delete-dialog__confirm" type="button" (click)="executeDelete()">
-          Delete
-        </button>
-      </div>
-    </div>
-  </div>
+  <app-confirm-dialog
+    title="Delete this image?"
+    message="This will permanently remove the image and all its metadata. This cannot be undone."
+    confirmLabel="Delete"
+    [danger]="true"
+    (confirmed)="executeDelete()"
+    (cancelled)="cancelDelete()"
+  />
 }

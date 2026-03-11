@@ -1,0 +1,16 @@
+<div class="chips">
+  @for (chip of chips(); track $index) {
+    <button
+      class="chip"
+      [class.chip--filled]="chip.variant === 'filled'"
+      [class.chip--success]="chip.variant === 'success'"
+      [class.chip--warning]="chip.variant === 'warning'"
+      type="button"
+      [title]="chip.title ?? chip.text"
+      (click)="chipClicked.emit($index)"
+    >
+      <span class="material-icons chip__icon" aria-hidden="true">{{ chip.icon }}</span>
+      <span class="chip__text">{{ chip.text }}</span>
+    </button>
+  }
+</div>

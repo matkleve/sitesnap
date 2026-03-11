@@ -1,0 +1,44 @@
+@if (active()) {
+  <div class="address-search__input-wrap">
+    <span class="material-icons address-search__icon" aria-hidden="true">search</span>
+    <input
+      #addressSearchInput
+      class="address-search__input"
+      type="text"
+      placeholder="Search address…"
+      aria-label="Search for an address"
+      [value]="query()"
+      (input)="onInput(addressSearchInput.value)"
+      (keydown.escape)="cancel()"
+      (keydown.enter)="selectFirst()"
+    />
+    @if (query()) {
+      <button
+        class="address-search__clear"
+        type="button"
+        aria-label="Clear search"
+        (click)="query.set(''); addressSearchInput.focus()"
+      >
+        <span class="material-icons" aria-hidden="true">close</span>
+      </button>
+    }
+  </div>
+  @if (suggestions().length > 0) {
+    <div class="address-search__results dd-items">
+      @for (suggestion of suggestions(); track suggestion.addressLabel) {
+        <button class="dd-item" type="button" (click)="apply(suggestion)">
+          <span class="material-icons dd-item__icon" aria-hidden="true">place</span>
+          <span class="dd-item__label">{{ suggestion.addressLabel }}</span>
+        </button>
+      }
+    </div>
+  }
+  @if (loading()) {
+    <div class="address-search__loading">Searching…</div>
+  }
+} @else {
+  <button class="address-search__trigger dd-item dd-item--muted" type="button" (click)="open()">
+    <span class="material-icons dd-item__icon" aria-hidden="true">search</span>
+    <span class="dd-item__label">{{ currentAddress() || 'Search address…' }}</span>
+  </button>
+}

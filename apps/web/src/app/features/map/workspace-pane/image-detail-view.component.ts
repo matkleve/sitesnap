@@ -8,24 +8,38 @@ import {
   output,
   signal,
 } from '@angular/core';
-import { MetadataPropertyRowComponent } from './metadata-property-row.component';
 import { CapturedDateEditorComponent } from './captured-date-editor.component';
 import { SupabaseService } from '../../../core/supabase.service';
-import { ForwardGeocodeResult, GeocodingService } from '../../../core/geocoding.service';
+import { ForwardGeocodeResult } from '../../../core/geocoding.service';
 import { ImageRecord, MetadataEntry, SelectOption } from './image-detail-view.types';
-import { AddressSearchHelper } from './address-search.helper';
+import { PhotoLightboxComponent } from '../../../shared/photo-lightbox/photo-lightbox.component';
+import { ConfirmDialogComponent } from '../../../shared/confirm-dialog/confirm-dialog.component';
+import {
+  QuickInfoChipsComponent,
+  ChipDef,
+} from '../../../shared/quick-info-chips/quick-info-chips.component';
+import { AddressSearchComponent } from './address-search/address-search.component';
+import { MetadataSectionComponent } from './metadata-section/metadata-section.component';
+import { DetailActionsComponent } from './detail-actions/detail-actions.component';
 export type { ImageRecord, MetadataEntry } from './image-detail-view.types';
 
 @Component({
   selector: 'app-image-detail-view',
   standalone: true,
-  imports: [MetadataPropertyRowComponent, CapturedDateEditorComponent],
+  imports: [
+    CapturedDateEditorComponent,
+    PhotoLightboxComponent,
+    ConfirmDialogComponent,
+    QuickInfoChipsComponent,
+    AddressSearchComponent,
+    MetadataSectionComponent,
+    DetailActionsComponent,
+  ],
   templateUrl: './image-detail-view.component.html',
   styleUrl: './image-detail-view.component.scss',
 })
 export class ImageDetailViewComponent implements OnDestroy {
   private readonly supabaseService = inject(SupabaseService);
-  private readonly geocodingService = inject(GeocodingService);
 
   readonly imageId = input<string | null>(null);
   readonly closed = output<void>();
@@ -42,15 +56,10 @@ export class ImageDetailViewComponent implements OnDestroy {
   readonly showDeleteConfirm = signal(false);
   readonly saving = signal(false);
   readonly projectOptions = signal<SelectOption[]>([]);
-  readonly showAddMetadata = signal(false);
   readonly editingField = signal<string | null>(null);
   readonly fullResUrl = signal<string | null>(null);
   readonly thumbnailUrl = signal<string | null>(null);
   readonly showLightbox = signal(false);
-  readonly addressSearchQuery = signal('');
-  readonly addressSuggestions = signal<ForwardGeocodeResult[]>([]);
-  readonly addressSearchLoading = signal(false);
-  readonly metadataKeySuggestions = signal<string[]>([]);
   readonly allMetadataKeyNames = signal<string[]>([]);
   readonly editDate = signal('');
   readonly editTime = signal('');
@@ -121,16 +130,30 @@ export class ImageDetailViewComponent implements OnDestroy {
 
   private abortController: AbortController | null = null;
 
-  readonly addressHelper = new AddressSearchHelper(
-    this.geocodingService,
-    this.supabaseService,
-    this.image,
-    this.editingField,
-    this.addressSearchQuery,
-    this.addressSuggestions,
-    this.addressSearchLoading,
-    () => this.fullAddress(),
-  );
+  readonly infoChips = computed<ChipDef[]>(() => {
+    const img = this.image();
+    if (!img) return [];
+    const hasGps = img.latitude != null;
+    return [
+      {
+        icon: 'folder',
+        text: this.projectName() || 'No project',
+        variant: img.project_id ? ('filled' as const) : ('default' as const),
+        title: 'Project',
+      },
+      {
+        icon: 'schedule',
+        text: this.captureDate() ?? 'No date',
+        title: 'Capture date',
+      },
+      {
+        icon: 'my_location',
+        text: hasGps ? (this.isCorrected() ? 'Corrected' : 'GPS') : 'No GPS',
+        variant: hasGps ? ('success' as const) : ('warning' as const),
+        title: hasGps ? 'Copy coordinates' : 'No GPS data',
+      },
+    ];
+  });
 
   constructor() {
     // Reload whenever imageId changes.
@@ -161,12 +184,8 @@ export class ImageDetailViewComponent implements OnDestroy {
     this.saving.set(false);
     this.showContextMenu.set(false);
     this.showDeleteConfirm.set(false);
-    this.showAddMetadata.set(false);
     this.editingField.set(null);
     this.showLightbox.set(false);
-    this.addressSearchQuery.set('');
-    this.addressSuggestions.set([]);
-    this.metadataKeySuggestions.set([]);
   }
 
   private async loadImage(id: string): Promise<void> {
@@ -350,7 +369,6 @@ export class ImageDetailViewComponent implements OnDestroy {
       ]);
     }
 
-    this.showAddMetadata.set(false);
     this.saving.set(false);
   }
 
@@ -500,37 +518,70 @@ export class ImageDetailViewComponent implements OnDestroy {
   }
 
   openAddressSearch(): void {
-    this.addressHelper.open();
-  }
-
-  cancelAddressSearch(): void {
-    this.addressHelper.cancel();
-  }
-
-  onAddressSearchInput(query: string): void {
-    this.addressHelper.onInput(query);
-  }
-
-  selectFirstAddressResult(): void {
-    this.addressHelper.selectFirst();
+    this.editingField.set('address_search');
   }
 
   async applyAddressSuggestion(suggestion: ForwardGeocodeResult): Promise<void> {
-    await this.addressHelper.apply(suggestion);
+    const img = this.image();
+    if (!img) return;
+
+    this.image.update((prev) =>
+      prev
+        ? {
+            ...prev,
+            street: suggestion.street,
+            city: suggestion.city,
+            district: suggestion.district,
+            country: suggestion.country,
+            address_label: suggestion.addressLabel,
+          }
+        : prev,
+    );
+
+    this.editingField.set(null);
+
+    const { error } = await this.supabaseService.client
+      .from('images')
+      .update({
+        street: suggestion.street,
+        city: suggestion.city,
+        district: suggestion.district,
+        country: suggestion.country,
+        address_label: suggestion.addressLabel,
+      })
+      .eq('id', img.id);
+
+    if (error) {
+      this.image.update((prev) =>
+        prev
+          ? {
+              ...prev,
+              street: img.street,
+              city: img.city,
+              district: img.district,
+              country: img.country,
+              address_label: img.address_label,
+            }
+          : prev,
+      );
+    }
   }
 
-  onMetadataKeyInput(query: string): void {
-    if (!query.trim()) {
-      this.metadataKeySuggestions.set([]);
-      return;
+  onChipClicked(index: number): void {
+    switch (index) {
+      case 0:
+        this.editingField.set('project_id');
+        break;
+      case 1:
+        this.openCapturedAtEditor();
+        break;
+      case 2:
+        this.copyCoordinates();
+        break;
     }
+  }
 
-    const lower = query.toLowerCase();
-    const existing = new Set(this.metadata().map((m) => m.key.toLowerCase()));
-    const matches = this.allMetadataKeyNames()
-      .filter((k) => k.toLowerCase().includes(lower) && !existing.has(k.toLowerCase()))
-      .slice(0, 5);
-
-    this.metadataKeySuggestions.set(matches);
+  openProjectPicker(): void {
+    this.editingField.set('project_id');
   }
 }

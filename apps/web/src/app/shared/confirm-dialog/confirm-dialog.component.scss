@@ -1,0 +1,89 @@
+:host {
+  display: contents;
+}
+
+.dialog-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-modal);
+  background: color-mix(in srgb, var(--color-bg-base) 80%, transparent);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-4);
+}
+
+.dialog {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elevation-modal);
+  padding: var(--spacing-5);
+  max-width: 20rem;
+  width: 100%;
+
+  &__title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-2);
+  }
+
+  &__body {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+    line-height: 1.55;
+    margin-bottom: var(--spacing-4);
+  }
+
+  &__actions {
+    display: flex;
+    gap: var(--spacing-2);
+    justify-content: flex-end;
+  }
+
+  &__cancel {
+    min-height: 2.25rem;
+    padding-block: var(--spacing-2);
+    padding-inline: var(--spacing-4);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-md);
+    background: none;
+    color: var(--color-text-primary);
+    font-size: 0.875rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 80ms ease-out;
+
+    &:hover {
+      background: color-mix(in srgb, var(--color-clay) 8%, transparent);
+    }
+  }
+
+  &__confirm {
+    min-height: 2.25rem;
+    padding-block: var(--spacing-2);
+    padding-inline: var(--spacing-4);
+    border: none;
+    border-radius: var(--radius-md);
+    background: var(--color-primary);
+    color: #ffffff;
+    font-size: 0.875rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 80ms ease-out;
+
+    &:hover {
+      background: color-mix(in srgb, var(--color-primary) 85%, #000);
+    }
+
+    &--danger {
+      background: var(--color-danger);
+
+      &:hover {
+        background: color-mix(in srgb, var(--color-danger) 85%, #000);
+      }
+    }
+  }
+}
