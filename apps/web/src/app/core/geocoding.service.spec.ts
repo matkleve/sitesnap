@@ -2,13 +2,14 @@
  * GeocodingService unit tests.
  *
  * Strategy:
- *  - `fetch` is mocked globally via vi.fn() — no real HTTP calls.
- *  - Each test verifies correct URL building, response parsing, caching, and rate limiting.
+ *  - `SupabaseService.client.functions.invoke` is mocked — no real HTTP calls.
+ *  - Each test verifies response parsing, caching, serial queue, and error handling.
  *  - Arrange–Act–Assert; one behavior per `it` block.
  */
 
 import { TestBed } from '@angular/core/testing';
 import { GeocodingService, type ReverseGeocodeResult } from './geocoding.service';
+import { SupabaseService } from './supabase.service';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -33,39 +34,30 @@ function nominatimResponse(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function okFetchResponse(body: unknown): Response {
+function mockSupabaseService(invokeFn: ReturnType<typeof vi.fn>) {
   return {
-    ok: true,
-    json: () => Promise.resolve(body),
-  } as Response;
-}
-
-function errorFetchResponse(status = 500): Response {
-  return {
-    ok: false,
-    status,
-    json: () => Promise.resolve({}),
-  } as Response;
+    client: {
+      functions: { invoke: invokeFn },
+    },
+  };
 }
 
 // ── Tests ──────────────────────────────────────────────────────────────────────
 
 describe('GeocodingService', () => {
   let service: GeocodingService;
-  let fetchSpy: ReturnType<typeof vi.fn>;
+  let invokeSpy: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    fetchSpy = vi.fn();
-    vi.stubGlobal('fetch', fetchSpy);
+    invokeSpy = vi.fn();
 
     TestBed.configureTestingModule({
-      providers: [GeocodingService],
+      providers: [
+        GeocodingService,
+        { provide: SupabaseService, useValue: mockSupabaseService(invokeSpy) },
+      ],
     });
     service = TestBed.inject(GeocodingService);
-
-    // Reset the internal rate-limit timer so tests don't wait.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (service as any).lastRequestTime = 0;
   });
 
   afterEach(() => {
@@ -75,7 +67,7 @@ describe('GeocodingService', () => {
   // ── reverse() — successful resolution ────────────────────────────────────
 
   it('returns structured address fields from a Nominatim response', async () => {
-    fetchSpy.mockResolvedValueOnce(okFetchResponse(nominatimResponse()));
+    invokeSpy.mockResolvedValueOnce({ data: nominatimResponse(), error: null });
 
     const result = await service.reverse(47.3769, 8.5417);
 
@@ -87,25 +79,24 @@ describe('GeocodingService', () => {
     expect(result!.addressLabel).toBe('Burgstraße 7, 8001 Zürich, Switzerland');
   });
 
-  it('calls Nominatim with correct URL parameters', async () => {
-    fetchSpy.mockResolvedValueOnce(okFetchResponse(nominatimResponse()));
+  it('calls the geocode edge function with correct parameters', async () => {
+    invokeSpy.mockResolvedValueOnce({ data: nominatimResponse(), error: null });
 
     await service.reverse(47.3769, 8.5417);
 
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    const url: string = fetchSpy.mock.calls[0][0];
-    expect(url).toContain('lat=47.3769');
-    expect(url).toContain('lon=8.5417');
-    expect(url).toContain('format=json');
-    expect(url).toContain('addressdetails=1');
+    expect(invokeSpy).toHaveBeenCalledTimes(1);
+    expect(invokeSpy).toHaveBeenCalledWith('geocode', {
+      body: { action: 'reverse', lat: 47.3769, lng: 8.5417 },
+    });
   });
 
   // ── reverse() — fallback address fields ──────────────────────────────────
 
   it('falls back to town when city is absent', async () => {
-    fetchSpy.mockResolvedValueOnce(
-      okFetchResponse(nominatimResponse({ city: undefined, town: 'Winterthur' })),
-    );
+    invokeSpy.mockResolvedValueOnce({
+      data: nominatimResponse({ city: undefined, town: 'Winterthur' }),
+      error: null,
+    });
 
     const result = await service.reverse(47.5, 8.7);
 
@@ -113,11 +104,10 @@ describe('GeocodingService', () => {
   });
 
   it('falls back to village when city and town are absent', async () => {
-    fetchSpy.mockResolvedValueOnce(
-      okFetchResponse(
-        nominatimResponse({ city: undefined, town: undefined, village: 'Grindelwald' }),
-      ),
-    );
+    invokeSpy.mockResolvedValueOnce({
+      data: nominatimResponse({ city: undefined, town: undefined, village: 'Grindelwald' }),
+      error: null,
+    });
 
     const result = await service.reverse(46.6, 8.0);
 
@@ -125,9 +115,10 @@ describe('GeocodingService', () => {
   });
 
   it('falls back to suburb when city_district is absent', async () => {
-    fetchSpy.mockResolvedValueOnce(
-      okFetchResponse(nominatimResponse({ city_district: undefined, suburb: 'Wiedikon' })),
-    );
+    invokeSpy.mockResolvedValueOnce({
+      data: nominatimResponse({ city_district: undefined, suburb: 'Wiedikon' }),
+      error: null,
+    });
 
     const result = await service.reverse(47.3, 8.5);
 
@@ -135,16 +126,15 @@ describe('GeocodingService', () => {
   });
 
   it('returns null district when no district fields are present', async () => {
-    fetchSpy.mockResolvedValueOnce(
-      okFetchResponse(
-        nominatimResponse({
-          city_district: undefined,
-          suburb: undefined,
-          borough: undefined,
-          quarter: undefined,
-        }),
-      ),
-    );
+    invokeSpy.mockResolvedValueOnce({
+      data: nominatimResponse({
+        city_district: undefined,
+        suburb: undefined,
+        borough: undefined,
+        quarter: undefined,
+      }),
+      error: null,
+    });
 
     const result = await service.reverse(47.3, 8.5);
 
@@ -152,9 +142,10 @@ describe('GeocodingService', () => {
   });
 
   it('returns null street when road is absent', async () => {
-    fetchSpy.mockResolvedValueOnce(
-      okFetchResponse(nominatimResponse({ road: undefined, house_number: undefined })),
-    );
+    invokeSpy.mockResolvedValueOnce({
+      data: nominatimResponse({ road: undefined, house_number: undefined }),
+      error: null,
+    });
 
     const result = await service.reverse(47.3, 8.5);
 
@@ -162,9 +153,10 @@ describe('GeocodingService', () => {
   });
 
   it('concatenates road and house_number into street', async () => {
-    fetchSpy.mockResolvedValueOnce(
-      okFetchResponse(nominatimResponse({ road: 'Bahnhofstrasse', house_number: '12' })),
-    );
+    invokeSpy.mockResolvedValueOnce({
+      data: nominatimResponse({ road: 'Bahnhofstrasse', house_number: '12' }),
+      error: null,
+    });
 
     const result = await service.reverse(47.37, 8.54);
 
@@ -173,8 +165,8 @@ describe('GeocodingService', () => {
 
   // ── reverse() — error handling ───────────────────────────────────────────
 
-  it('returns null when Nominatim returns a non-OK status', async () => {
-    fetchSpy.mockResolvedValueOnce(errorFetchResponse(500));
+  it('returns null when the edge function returns an error', async () => {
+    invokeSpy.mockResolvedValueOnce({ data: null, error: new Error('502') });
 
     const result = await service.reverse(47.3, 8.5);
 
@@ -182,15 +174,15 @@ describe('GeocodingService', () => {
   });
 
   it('returns null when the response has no address object', async () => {
-    fetchSpy.mockResolvedValueOnce(okFetchResponse({ display_name: 'Somewhere' }));
+    invokeSpy.mockResolvedValueOnce({ data: { display_name: 'Somewhere' }, error: null });
 
     const result = await service.reverse(47.3, 8.5);
 
     expect(result).toBeNull();
   });
 
-  it('returns null when fetch throws a network error', async () => {
-    fetchSpy.mockRejectedValueOnce(new Error('Network error'));
+  it('returns null when invoke throws a network error', async () => {
+    invokeSpy.mockRejectedValueOnce(new Error('Network error'));
 
     const result = await service.reverse(47.3, 8.5);
 
@@ -199,24 +191,24 @@ describe('GeocodingService', () => {
 
   // ── Caching ──────────────────────────────────────────────────────────────
 
-  it('caches the result and does not call fetch on the second request for the same coords', async () => {
-    fetchSpy.mockResolvedValue(okFetchResponse(nominatimResponse()));
+  it('caches the result and does not call invoke on the second request for the same coords', async () => {
+    invokeSpy.mockResolvedValue({ data: nominatimResponse(), error: null });
 
     await service.reverse(47.3769, 8.5417);
     const second = await service.reverse(47.3769, 8.5417);
 
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(invokeSpy).toHaveBeenCalledTimes(1);
     expect(second!.city).toBe('Zürich');
   });
 
-  it('calls fetch again when cache has expired', async () => {
-    fetchSpy.mockResolvedValue(okFetchResponse(nominatimResponse()));
+  it('calls invoke again when cache has expired', async () => {
+    invokeSpy.mockResolvedValue({ data: nominatimResponse(), error: null });
 
     await service.reverse(47.3769, 8.5417);
 
     // Expire the cache entry.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const cache = (service as any).cache as Map<
+    const cache = (service as any).reverseCache as Map<
       string,
       { data: ReverseGeocodeResult; expires: number }
     >;
@@ -226,19 +218,42 @@ describe('GeocodingService', () => {
 
     await service.reverse(47.3769, 8.5417);
 
-    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(invokeSpy).toHaveBeenCalledTimes(2);
   });
 
   it('caches a different entry for different coordinates', async () => {
-    fetchSpy
-      .mockResolvedValueOnce(okFetchResponse(nominatimResponse()))
-      .mockResolvedValueOnce(okFetchResponse(nominatimResponse({ city: 'Bern' })));
+    invokeSpy
+      .mockResolvedValueOnce({ data: nominatimResponse(), error: null })
+      .mockResolvedValueOnce({ data: nominatimResponse({ city: 'Bern' }), error: null });
 
     const a = await service.reverse(47.3769, 8.5417);
     const b = await service.reverse(46.948, 7.4474);
 
-    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(invokeSpy).toHaveBeenCalledTimes(2);
     expect(a!.city).toBe('Zürich');
     expect(b!.city).toBe('Bern');
+  });
+
+  // ── Serial queue ─────────────────────────────────────────────────────────
+
+  it('serializes concurrent requests through the queue', async () => {
+    const callOrder: number[] = [];
+    invokeSpy.mockImplementation(async () => {
+      callOrder.push(callOrder.length + 1);
+      await new Promise((r) => setTimeout(r, 10));
+      return { data: nominatimResponse(), error: null };
+    });
+
+    // Fire 3 concurrent reverse calls with different coordinates
+    const [a, b, c] = await Promise.all([
+      service.reverse(47.0, 8.0),
+      service.reverse(47.1, 8.1),
+      service.reverse(47.2, 8.2),
+    ]);
+
+    expect(invokeSpy).toHaveBeenCalledTimes(3);
+    expect(a).not.toBeNull();
+    expect(b).not.toBeNull();
+    expect(c).not.toBeNull();
   });
 });

@@ -253,13 +253,13 @@ No separator line is needed in this view; instead DB results carry a "(N photos 
 
 Debounce and caching are implemented internally:
 
-| Concern                | Implementation                                                                                                                                          |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Debounce               | 300ms idle timer after the last character typed (for autocomplete calls). Folder import resolution calls are not debounced (they are batch operations). |
-| In-memory cache        | Query string → `AddressCandidateGroup`, TTL 5 minutes. Keyed by `query + orgId`. Evicted on LRU after 200 entries.                                      |
-| DB query abort         | Each in-flight DB query is cancelled if a new input arrives before the debounce fires.                                                                  |
-| Geocoder abort         | Same — abort-previous-request pattern using `AbortController` or RxJS `switchMap`.                                                                      |
-| Geocoder rate limiting | Nominatim (default provider): 1 req/sec. The `GeocodingAdapter` maintains a request queue to honour this.                                               |
+| Concern                | Implementation                                                                                                                                                                                                  |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Debounce               | 300ms idle timer after the last character typed (for autocomplete calls). Folder import resolution calls are not debounced (they are batch operations).                                                         |
+| In-memory cache        | Query string → `AddressCandidateGroup`, TTL 5 minutes. Keyed by `query + orgId`. Evicted on LRU after 200 entries.                                                                                              |
+| DB query abort         | Each in-flight DB query is cancelled if a new input arrives before the debounce fires.                                                                                                                          |
+| Geocoder abort         | Same — abort-previous-request pattern using `AbortController` or RxJS `switchMap`.                                                                                                                              |
+| Geocoder rate limiting | Nominatim (default provider): 1 req/sec. Rate limiting is enforced server-side in the `geocode` Edge Function. The `GeocodingService` also serialises requests via a promise queue to prevent concurrent calls. |
 
 ---
 
@@ -322,19 +322,27 @@ flowchart TD
 
 #### Implemented: GeocodingService Integration
 
-The lightweight `GeocodingService` (`core/geocoding.service.ts`) handles reverse-geocoding via Nominatim, independent of the full `AddressResolverService`. It is used by:
+The lightweight `GeocodingService` (`core/geocoding.service.ts`) handles reverse- and forward-geocoding via a **Supabase Edge Function proxy** (`geocode`), which forwards requests to Nominatim server-side. This eliminates browser CORS issues and centralises rate limiting.
 
 ```mermaid
 flowchart TD
-    GCS["GeocodingService\n(Nominatim reverse geocode)"]
+    GCS["GeocodingService\n(Angular service)"]
 
     UPS["UploadService\nFire-and-forget after insert"] -->|"reverse(lat, lng)"| GCS
-    WVS["WorkspaceViewService\nOn-load background resolution"] -->|"reverse(lat, lng)\nper unique coordinate"| GCS
+    LRS["LocationResolverService\nOn-demand + background batch"] -->|"reverse / forward"| GCS
     PM["PlacementMode\nAfter pin placed"] -->|"reverse(lat, lng)"| GCS
 
-    GCS -->|"Rate-limited 1 req/1.1s\nCache: 5min TTL"| NOM["Nominatim API\n/reverse?format=jsonv2"]
-    GCS --> DB_UPD[("DB: UPDATE images\nSET city, district, street,\ncountry, address_label")]
+    GCS -->|"Serial queue\nCache: 5min TTL"| EF["Supabase Edge Function\n/functions/v1/geocode"]
+    EF -->|"Server-side rate limit\n1 req/1.1s\nUser-Agent header"| NOM["Nominatim API\n/reverse · /search"]
+    LRS --> DB_UPD[("DB: UPDATE images\nSET city, district, street,\ncountry, address_label")]
 ```
+
+**Why a proxy?** Direct browser→Nominatim calls fail with CORS errors when Nominatim rate-limits (HTTP 429 responses lack CORS headers). The edge function:
+
+- Adds a proper `User-Agent` header (required by Nominatim usage policy).
+- Enforces server-side rate limiting (1 req/1.1s).
+- Returns CORS-safe responses to the browser.
+- Requires a valid Supabase JWT — no unauthenticated geocoding.
 
 | Integration point                       | How `AddressResolverService` is used                                                                                                                                             |
 | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

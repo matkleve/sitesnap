@@ -62,11 +62,13 @@ graph TB
   Services --> Auth
   Services --> DB
   Services --> Storage
+  Services -->|"functions.invoke"| EdgeFn["Edge Function: geocode<br/>(Nominatim proxy)"]
+  EdgeFn -->|"Rate-limited 1 req/1.1s"| Nominatim
   MapAdapter --> Tiles
-  GeoAdapter --> Nominatim
   InputAdapter --> Services
   Services --> MapAdapter
   Services --> GeoAdapter
+  GeoAdapter -->|"via Edge Function"| EdgeFn
 
   style Client fill:#1a1917,stroke:#2E2B27,color:#EDEBE7
   style Supabase fill:#0F0E0C,stroke:#3D3830,color:#EDEBE7
@@ -268,7 +270,7 @@ interface GeocodingResult {
 
 - All autocomplete calls are **debounced** (300ms after last keystroke) before invoking `search()`.
 - Results are cached in-memory by query string with a 5-minute TTL.
-- The default Nominatim provider enforces a 1 request/second limit. The adapter must queue requests and respect this limit.
+- The default Nominatim provider enforces a 1 request/second limit. Rate limiting is enforced **server-side** in the `geocode` Supabase Edge Function, which proxies all Nominatim requests. The `GeocodingService` also serialises concurrent calls via a promise queue. Direct browser→Nominatim calls are not used (eliminated CORS issues from Nominatim 429 responses).
 - If geocoding fails or times out (3s), the UI shows an explicit error: "Address search unavailable. Try again or navigate manually." No silent failures.
 
 ### Zoom Level on Search

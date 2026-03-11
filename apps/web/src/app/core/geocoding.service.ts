@@ -1,15 +1,19 @@
 /**
  * GeocodingService — reverse-geocodes coordinates to structured address data
- * via the Nominatim (OpenStreetMap) API.
+ * via the `geocode` Supabase Edge Function (which proxies Nominatim).
  *
  * Ground rules:
- *  - Rate-limited to 1 request per second (Nominatim usage policy).
+ *  - Requests are routed through a server-side proxy to eliminate browser CORS
+ *    issues and enforce rate limiting centrally.
  *  - Never throws — returns null on failure.
  *  - Results are cached in-memory (5-minute TTL) to avoid redundant requests.
- *  - Used by UploadService to populate address fields after image insertion.
+ *  - A serial queue ensures only one in-flight request at a time, preventing
+ *    concurrent calls from bypassing the rate limit.
+ *  - Used by LocationResolverService, UploadService, and PlacementMode.
  */
 
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
+import { SupabaseService } from './supabase.service';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -64,15 +68,14 @@ interface NominatimSearchResponse {
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
-const NOMINATIM_REVERSE_URL = 'https://nominatim.openstreetmap.org/reverse';
-const NOMINATIM_SEARCH_URL = 'https://nominatim.openstreetmap.org/search';
 const CACHE_TTL_MS = 5 * 60 * 1000;
-const MIN_REQUEST_INTERVAL_MS = 1100; // slightly above 1s to respect Nominatim rate limit
 
 // ── Service ────────────────────────────────────────────────────────────────────
 
 @Injectable({ providedIn: 'root' })
 export class GeocodingService {
+  private readonly supabase = inject(SupabaseService);
+
   private readonly reverseCache = new Map<
     string,
     { data: ReverseGeocodeResult; expires: number }
@@ -81,7 +84,12 @@ export class GeocodingService {
     string,
     { data: ForwardGeocodeResult; expires: number }
   >();
-  private lastRequestTime = 0;
+
+  /**
+   * Serial queue: chains every request so only one is in-flight at a time.
+   * This prevents concurrent callers from racing past the server-side rate limit.
+   */
+  private queue: Promise<void> = Promise.resolve();
 
   /**
    * Reverse-geocode a lat/lng pair to structured address fields.
@@ -94,28 +102,28 @@ export class GeocodingService {
       return cached.data;
     }
 
-    await this.rateLimit();
+    return this.enqueue(async () => {
+      // Re-check cache after waiting in queue (another request may have resolved it).
+      const freshCached = this.reverseCache.get(cacheKey);
+      if (freshCached && freshCached.expires > Date.now()) {
+        return freshCached.data;
+      }
 
-    try {
-      this.lastRequestTime = Date.now();
+      try {
+        const data = await this.callProxy<NominatimReverseResponse>({
+          action: 'reverse',
+          lat,
+          lng,
+        });
+        if (!data?.address) return null;
 
-      const url = `${NOMINATIM_REVERSE_URL}?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&format=json&addressdetails=1`;
-      const response = await fetch(url, {
-        headers: { 'Accept-Language': 'en' },
-      });
-
-      if (!response.ok) return null;
-
-      const data = (await response.json()) as NominatimReverseResponse;
-      if (!data?.address) return null;
-
-      const result = this.parseReverseResponse(data);
-
-      this.reverseCache.set(cacheKey, { data: result, expires: Date.now() + CACHE_TTL_MS });
-      return result;
-    } catch {
-      return null;
-    }
+        const result = this.parseReverseResponse(data);
+        this.reverseCache.set(cacheKey, { data: result, expires: Date.now() + CACHE_TTL_MS });
+        return result;
+      } catch {
+        return null;
+      }
+    });
   }
 
   /**
@@ -132,77 +140,90 @@ export class GeocodingService {
       return cached.data;
     }
 
-    await this.rateLimit();
+    return this.enqueue(async () => {
+      const freshCached = this.forwardCache.get(cacheKey);
+      if (freshCached && freshCached.expires > Date.now()) {
+        return freshCached.data;
+      }
 
-    try {
-      this.lastRequestTime = Date.now();
+      try {
+        const results = await this.callProxy<NominatimSearchResponse[]>({
+          action: 'forward',
+          q: trimmed,
+        });
+        if (!results?.length || !results[0].lat || !results[0].lon) return null;
 
-      const url = `${NOMINATIM_SEARCH_URL}?q=${encodeURIComponent(trimmed)}&format=json&limit=1&addressdetails=1`;
-      const response = await fetch(url, {
-        headers: { 'Accept-Language': 'en' },
-      });
+        const result = this.parseForwardResponse(results[0]);
+        if (!result) return null;
 
-      if (!response.ok) return null;
-
-      const results = (await response.json()) as NominatimSearchResponse[];
-      if (!results?.length || !results[0].lat || !results[0].lon) return null;
-
-      const hit = results[0];
-      const lat = parseFloat(hit.lat!);
-      const lng = parseFloat(hit.lon!);
-      if (isNaN(lat) || isNaN(lng)) return null;
-
-      const addr = hit.address;
-      const city = this.firstOf(addr?.city, addr?.town, addr?.village, addr?.municipality);
-      const district = this.firstOf(
-        addr?.city_district,
-        addr?.suburb,
-        addr?.borough,
-        addr?.quarter,
-      );
-      const streetParts = [addr?.road, addr?.house_number].filter(Boolean);
-      const street = streetParts.length > 0 ? streetParts.join(' ') : null;
-      const country = addr?.country ?? null;
-      const addressLabel = hit.display_name ?? [street, city, country].filter(Boolean).join(', ');
-
-      const result: ForwardGeocodeResult = {
-        lat,
-        lng,
-        addressLabel,
-        city,
-        district,
-        street,
-        country,
-      };
-      this.forwardCache.set(cacheKey, { data: result, expires: Date.now() + CACHE_TTL_MS });
-      return result;
-    } catch {
-      return null;
-    }
+        this.forwardCache.set(cacheKey, { data: result, expires: Date.now() + CACHE_TTL_MS });
+        return result;
+      } catch {
+        return null;
+      }
+    });
   }
 
-  /** Wait to respect Nominatim 1-request-per-second rate limit. */
-  private async rateLimit(): Promise<void> {
-    const now = Date.now();
-    const elapsed = now - this.lastRequestTime;
-    if (elapsed < MIN_REQUEST_INTERVAL_MS) {
-      await new Promise((resolve) => setTimeout(resolve, MIN_REQUEST_INTERVAL_MS - elapsed));
-    }
+  // ── Private helpers ────────────────────────────────────────────────────
+
+  /**
+   * Enqueue a request so only one runs at a time.
+   * Each call chains onto `this.queue`, preventing concurrent Nominatim hits.
+   */
+  private enqueue<T>(fn: () => Promise<T>): Promise<T> {
+    const result = this.queue.then(fn, fn);
+    // Keep the queue moving regardless of success/failure
+    this.queue = result.then(
+      () => {},
+      () => {},
+    );
+    return result;
+  }
+
+  /** Call the `geocode` Supabase Edge Function. */
+  private async callProxy<T>(body: Record<string, unknown>): Promise<T> {
+    const { data, error } = await this.supabase.client.functions.invoke('geocode', {
+      body,
+    });
+    if (error) throw error;
+    return data as T;
   }
 
   private parseReverseResponse(data: NominatimReverseResponse): ReverseGeocodeResult {
-    const addr = data.address!;
+    const { city, district, street, country } = this.extractAddressFields(data.address!);
+    const addressLabel = data.display_name ?? [street, city, country].filter(Boolean).join(', ');
+    return { addressLabel, city, district, street, country };
+  }
+
+  private parseForwardResponse(hit: NominatimSearchResponse): ForwardGeocodeResult | null {
+    const lat = parseFloat(hit.lat!);
+    const lng = parseFloat(hit.lon!);
+    if (isNaN(lat) || isNaN(lng)) return null;
+
+    const { city, district, street, country } = this.extractAddressFields(hit.address);
+    const addressLabel = hit.display_name ?? [street, city, country].filter(Boolean).join(', ');
+    return { lat, lng, addressLabel, city, district, street, country };
+  }
+
+  /** Extract structured address fields from a Nominatim address object. */
+  private extractAddressFields(addr?: NominatimReverseResponse['address']): {
+    city: string | null;
+    district: string | null;
+    street: string | null;
+    country: string | null;
+  } {
+    if (!addr) return { city: null, district: null, street: null, country: null };
 
     const city = this.firstOf(addr.city, addr.town, addr.village, addr.municipality);
     const district = this.firstOf(addr.city_district, addr.suburb, addr.borough, addr.quarter);
-
     const streetParts = [addr.road, addr.house_number].filter(Boolean);
-    const street = streetParts.length > 0 ? streetParts.join(' ') : null;
 
-    const country = addr.country ?? null;
-    const addressLabel = data.display_name ?? [street, city, country].filter(Boolean).join(', ');
-
-    return { addressLabel, city, district, street, country };
+    return {
+      city,
+      district,
+      street: streetParts.length > 0 ? streetParts.join(' ') : null,
+      country: addr.country ?? null,
+    };
   }
 
   /** Returns the first non-nullish value, or null. */
