@@ -279,19 +279,12 @@ export class PhotoViewerComponent implements OnDestroy {
 
   // ── Internal helpers ──
 
-  private async loadSignedUrls(
-    storagePath: string,
-    thumbnailPath: string | null,
-  ): Promise<void> {
+  private async loadSignedUrls(storagePath: string, thumbnailPath: string | null): Promise<void> {
     const thumbPromise = thumbnailPath
-      ? this.supabaseService.client.storage
-          .from('images')
-          .createSignedUrl(thumbnailPath, 3600)
-      : this.supabaseService.client.storage
-          .from('images')
-          .createSignedUrl(storagePath, 3600, {
-            transform: { width: 256, height: 256, resize: 'cover', quality: 60 },
-          });
+      ? this.supabaseService.client.storage.from('images').createSignedUrl(thumbnailPath, 3600)
+      : this.supabaseService.client.storage.from('images').createSignedUrl(storagePath, 3600, {
+          transform: { width: 256, height: 256, resize: 'cover', quality: 60 },
+        });
 
     const fullPromise = this.supabaseService.client.storage
       .from('images')
@@ -333,9 +326,7 @@ export class PhotoViewerComponent implements OnDestroy {
       ),
     );
 
-    const updatedGridImages = this.workspaceView
-      .rawImages()
-      .filter((wi) => wi.id === imageId);
+    const updatedGridImages = this.workspaceView.rawImages().filter((wi) => wi.id === imageId);
     if (updatedGridImages.length > 0) {
       void this.workspaceView.batchSignThumbnails(updatedGridImages);
     }

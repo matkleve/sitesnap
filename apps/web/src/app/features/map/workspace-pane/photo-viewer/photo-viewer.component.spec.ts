@@ -107,7 +107,10 @@ function setup(opts: { storagePath?: string | null; thumbnailPath?: string | nul
 
   ref.setInput('imageId', IMAGE_ID);
   ref.setInput('storagePath', opts.storagePath !== undefined ? opts.storagePath : STORAGE_PATH);
-  ref.setInput('thumbnailPath', opts.thumbnailPath !== undefined ? opts.thumbnailPath : THUMBNAIL_PATH);
+  ref.setInput(
+    'thumbnailPath',
+    opts.thumbnailPath !== undefined ? opts.thumbnailPath : THUMBNAIL_PATH,
+  );
   ref.setInput('displayTitle', 'Test Photo');
 
   fixture.detectChanges();

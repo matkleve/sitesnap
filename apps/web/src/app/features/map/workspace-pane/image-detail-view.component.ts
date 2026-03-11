@@ -22,7 +22,11 @@ import { AddressSearchComponent } from './address-search/address-search.componen
 import { MetadataSectionComponent } from './metadata-section/metadata-section.component';
 import { DetailActionsComponent } from './detail-actions/detail-actions.component';
 import { PhotoViewerComponent } from './photo-viewer/photo-viewer.component';
-import { UploadManagerService, ImageReplacedEvent, ImageAttachedEvent } from '../../../core/upload-manager.service';
+import {
+  UploadManagerService,
+  ImageReplacedEvent,
+  ImageAttachedEvent,
+} from '../../../core/upload-manager.service';
 export type { ImageRecord, MetadataEntry } from './image-detail-view.types';
 
 @Component({
@@ -366,9 +370,7 @@ export class ImageDetailViewComponent implements OnDestroy {
     if (img?.storage_path) {
       const pathsToRemove = [img.storage_path];
       if (img.thumbnail_path) pathsToRemove.push(img.thumbnail_path);
-      await this.supabaseService.client.storage
-        .from('images')
-        .remove(pathsToRemove);
+      await this.supabaseService.client.storage.from('images').remove(pathsToRemove);
     }
 
     const { error } = await this.supabaseService.client.from('images').delete().eq('id', id);

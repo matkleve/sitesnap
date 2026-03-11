@@ -37,11 +37,7 @@
 
       <!-- Hero src (blob URL from replace/attach — instant display) -->
       @if (heroSrc()) {
-        <img
-          class="photo-image photo-image--hero"
-          [src]="heroSrc()"
-          [alt]="displayTitle()"
-        />
+        <img class="photo-image photo-image--hero" [src]="heroSrc()" [alt]="displayTitle()" />
       }
 
       <!-- Tier 2: blurred thumbnail -->

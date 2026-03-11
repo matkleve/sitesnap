@@ -28,13 +28,13 @@ Actions use **`dd-item`** button styling — not bordered outline buttons. Each 
 
 ## Actions
 
-| #   | User Action               | System Response                                           | Triggers            |
-| --- | ------------------------- | --------------------------------------------------------- | ------------------- |
-| 1   | Clicks "Copy coordinates" | Copies coordinates to clipboard, shows toast confirmation | Clipboard + toast   |
+| #   | User Action               | System Response                                           | Triggers                  |
+| --- | ------------------------- | --------------------------------------------------------- | ------------------------- |
+| 1   | Clicks "Copy coordinates" | Copies coordinates to clipboard, shows toast confirmation | Clipboard + toast         |
 | 2   | Clicks "Copy link"        | Copies deep link to this entry to clipboard, shows toast  | `DeepLinkService` + toast |
-| 3   | Clicks "Delete image"     | Shows delete confirmation dialog                          | `showDeleteConfirm` |
-| 4   | Confirms delete           | Deletes image from DB and storage, returns to grid        | Supabase delete     |
-| 5   | Cancels delete            | Dismisses dialog                                          | Dialog dismissed    |
+| 3   | Clicks "Delete image"     | Shows delete confirmation dialog                          | `showDeleteConfirm`       |
+| 4   | Confirms delete           | Deletes image from DB and storage, returns to grid        | Supabase delete           |
+| 5   | Cancels delete            | Dismisses dialog                                          | Dialog dismissed          |
 
 ## Copy Link — Deep Link Service
 
@@ -44,8 +44,8 @@ Actions use **`dd-item`** button styling — not bordered outline buttons. Each 
 
 A lightweight injectable service (`deep-link.service.ts`) responsible for constructing deep link URLs and copying them to the clipboard. Not image-specific — reusable for any entity that needs a shareable in-app link (images now, potentially projects or groups later).
 
-| Method | Signature | Behavior |
-| --- | --- | --- |
+| Method     | Signature                                                 | Behavior                                                                                                                 |
+| ---------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | `copyLink` | `(entityType: string, entityId: string) => Promise<void>` | Builds URL `{origin}/{entityType}/{entityId}`, copies to clipboard via `navigator.clipboard.writeText()`, triggers toast |
 
 **URL format:** `https://{host}/image/{imageId}` (for images)
@@ -63,12 +63,12 @@ A lightweight injectable service (`deep-link.service.ts`) responsible for constr
 
 When the user makes changes in the detail view, the corresponding **photo marker on the map must update** without a full viewport refresh:
 
-| Change Type                | Channel                                  | Marker Effect                                        |
-| -------------------------- | ---------------------------------------- | ---------------------------------------------------- |
-| Photo replaced             | `UploadManagerService.imageReplaced$`    | Marker DivIcon rebuilt with new thumbnail            |
-| Photo uploaded (photoless) | `UploadManagerService.imageAttached$`    | Marker DivIcon updated: placeholder → real thumbnail |
-| Image deleted              | `UploadManagerService.imageDeleted$`     | Marker removed from map layer + image removed from grid |
-| Address / metadata edits   | DB update only                           | No marker update needed                              |
+| Change Type                | Channel                               | Marker Effect                                           |
+| -------------------------- | ------------------------------------- | ------------------------------------------------------- |
+| Photo replaced             | `UploadManagerService.imageReplaced$` | Marker DivIcon rebuilt with new thumbnail               |
+| Photo uploaded (photoless) | `UploadManagerService.imageAttached$` | Marker DivIcon updated: placeholder → real thumbnail    |
+| Image deleted              | `UploadManagerService.imageDeleted$`  | Marker removed from map layer + image removed from grid |
+| Address / metadata edits   | DB update only                        | No marker update needed                                 |
 
 ### Key Design Principle
 
@@ -218,8 +218,8 @@ flowchart LR
 
 ## File Map
 
-| File | Purpose |
-| --- | --- |
+| File                                             | Purpose                                                                                 |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------- |
 | `apps/web/src/app/services/deep-link.service.ts` | `DeepLinkService` — builds deep links and copies to clipboard (reusable for any entity) |
 
 ## Acceptance Criteria
