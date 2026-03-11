@@ -38,7 +38,7 @@ import {
   ImageAttachedEvent,
 } from '../../../core/upload-manager.service';
 import { WorkspaceViewService } from '../../../core/workspace-view.service';
-import { PhotoLoadService } from '../../../core/photo-load.service';
+import { PhotoLoadService, PHOTO_PLACEHOLDER_ICON } from '../../../core/photo-load.service';
 import { SearchBarComponent } from '../search-bar/search-bar.component';
 import { WorkspacePaneComponent } from '../workspace-pane/workspace-pane.component';
 import { DragDividerComponent } from '../workspace-pane/drag-divider/drag-divider.component';
@@ -55,8 +55,12 @@ import {
   imports: [UploadPanelComponent, SearchBarComponent, WorkspacePaneComponent, DragDividerComponent],
   templateUrl: './map-shell.component.html',
   styleUrl: './map-shell.component.scss',
+  host: {
+    '[style.--placeholder-icon]': 'placeholderIconUrl',
+  },
 })
 export class MapShellComponent implements OnDestroy {
+  readonly placeholderIconUrl = `url("${PHOTO_PLACEHOLDER_ICON}")`;
   private readonly supabaseService = inject(SupabaseService);
   private readonly uploadManagerService = inject(UploadManagerService);
   private readonly workspaceViewService = inject(WorkspaceViewService);

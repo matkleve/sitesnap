@@ -479,4 +479,4 @@ flowchart TB
 - [x] `stateChanged$` emits on every `PhotoLoadState` transition (idle→loading, loading→loaded, etc.)
 - [x] `batchComplete$` emits `{ imageIds[], size }` when `batchSign()` finishes
 - [x] Signals are updated before events fire — both mechanisms stay in sync
-- [ ] All 4 surfaces (marker, thumbnail card, detail view, lightbox) render identical placeholder/error visuals
+- [x] All 4 surfaces (marker, thumbnail card, detail view, lightbox) render identical placeholder/error visuals

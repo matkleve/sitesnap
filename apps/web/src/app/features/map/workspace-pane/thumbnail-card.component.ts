@@ -1,5 +1,6 @@
 import { Component, computed, input, output, signal } from '@angular/core';
 import type { WorkspaceImage } from '../../../core/workspace-view.types';
+import { PHOTO_PLACEHOLDER_ICON, PHOTO_NO_PHOTO_ICON } from '../../../core/photo-load.service';
 
 @Component({
   selector: 'app-thumbnail-card',
@@ -37,8 +38,14 @@ import type { WorkspaceImage } from '../../../core/workspace-view.types';
     </button>
   `,
   styleUrl: './thumbnail-card.component.scss',
+  host: {
+    '[style.--placeholder-icon]': 'placeholderIconUrl',
+    '[style.--no-photo-icon]': 'noPhotoIconUrl',
+  },
 })
 export class ThumbnailCardComponent {
+  readonly placeholderIconUrl = `url("${PHOTO_PLACEHOLDER_ICON}")`;
+  readonly noPhotoIconUrl = `url("${PHOTO_NO_PHOTO_ICON}")`;
   readonly image = input.required<WorkspaceImage>();
   readonly clicked = output<string>();
   /** True while the <img> element is still loading from network. */

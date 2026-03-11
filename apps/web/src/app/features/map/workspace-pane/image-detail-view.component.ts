@@ -19,7 +19,7 @@ import {
   ImageAttachedEvent,
 } from '../../../core/upload-manager.service';
 import { WorkspaceViewService } from '../../../core/workspace-view.service';
-import { PhotoLoadService } from '../../../core/photo-load.service';
+import { PhotoLoadService, PHOTO_PLACEHOLDER_ICON } from '../../../core/photo-load.service';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { filter } from 'rxjs';
 import { ForwardGeocodeResult } from '../../../core/geocoding.service';
@@ -49,8 +49,12 @@ export type { ImageRecord, MetadataEntry } from './image-detail-view.types';
   ],
   templateUrl: './image-detail-view.component.html',
   styleUrl: './image-detail-view.component.scss',
+  host: {
+    '[style.--placeholder-icon]': 'placeholderIconUrl',
+  },
 })
 export class ImageDetailViewComponent implements OnDestroy {
+  readonly placeholderIconUrl = `url("${PHOTO_PLACEHOLDER_ICON}")`;
   private readonly supabaseService = inject(SupabaseService);
   private readonly uploadService = inject(UploadService);
   private readonly uploadManager = inject(UploadManagerService);
