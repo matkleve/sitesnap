@@ -460,4 +460,32 @@ describe('MapShellComponent', () => {
         const divider = (fixture.nativeElement as HTMLElement).querySelector('.drag-divider');
         expect(divider).not.toBeNull();
     });
+
+    // ── Zoom to location ───────────────────────────────────────────────────────
+
+    it('onZoomToLocationRequested() calls flyTo on the map with zoom 18', () => {
+        const fixture = TestBed.createComponent(MapShellComponent);
+        fixture.detectChanges();
+
+        const flyTo = vi.fn();
+        const mapStub = { flyTo, remove: vi.fn(), off: vi.fn() };
+        (fixture.componentInstance as unknown as { map: unknown }).map = mapStub;
+
+        fixture.componentInstance.onZoomToLocationRequested({ lat: 47.3769, lng: 8.5417 });
+
+        expect(flyTo).toHaveBeenCalledWith([47.3769, 8.5417], 18);
+
+        // Restore so teardown doesn't throw
+        (fixture.componentInstance as unknown as { map: unknown }).map = undefined;
+    });
+
+    it('onZoomToLocationRequested() does nothing when map is not initialised', () => {
+        const fixture = TestBed.createComponent(MapShellComponent);
+        fixture.detectChanges();
+
+        // map is undefined by default in tests (afterNextRender doesn't fire)
+        expect(() => {
+            fixture.componentInstance.onZoomToLocationRequested({ lat: 47.3769, lng: 8.5417 });
+        }).not.toThrow();
+    });
 });

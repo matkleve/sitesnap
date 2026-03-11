@@ -22,16 +22,17 @@ Property rows follow Notion pattern: click the value → inline edit, no separat
 
 ## Actions
 
-| #   | User Action                     | System Response                             | Triggers               |
-| --- | ------------------------------- | ------------------------------------------- | ---------------------- |
-| 1   | Clicks back arrow (desktop)     | Returns to Thumbnail Grid                   | `detailImageId` → null |
-| 2   | Clicks close (mobile)           | Closes overlay, returns to previous state   | Overlay dismissed      |
-| 3   | Clicks a metadata value         | Value becomes an inline text input          | Edit mode              |
-| 4   | Presses Enter or blurs input    | Saves updated metadata value                | Supabase update        |
-| 5   | Clicks "Edit location"          | Enters correction mode (drag marker on map) | Correction flow        |
-| 6   | Clicks "Add to project"         | Opens project picker                        | Project assignment     |
-| 7   | Clicks "Delete" in actions menu | Confirmation dialog, then deletes image     | Supabase delete        |
-| 8   | Scrolls down                    | Reveals more metadata and coordinate info   | Scroll                 |
+| #   | User Action                        | System Response                                         | Triggers                          |
+| --- | ---------------------------------- | ------------------------------------------------------- | --------------------------------- |
+| 1   | Clicks back arrow (desktop)        | Returns to Thumbnail Grid                               | `detailImageId` → null            |
+| 2   | Clicks close (mobile)              | Closes overlay, returns to previous state               | Overlay dismissed                 |
+| 3   | Clicks a metadata value            | Value becomes an inline text input                      | Edit mode                         |
+| 4   | Presses Enter or blurs input       | Saves updated metadata value                            | Supabase update                   |
+| 5   | Clicks "Edit location"             | Enters correction mode (drag marker on map)             | Correction flow                   |
+| 6   | Clicks "Add to project"            | Opens project picker                                    | Project assignment                |
+| 7   | Clicks "Delete" in actions menu    | Confirmation dialog, then deletes image                 | Supabase delete                   |
+| 8   | Scrolls down                       | Reveals more metadata and coordinate info               | Scroll                            |
+| 9   | Clicks "Zoom to location"          | Map flies/pans to the photo's coordinates at zoom 18    | `zoomToLocationRequested` output  |
 
 ## Component Hierarchy
 
@@ -51,6 +52,7 @@ ImageDetailView                            ← fills Workspace Pane content area
 │   │   └── [corrected] CorrectionBadge   ← "Corrected" badge with original EXIF shown below
 │   └── TimestampRow                       ← captured_at or created_at
 ├── DetailActions
+│   ├── ZoomToLocationButton               ← ghost button "Zoom to location" (only when lat/lng present)
 │   ├── EditLocationButton                 ← ghost button "Edit location"
 │   ├── AddToProjectButton                 ← ghost button "Add to project"
 │   └── ContextMenu (⋯)                   ← Delete, Copy coordinates, etc.
@@ -78,6 +80,24 @@ ImageDetailView                            ← fills Workspace Pane content area
 | `editingKey`    | `string \| null` | `null`  | Which metadata key is being edited inline |
 | `fullResLoaded` | `boolean`        | `false` | Whether full-res image has loaded         |
 | `thumbLoaded`   | `boolean`        | `false` | Whether Tier 2 thumbnail has loaded       |
+
+## Zoom to Location Flow
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant IDV as ImageDetailView
+    participant WP as WorkspacePane
+    participant MS as MapShell
+    participant Map as Leaflet Map
+
+    User->>IDV: Clicks "Zoom to location"
+    IDV->>IDV: zoomToLocation() reads image().latitude/longitude
+    IDV->>WP: zoomToLocationRequested.emit({ lat, lng })
+    WP->>MS: zoomToLocationRequested.emit({ lat, lng })
+    MS->>Map: map.flyTo([lat, lng], 18)
+    Map-->>User: Map animates to photo coordinates
+```
 
 ## Progressive Image Loading
 
@@ -158,3 +178,5 @@ stateDiagram-v2
 - [ ] Edit location button starts marker correction mode
 - [ ] Add to project opens project picker
 - [ ] Delete confirmation before removal
+- [ ] "Zoom to location" button visible only when image has latitude/longitude
+- [ ] Clicking "Zoom to location" flies the map to the photo's coordinates at zoom 18

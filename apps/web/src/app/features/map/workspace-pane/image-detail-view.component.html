@@ -159,6 +159,19 @@
   <!-- DetailActions: ghost buttons at the bottom -->
   <div class="ui-spacer"></div>
   <div class="detail-actions">
+    <!-- ZoomToLocationButton (only when coordinates are available) -->
+    @if (image()?.latitude != null) {
+      <button
+        class="detail-actions__btn"
+        type="button"
+        aria-label="Zoom to photo location on map"
+        (click)="zoomToLocation()"
+      >
+        <span class="material-icons" aria-hidden="true">zoom_in_map</span>
+        Zoom to location
+      </button>
+    }
+
     <!-- EditLocationButton -->
     <button
       class="detail-actions__btn"
