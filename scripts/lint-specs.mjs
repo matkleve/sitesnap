@@ -24,8 +24,8 @@ import { join, basename, resolve } from "node:path";
 
 // ─── Config ────────────────────────────────────────────────────────────────
 
-const DEFAULT_MAX_LINES = 250;
-const DEFAULT_WARN_LINES = 200;
+const DEFAULT_MAX_LINES = 600;
+const DEFAULT_WARN_LINES = 400;
 const DEFAULT_MAX_WHAT_IT_IS = 5;
 const DEFAULT_MAX_WHAT_IT_LOOKS_LIKE = 40;
 

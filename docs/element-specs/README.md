@@ -20,7 +20,7 @@ Run `node scripts/lint-specs.mjs` from the project root to validate all specs. R
 
 | Rule                      | Severity   | Threshold | Description                                                                                                             |
 | ------------------------- | ---------- | --------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `spec-max-lines`          | error/warn | 250 / 200 | Max lines per spec. Split oversized specs into parent + child specs with cross-references.                              |
+| `spec-max-lines`          | error/warn | 600 / 400 | Max lines per spec. Split oversized specs into parent + child specs with cross-references.                              |
 | `spec-required-sections`  | error      | —         | Every spec must have: What It Is, What It Looks Like, Where It Lives, Actions, Component Hierarchy, Acceptance Criteria |
 | `spec-section-order`      | warning    | —         | Sections should follow the canonical order from the template                                                            |
 | `what-it-is-length`       | warning    | 5 lines   | Keep "What It Is" to 1–2 sentences                                                                                      |

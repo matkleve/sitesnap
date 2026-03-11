@@ -316,22 +316,22 @@ stateDiagram-v2
 
 ## Acceptance Criteria
 
-- [ ] When `storage_path IS NULL`: upload prompt shown **immediately** — no loading spinner, no CSS placeholder, no signed URL requests
-- [ ] When `storage_path IS NULL`: parent view `loading` resolves to `false` as soon as record fetch completes
-- [ ] When `storage_path` exists: CSS placeholder shown immediately (gradient + camera icon)
-- [ ] Tier 2 thumbnail (256×256 transform) loads and replaces placeholder with slight blur
-- [ ] Full-res image loads on demand and crossfades over blurred thumbnail
-- [ ] If full-res fails, Tier 2 thumbnail stays visible
-- [ ] If both tiers fail, broken `<img>` icon shown with `alt="Image unavailable"`
-- [ ] Edit icon overlay on hero photo opens file picker
-- [ ] File validated before upload (size + MIME type via `UploadService.validateFile()`)
-- [ ] Delegates to `UploadManagerService.replaceFile(imageId, file)` — does not manage upload lifecycle directly
-- [ ] Spinner/progress shown by reading job state from `uploadManager.jobs()` signal
-- [ ] Subscribes to `imageReplaced$` to refresh signed URLs and show new photo immediately
-- [ ] On `imageReplaced$`: `heroSrc` set to `localObjectUrl` instantly → progressive reload restarts
-- [ ] `localObjectUrl` revoked after full-res signed URL loads to prevent memory leaks
-- [ ] Upload survives component destruction (user can navigate away mid-replace)
-- [ ] Shows upload prompt/placeholder when `storage_path IS NULL` (instead of hero photo)
-- [ ] Subscribes to `imageAttached$` to switch from placeholder to real photo display
-- [ ] Lightbox opens on photo click with dark backdrop
-- [ ] Lightbox closes on X, backdrop click, or Escape
+- [x] When `storage_path IS NULL`: upload prompt shown **immediately** — no loading spinner, no CSS placeholder, no signed URL requests
+- [x] When `storage_path IS NULL`: parent view `loading` resolves to `false` as soon as record fetch completes
+- [x] When `storage_path` exists: CSS placeholder shown immediately (gradient + camera icon)
+- [x] Tier 2 thumbnail (256×256 transform) loads and replaces placeholder with slight blur
+- [x] Full-res image loads on demand and crossfades over blurred thumbnail
+- [x] If full-res fails, Tier 2 thumbnail stays visible
+- [x] If both tiers fail, broken `<img>` icon shown with `alt="Image unavailable"`
+- [x] Edit icon overlay on hero photo opens file picker
+- [x] File validated before upload (size + MIME type via `UploadService.validateFile()`)
+- [x] Delegates to `UploadManagerService.replaceFile(imageId, file)` — does not manage upload lifecycle directly
+- [x] Spinner/progress shown by reading job state from `uploadManager.jobs()` signal
+- [x] Subscribes to `imageReplaced$` to refresh signed URLs and show new photo immediately
+- [x] On `imageReplaced$`: `heroSrc` set to `localObjectUrl` instantly → progressive reload restarts
+- [x] `localObjectUrl` revoked after full-res signed URL loads to prevent memory leaks
+- [x] Upload survives component destruction (user can navigate away mid-replace)
+- [x] Shows upload prompt/placeholder when `storage_path IS NULL` (instead of hero photo)
+- [x] Subscribes to `imageAttached$` to switch from placeholder to real photo display
+- [x] Lightbox opens on photo click with dark backdrop
+- [x] Lightbox closes on X, backdrop click, or Escape

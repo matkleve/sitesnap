@@ -10,11 +10,17 @@
 
 import { TestBed } from '@angular/core/testing';
 import { ComponentRef, signal } from '@angular/core';
+import { Subject } from 'rxjs';
 import {
   ImageDetailViewComponent,
   ImageRecord,
   MetadataEntry,
 } from './image-detail-view.component';
+import {
+  UploadManagerService,
+  ImageReplacedEvent,
+  ImageAttachedEvent,
+} from '../../../core/upload-manager.service';
 import { SupabaseService } from '../../../core/supabase.service';
 import { GeocodingService } from '../../../core/geocoding.service';
 import { AuthService } from '../../../core/auth.service';
@@ -888,30 +894,26 @@ describe('ImageDetailViewComponent', () => {
 // ── IE-10 Replace Photo — dedicated setup ──────────────────────────────────
 
 /**
- * Builds mocks specifically for the replace photo flow (IE-10).
- * Needs tighter control over storage.upload, storage.remove,
- * DB .update().eq() chain, and AuthService/WorkspaceViewService.
+ * Builds mocks specifically for the replace/attach photo flow (IE-10).
+ * Component delegates to UploadManagerService and reacts to events.
  */
 function setupReplace() {
-  // ── Storage mock ──
-  const storageUploadFn = vi.fn().mockResolvedValue({ data: { path: 'uploaded' }, error: null });
-  const storageRemoveFn = vi.fn().mockResolvedValue({ data: null, error: null });
-  const createSignedUrlFn = vi.fn().mockResolvedValue({
-    data: { signedUrl: 'https://example.com/signed-new' },
-    error: null,
-  });
+  // ── UploadManagerService mock ──
+  const imageReplaced$ = new Subject<ImageReplacedEvent>();
+  const imageAttached$ = new Subject<ImageAttachedEvent>();
+  const jobsSignal = signal<ReadonlyArray<any>>([]);
 
-  // ── DB update chain: .update().eq() ──
-  const updateEqFn = vi.fn().mockResolvedValue({ data: null, error: null });
-  const updateFn = vi.fn().mockReturnValue({ eq: updateEqFn });
+  const fakeUploadManager = {
+    replaceFile: vi.fn().mockReturnValue('job-001'),
+    attachFile: vi.fn().mockReturnValue('job-002'),
+    imageReplaced$: imageReplaced$.asObservable(),
+    imageAttached$: imageAttached$.asObservable(),
+    jobs: jobsSignal,
+  };
 
-  // ── DB select chain: .select('*').eq().single() (used by loadImage effect) ──
+  // ── DB select chain for loadImage ──
   const imageSingleFn = vi.fn().mockResolvedValue({ data: MOCK_IMAGE, error: null });
-
-  // For image_metadata.select(...).eq('image_id', ...)
   const metaSelectEqFn = vi.fn().mockResolvedValue({ data: [], error: null });
-
-  // For projects / metadata_keys (called on init when image loads)
   const projectOrderFn = vi.fn().mockResolvedValue({
     data: [{ id: 'proj-001', name: 'Project Alpha' }],
     error: null,
@@ -920,11 +922,9 @@ function setupReplace() {
     data: [{ key_name: 'Building type' }],
     error: null,
   });
-
-  const deleteFn = vi.fn().mockReturnValue({
-    eq: vi.fn().mockReturnValue({
-      eq: vi.fn().mockResolvedValue({ data: null, error: null }),
-    }),
+  const createSignedUrlFn = vi.fn().mockResolvedValue({
+    data: { signedUrl: 'https://example.com/signed-new' },
+    error: null,
   });
 
   const client = {
@@ -934,8 +934,14 @@ function setupReplace() {
           select: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({ single: imageSingleFn }),
           }),
-          update: updateFn,
-          delete: deleteFn,
+          update: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ data: null, error: null }),
+          }),
+          delete: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ data: null, error: null }),
+            }),
+          }),
         };
       }
       if (table === 'image_metadata') {
@@ -975,18 +981,11 @@ function setupReplace() {
     storage: {
       from: vi.fn().mockReturnValue({
         createSignedUrl: createSignedUrlFn,
-        upload: storageUploadFn,
-        remove: storageRemoveFn,
       }),
     },
   };
 
-  // ── Service mocks ──
-  const fakeAuth = {
-    user: signal({ id: 'user-001' } as any),
-    session: signal(null),
-    initializing: signal(false),
-  };
+  // ── Other service mocks ──
   const fakeUpload = {
     validateFile: vi.fn().mockReturnValue({ valid: true }),
     parseExif: vi.fn().mockResolvedValue({}),
@@ -1018,7 +1017,6 @@ function setupReplace() {
       },
     ]),
     batchSignThumbnails: vi.fn().mockResolvedValue(undefined),
-    // Stubs for properties the service might access during init
     activeSorts: signal([]),
     activeGroupings: signal([]),
     collapsedGroups: signal(new Set()),
@@ -1035,8 +1033,8 @@ function setupReplace() {
     providers: [
       { provide: SupabaseService, useValue: { client } },
       { provide: GeocodingService, useValue: fakeGeocoding },
-      { provide: AuthService, useValue: fakeAuth },
       { provide: UploadService, useValue: fakeUpload },
+      { provide: UploadManagerService, useValue: fakeUploadManager },
       { provide: WorkspaceViewService, useValue: fakeWorkspaceView },
     ],
   });
@@ -1051,14 +1049,13 @@ function setupReplace() {
     fixture,
     ref,
     client,
-    fakeAuth,
     fakeUpload,
+    fakeUploadManager,
     fakeWorkspaceView,
-    storageUploadFn,
-    storageRemoveFn,
+    imageReplaced$,
+    imageAttached$,
+    jobsSignal,
     createSignedUrlFn,
-    updateFn,
-    updateEqFn,
   };
 }
 
@@ -1070,7 +1067,6 @@ function createTestFile(name = 'replacement.jpg', type = 'image/jpeg', size = 10
 
 /** Builds a fake input change Event carrying a File. */
 function createFileEvent(file: File): Event {
-  // jsdom doesn't support DataTransfer, so we use Object.defineProperty
   const input = document.createElement('input');
   input.type = 'file';
   Object.defineProperty(input, 'files', { value: [file], writable: false });
@@ -1078,60 +1074,31 @@ function createFileEvent(file: File): Event {
 }
 
 describe('ImageDetailViewComponent — IE-10 Replace Photo', () => {
-  // ── Happy path ────────────────────────────────────────────────────────────
+  // ── Delegation ────────────────────────────────────────────────────────────
 
-  it('successful replace: uploads file, updates DB, refreshes grid', async () => {
+  it('delegates to uploadManager.replaceFile for images with storage_path', () => {
     const ctx = setupReplace();
     ctx.component.image.set({ ...MOCK_IMAGE });
 
-    const file = createTestFile();
-    await ctx.component.onFileSelected(createFileEvent(file));
+    ctx.component.onFileSelected(createFileEvent(createTestFile()));
 
-    // 1) Storage upload was called with the correct bucket
-    expect(ctx.client.storage.from).toHaveBeenCalledWith('images');
-    expect(ctx.storageUploadFn).toHaveBeenCalledWith(
-      expect.stringMatching(/^org-001\/user-001\/.+\.jpg$/),
-      file,
-      expect.objectContaining({ contentType: 'image/jpeg', upsert: false }),
-    );
-
-    // 2) DB update was called with new storage_path
-    expect(ctx.updateFn).toHaveBeenCalledWith(
-      expect.objectContaining({ storage_path: expect.stringMatching(/^org-001\//) }),
-    );
-
-    // 3) Old file was removed from storage (best-effort cleanup)
-    expect(ctx.storageRemoveFn).toHaveBeenCalledWith([MOCK_IMAGE.storage_path]);
-
-    // 4) Workspace grid cache was updated with new storagePath
-    const gridImage = ctx.fakeWorkspaceView.rawImages().find((wi) => wi.id === MOCK_IMAGE.id);
-    expect(gridImage?.storagePath).toMatch(/^org-001\/user-001\//);
-    expect(gridImage?.storagePath).not.toBe(MOCK_IMAGE.storage_path);
-    expect(gridImage?.signedThumbnailUrl).toBeUndefined();
-    expect(gridImage?.thumbnailUnavailable).toBe(false);
-
-    // 5) batchSignThumbnails called to re-sign the updated image
-    expect(ctx.fakeWorkspaceView.batchSignThumbnails).toHaveBeenCalled();
-
-    // 6) Component state is clean
-    expect(ctx.component.replacing()).toBe(false);
-    expect(ctx.component.replaceError()).toBeNull();
+    expect(ctx.fakeUploadManager.replaceFile).toHaveBeenCalledWith(MOCK_IMAGE.id, expect.any(File));
+    expect(ctx.fakeUploadManager.attachFile).not.toHaveBeenCalled();
   });
 
-  it('updates local image signal with new storage_path', async () => {
+  it('delegates to uploadManager.attachFile for photoless images', () => {
     const ctx = setupReplace();
-    ctx.component.image.set({ ...MOCK_IMAGE });
+    ctx.component.image.set({ ...MOCK_IMAGE, storage_path: null });
 
-    await ctx.component.onFileSelected(createFileEvent(createTestFile()));
+    ctx.component.onFileSelected(createFileEvent(createTestFile()));
 
-    const img = ctx.component.image();
-    expect(img?.storage_path).toMatch(/^org-001\/user-001\//);
-    expect(img?.storage_path).not.toBe(MOCK_IMAGE.storage_path);
+    expect(ctx.fakeUploadManager.attachFile).toHaveBeenCalledWith(MOCK_IMAGE.id, expect.any(File));
+    expect(ctx.fakeUploadManager.replaceFile).not.toHaveBeenCalled();
   });
 
-  // ── Validation failures ──────────────────────────────────────────────────
+  // ── Validation ───────────────────────────────────────────────────────────
 
-  it('shows error when file validation fails', async () => {
+  it('shows error when file validation fails', () => {
     const ctx = setupReplace();
     ctx.component.image.set({ ...MOCK_IMAGE });
     ctx.fakeUpload.validateFile.mockReturnValueOnce({
@@ -1139,146 +1106,155 @@ describe('ImageDetailViewComponent — IE-10 Replace Photo', () => {
       error: 'File too large (30 MB)',
     });
 
-    await ctx.component.onFileSelected(createFileEvent(createTestFile()));
+    ctx.component.onFileSelected(createFileEvent(createTestFile()));
 
     expect(ctx.component.replaceError()).toBe('File too large (30 MB)');
+    expect(ctx.fakeUploadManager.replaceFile).not.toHaveBeenCalled();
+  });
+
+  // ── replacing computed ────────────────────────────────────────────────────
+
+  it('replacing computed reflects active UploadManagerService job state', () => {
+    const ctx = setupReplace();
+    ctx.component.image.set({ ...MOCK_IMAGE });
+
+    // Before delegation
     expect(ctx.component.replacing()).toBe(false);
-    // No upload attempt
-    expect(ctx.storageUploadFn).not.toHaveBeenCalled();
+
+    // Delegate
+    ctx.component.onFileSelected(createFileEvent(createTestFile()));
+
+    // Simulate an active job in the manager
+    ctx.jobsSignal.set([{ id: 'job-001', phase: 'uploading' }]);
+    expect(ctx.component.replacing()).toBe(true);
+
+    // Simulate completion
+    ctx.jobsSignal.set([{ id: 'job-001', phase: 'complete' }]);
+    expect(ctx.component.replacing()).toBe(false);
   });
 
-  it('shows error when user is not authenticated', async () => {
+  // ── imageReplaced$ handler ───────────────────────────────────────────────
+
+  it('updates image and sets heroSrc on imageReplaced$', () => {
     const ctx = setupReplace();
     ctx.component.image.set({ ...MOCK_IMAGE });
-    ctx.fakeAuth.user.set(null);
+    // Simulate the component seeing this image as "current"
+    ctx.ref.setInput('imageId', MOCK_IMAGE.id);
+    ctx.fixture.detectChanges();
 
-    await ctx.component.onFileSelected(createFileEvent(createTestFile()));
-
-    expect(ctx.component.replaceError()).toBe('Not authenticated.');
-    expect(ctx.storageUploadFn).not.toHaveBeenCalled();
-  });
-
-  it('shows error when image has no organization_id', async () => {
-    const ctx = setupReplace();
-    ctx.component.image.set({ ...MOCK_IMAGE, organization_id: null });
-
-    await ctx.component.onFileSelected(createFileEvent(createTestFile()));
-
-    expect(ctx.component.replaceError()).toBe('Image has no organization.');
-    expect(ctx.storageUploadFn).not.toHaveBeenCalled();
-  });
-
-  // ── Storage upload failure ───────────────────────────────────────────────
-
-  it('shows error and keeps old image when storage upload fails', async () => {
-    const ctx = setupReplace();
-    ctx.component.image.set({ ...MOCK_IMAGE });
-    ctx.storageUploadFn.mockResolvedValueOnce({
-      data: null,
-      error: { message: 'Storage quota exceeded' },
+    const blobUrl = 'blob:http://localhost/fake-blob';
+    ctx.imageReplaced$.next({
+      jobId: 'job-001',
+      imageId: MOCK_IMAGE.id,
+      newStoragePath: 'org-001/user-001/new-photo.jpg',
+      localObjectUrl: blobUrl,
     });
 
-    await ctx.component.onFileSelected(createFileEvent(createTestFile()));
-
-    expect(ctx.component.replaceError()).toBe('Upload failed. Please try again.');
-    expect(ctx.component.replacing()).toBe(false);
-    // DB was NOT called
-    expect(ctx.updateFn).not.toHaveBeenCalled();
-    // Image unchanged
-    expect(ctx.component.image()?.storage_path).toBe(MOCK_IMAGE.storage_path);
+    expect(ctx.component.heroSrc()).toBe(blobUrl);
+    expect(ctx.component.image()?.storage_path).toBe('org-001/user-001/new-photo.jpg');
+    expect(ctx.component.fullResLoaded()).toBe(false);
+    expect(ctx.component.thumbnailLoaded()).toBe(false);
   });
 
-  // ── DB update failure ─────────────────────────────────────────────────────
-
-  it('cleans up uploaded file when DB update returns an error', async () => {
+  it('updates workspace grid cache on imageReplaced$', () => {
     const ctx = setupReplace();
     ctx.component.image.set({ ...MOCK_IMAGE });
-    ctx.updateEqFn.mockResolvedValueOnce({
-      data: null,
-      error: { message: 'permission denied' },
+    ctx.ref.setInput('imageId', MOCK_IMAGE.id);
+    ctx.fixture.detectChanges();
+
+    ctx.imageReplaced$.next({
+      jobId: 'job-001',
+      imageId: MOCK_IMAGE.id,
+      newStoragePath: 'org-001/user-001/new-photo.jpg',
     });
 
-    await ctx.component.onFileSelected(createFileEvent(createTestFile()));
+    const gridImage = ctx.fakeWorkspaceView.rawImages().find((wi) => wi.id === MOCK_IMAGE.id);
+    expect(gridImage?.storagePath).toBe('org-001/user-001/new-photo.jpg');
+    expect(gridImage?.signedThumbnailUrl).toBeUndefined();
+    expect(ctx.fakeWorkspaceView.batchSignThumbnails).toHaveBeenCalled();
+  });
 
-    expect(ctx.component.replaceError()).toBe('Failed to update image record.');
-    expect(ctx.component.replacing()).toBe(false);
-    // Orphan file cleaned up
-    expect(ctx.storageRemoveFn).toHaveBeenCalled();
-    // Grid NOT touched
-    expect(ctx.fakeWorkspaceView.batchSignThumbnails).not.toHaveBeenCalled();
+  // ── imageAttached$ handler ───────────────────────────────────────────────
+
+  it('switches from no-photo to photo display on imageAttached$', () => {
+    const ctx = setupReplace();
+    ctx.component.image.set({ ...MOCK_IMAGE, storage_path: null });
+    ctx.ref.setInput('imageId', MOCK_IMAGE.id);
+    ctx.fixture.detectChanges();
+
+    expect(ctx.component.hasPhoto()).toBe(false);
+
+    ctx.imageAttached$.next({
+      jobId: 'job-002',
+      imageId: MOCK_IMAGE.id,
+      newStoragePath: 'org-001/user-001/attached.jpg',
+      localObjectUrl: 'blob:http://localhost/fake-blob',
+      hadExistingCoords: false,
+    });
+
+    expect(ctx.component.hasPhoto()).toBe(true);
+    expect(ctx.component.heroSrc()).toBe('blob:http://localhost/fake-blob');
+    expect(ctx.component.image()?.storage_path).toBe('org-001/user-001/attached.jpg');
+  });
+
+  // ── Blob URL cleanup ──────────────────────────────────────────────────────
+
+  it('revokes blob URL after full-res loads', () => {
+    const ctx = setupReplace();
+    ctx.component.image.set({ ...MOCK_IMAGE });
+    ctx.ref.setInput('imageId', MOCK_IMAGE.id);
+    ctx.fixture.detectChanges();
+
+    const revokeSpy = vi.spyOn(URL, 'revokeObjectURL');
+    const blobUrl = 'blob:http://localhost/fake-blob';
+
+    // Simulate replace event with blobUrl
+    ctx.imageReplaced$.next({
+      jobId: 'job-001',
+      imageId: MOCK_IMAGE.id,
+      newStoragePath: 'org-001/user-001/new-photo.jpg',
+      localObjectUrl: blobUrl,
+    });
+
+    expect(ctx.component.heroSrc()).toBe(blobUrl);
+
+    // Simulate full-res load
+    ctx.component.onFullResLoaded();
+
+    expect(ctx.component.heroSrc()).toBeNull();
+    expect(revokeSpy).toHaveBeenCalledWith(blobUrl);
+
+    revokeSpy.mockRestore();
   });
 
   // ── Edge cases ───────────────────────────────────────────────────────────
 
-  it('does nothing when no file is selected (cancel)', async () => {
+  it('does nothing when no file is selected (cancel)', () => {
     const ctx = setupReplace();
     ctx.component.image.set({ ...MOCK_IMAGE });
 
-    // Simulate cancel — empty files list
     const input = document.createElement('input');
     input.type = 'file';
-    await ctx.component.onFileSelected({ target: input } as unknown as Event);
+    ctx.component.onFileSelected({ target: input } as unknown as Event);
 
-    expect(ctx.storageUploadFn).not.toHaveBeenCalled();
-    expect(ctx.component.replacing()).toBe(false);
+    expect(ctx.fakeUploadManager.replaceFile).not.toHaveBeenCalled();
   });
 
-  it('does nothing when image is null', async () => {
+  it('does nothing when image is null', () => {
     const ctx = setupReplace();
     ctx.component.image.set(null);
 
-    await ctx.component.onFileSelected(createFileEvent(createTestFile()));
+    ctx.component.onFileSelected(createFileEvent(createTestFile()));
 
-    expect(ctx.storageUploadFn).not.toHaveBeenCalled();
+    expect(ctx.fakeUploadManager.replaceFile).not.toHaveBeenCalled();
   });
 
-  it('uses correct file extension from the selected file', async () => {
-    const ctx = setupReplace();
-    ctx.component.image.set({ ...MOCK_IMAGE });
-
-    const pngFile = createTestFile('photo.png', 'image/png');
-    await ctx.component.onFileSelected(createFileEvent(pngFile));
-
-    expect(ctx.storageUploadFn).toHaveBeenCalledWith(
-      expect.stringMatching(/\.png$/),
-      pngFile,
-      expect.any(Object),
-    );
-  });
-
-  it('sets replacing=true during the operation', async () => {
-    const ctx = setupReplace();
-    ctx.component.image.set({ ...MOCK_IMAGE });
-
-    // Before
-    expect(ctx.component.replacing()).toBe(false);
-
-    // Slow down the upload to observe replacing=true
-    let resolveUpload!: (v: any) => void;
-    ctx.storageUploadFn.mockReturnValueOnce(
-      new Promise((resolve) => {
-        resolveUpload = resolve;
-      }),
-    );
-
-    const promise = ctx.component.onFileSelected(createFileEvent(createTestFile()));
-
-    // During upload
-    expect(ctx.component.replacing()).toBe(true);
-
-    resolveUpload({ data: { path: 'ok' }, error: null });
-    await promise;
-
-    // After
-    expect(ctx.component.replacing()).toBe(false);
-  });
-
-  it('clears previous replaceError on new attempt', async () => {
+  it('clears previous replaceError on new attempt', () => {
     const ctx = setupReplace();
     ctx.component.image.set({ ...MOCK_IMAGE });
     ctx.component.replaceError.set('Previous error');
 
-    await ctx.component.onFileSelected(createFileEvent(createTestFile()));
+    ctx.component.onFileSelected(createFileEvent(createTestFile()));
 
     expect(ctx.component.replaceError()).toBeNull();
   });
