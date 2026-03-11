@@ -198,6 +198,64 @@ Cluster click **never zooms**. Regardless of zoom level or cluster size, clickin
 
 The map does **not** zoom or re-center on cluster click. The map stays at its current view, preserving the user's spatial context.
 
+## Reactive Updates from Detail View
+
+When the user edits image properties in the **Image Detail View**, the corresponding marker on the map must update immediately. The detail view emits events that bubble through the Workspace Pane to the Map Shell, which applies the changes to the specific Leaflet marker without a full viewport refresh.
+
+### Update Types
+
+| Event Source                       | Marker Action                                                                  |
+| ---------------------------------- | ------------------------------------------------------------------------------ |
+| `imagePropertyChanged` (coords)    | `marker.setLatLng([newLat, newLng])` — marker slides to new position           |
+| `imagePropertyChanged` (direction) | Rebuild DivIcon with new direction cone angle via `setIcon()`                  |
+| `imagePropertyChanged` (other)     | Update cached marker data — no DOM change unless it affects visual state       |
+| `imageThumbnailChanged`            | Rebuild DivIcon with new thumbnail (local ObjectURL) via `setIcon()`           |
+| Correction mode drag completed     | Marker already at new position from drag — update key mapping + corrected flag |
+
+### Coordinate Change Flow
+
+```mermaid
+sequenceDiagram
+  participant Detail as ImageDetailView
+  participant Shell as MapShellComponent
+  participant Marker as L.Marker (Leaflet)
+
+  Detail->>Shell: (imagePropertyChanged) {imageId, field: 'coordinates', coords: {lat, lng}}
+  Shell->>Shell: Look up marker by imageId in markersByImageId map
+  Shell->>Marker: marker.setLatLng([lat, lng])
+  Shell->>Shell: Remove old markerKey entry, insert new markerKey
+  Shell->>Shell: Update PhotoMarkerState.corrected = true
+  Shell->>Marker: marker.setIcon(rebuildDivIcon with corrected dot)
+```
+
+### Thumbnail Change Flow
+
+```mermaid
+sequenceDiagram
+  participant Detail as ImageDetailView
+  participant Shell as MapShellComponent
+  participant Marker as L.Marker (Leaflet)
+
+  Detail->>Shell: (imageThumbnailChanged) {imageId, newStoragePath, localObjectUrl}
+  Shell->>Shell: Look up marker by imageId
+  Shell->>Shell: Update PhotoMarkerState.thumbnailUrl = localObjectUrl
+  Shell->>Shell: Rebuild DivIcon HTML via buildPhotoMarkerHtml()
+  Shell->>Marker: marker.setIcon(newDivIcon)
+  Note over Marker: Marker instantly shows the new photo
+  Note over Shell: On next viewport query, signed URL replaces ObjectURL
+```
+
+### Key Mapping
+
+Markers are keyed by coordinate-based `markerKey` (from `toMarkerKey()`). When coordinates change:
+
+1. Remove the old `markerKey → marker` entry from the markers map.
+2. Compute the new `markerKey` from the updated coordinates.
+3. If the new key collides with an existing marker (another image at the same rounded location), merge into a cluster.
+4. Otherwise, insert the marker under the new key.
+
+The Map Shell also maintains a **secondary index** `markersByImageId: Map<string, L.Marker>` for O(1) lookups when handling detail view events. This index is populated during marker creation and cleaned up during marker removal.
+
 ## Performance Rules
 
 These rules exist to prevent marker lag during map pan/zoom interactions.
@@ -228,6 +286,8 @@ These rules exist to prevent marker lag during map pan/zoom interactions.
 - The Map Shell includes the `direction` column in the initial-load and viewport queries so that bearing-based direction cones render for all markers, not only freshly uploaded ones.
 - Marker click handling opens the Workspace Pane for both single markers and cluster markers. Single marker click selects one image; cluster marker click fetches all image IDs for the cluster cell, populates Active Selection with those IDs, and signals the Workspace Pane to open. The map never zooms or re-centers on cluster click.
 - Hover direction cones are driven by CSS `:hover` on desktop. Touch long-press direction cones require a Leaflet pointer-event listener (~500 ms threshold) that toggles a `data-long-pressed` attribute or class.
+- The Map Shell subscribes to `imagePropertyChanged` and `imageThumbnailChanged` events from the Workspace Pane (output bubbling from `ImageDetailView`). On coordinate changes, it calls `marker.setLatLng()` and updates the key mapping. On thumbnail changes, it rebuilds the DivIcon and calls `marker.setIcon()`.
+- The Map Shell maintains a `markersByImageId` secondary index (`Map<string, L.Marker>`) for O(1) lookups when applying detail view edits. This index is populated during marker creation and cleaned up during marker removal.
 
 ## Acceptance Criteria
 
@@ -300,3 +360,13 @@ These rules exist to prevent marker lag during map pan/zoom interactions.
 - [x] Direction cone appears on long press when bearing data exists on touch devices — `pointerdown` 500 ms timer toggles `.map-photo-marker--long-pressed`; CSS shows cone for that class
 - [x] Direction cone rendered for database-loaded markers — `direction` column included in initial load query
 - [x] Direction cone rotates to reflect actual bearing — inline `transform:rotate(bearing-90deg)` set in `buildPhotoMarkerHtml()`
+
+### Reactive Updates from Detail View
+
+- [ ] `markersByImageId` secondary index maintained for O(1) marker lookups by image UUID
+- [ ] Coordinate edit in detail view moves marker via `marker.setLatLng()` — no full viewport refresh needed
+- [ ] Coordinate change updates the `markerKey` mapping (remove old key, insert new key)
+- [ ] Thumbnail change (Replace Photo) rebuilds DivIcon with local ObjectURL via `marker.setIcon()` — instant, no signed-URL delay
+- [ ] Direction change updates direction cone angle via DivIcon rebuild
+- [ ] Correction mode drag updates `corrected` flag and shows the correction dot on the marker
+- [ ] Detail view edits do not trigger a viewport query — changes are applied locally and reconciled on the next natural `moveend`

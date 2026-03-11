@@ -256,33 +256,35 @@ onDestroy: observer.disconnect();
 
 ## Actions
 
-| #   | User Action                               | System Response                                                        | Triggers                         |
-| --- | ----------------------------------------- | ---------------------------------------------------------------------- | -------------------------------- |
-| 1   | Clicks back arrow (desktop)               | Returns to Thumbnail Grid                                              | `detailImageId` → null           |
-| 2   | Clicks close (mobile)                     | Closes overlay, returns to previous state                              | Overlay dismissed                |
-| 3   | Clicks address label (title)              | Title becomes an inline text input                                     | `editingField` → `address_label` |
-| 4   | Presses Enter or blurs title input        | Saves updated address_label to `images` table                          | Supabase update                  |
-| 5   | Clicks captured date value                | Date becomes a `datetime-local` input                                  | `editingField` → `captured_at`   |
-| 6   | Picks new date/time, blurs                | Saves updated captured_at to `images` table                            | Supabase update                  |
-| 7   | Clicks project value                      | Value becomes a `<select>` dropdown with org projects                  | `editingField` → `project_id`    |
-| 8   | Selects a project                         | Saves project_id to `images` table                                     | Supabase update                  |
-| 9   | Clicks street/city/district/country value | Value becomes an inline text input                                     | `editingField` → field name      |
-| 10  | Presses Enter or blurs address input      | Saves updated address component to `images` table                      | Supabase update                  |
-| 11  | Clicks a custom metadata value            | Value becomes an inline text input                                     | Edit mode                        |
-| 12  | Presses Enter or blurs input              | Saves updated metadata value via upsert                                | Supabase upsert                  |
-| 13  | Clicks "Add metadata" button              | New row with typeahead key input appears                               | `showAddMetadata` → true         |
-| 14  | Types in key field (≥ 1 char)             | Queries `metadata_keys` (ILIKE), shows suggestion dropdown             | Typeahead query                  |
-| 15  | Selects a key suggestion                  | Sets `keyId`, loads `value_type` + `chip_options`, focuses value field | Schema loaded                    |
-| 16  | Clicks "Create \"{input}\""               | Creates new key with `value_type = "text"`, proceeds to value          | Supabase insert                  |
-| 17  | Fills value + Enter/blur                  | Creates `image_metadata` row (upsert), appends to metadata list        | Supabase upsert                  |
-| 18  | Clicks a chip (chip-type metadata)        | Saves selected chip value immediately — no confirm needed              | Supabase upsert                  |
-| 19  | Hovers metadata row                       | Reveals delete icon on the right                                       | CSS hover                        |
-| 20  | Clicks delete icon on metadata row        | Removes the metadata entry (optimistic, then Supabase delete)          | Supabase delete                  |
-| 21  | Presses Escape during any edit            | Cancels edit, restores original value, no DB write                     | `editingField` → null            |
-| 22  | Clicks "Edit location"                    | Enters correction mode (drag marker on map)                            | Correction flow                  |
-| 23  | Clicks "Add to project"                   | Opens project picker                                                   | Project assignment               |
-| 24  | Clicks "Delete" in actions menu           | Confirmation dialog, then deletes image                                | Supabase delete                  |
-| 25  | Scrolls down                              | Reveals more metadata and coordinate info                              | Scroll                           |
+| #   | User Action                                | System Response                                                                                                                                                                                                                                                       | Triggers                         |
+| --- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| 1   | Clicks back arrow (desktop)                | Returns to Thumbnail Grid                                                                                                                                                                                                                                             | `detailImageId` → null           |
+| 2   | Clicks close (mobile)                      | Closes overlay, returns to previous state                                                                                                                                                                                                                             | Overlay dismissed                |
+| 3   | Clicks address label (title)               | Title becomes an inline text input                                                                                                                                                                                                                                    | `editingField` → `address_label` |
+| 4   | Presses Enter or blurs title input         | Saves updated address_label to `images` table                                                                                                                                                                                                                         | Supabase update                  |
+| 5   | Clicks captured date value                 | Date becomes a `datetime-local` input                                                                                                                                                                                                                                 | `editingField` → `captured_at`   |
+| 6   | Picks new date/time, blurs                 | Saves updated captured_at to `images` table                                                                                                                                                                                                                           | Supabase update                  |
+| 7   | Clicks project value                       | Value becomes a `<select>` dropdown with org projects                                                                                                                                                                                                                 | `editingField` → `project_id`    |
+| 8   | Selects a project                          | Saves project_id to `images` table                                                                                                                                                                                                                                    | Supabase update                  |
+| 9   | Clicks street/city/district/country value  | Value becomes an inline text input                                                                                                                                                                                                                                    | `editingField` → field name      |
+| 10  | Presses Enter or blurs address input       | Saves updated address component to `images` table                                                                                                                                                                                                                     | Supabase update                  |
+| 11  | Clicks a custom metadata value             | Value becomes an inline text input                                                                                                                                                                                                                                    | Edit mode                        |
+| 12  | Presses Enter or blurs input               | Saves updated metadata value via upsert                                                                                                                                                                                                                               | Supabase upsert                  |
+| 13  | Clicks "Add metadata" button               | New row with typeahead key input appears                                                                                                                                                                                                                              | `showAddMetadata` → true         |
+| 14  | Types in key field (≥ 1 char)              | Queries `metadata_keys` (ILIKE), shows suggestion dropdown                                                                                                                                                                                                            | Typeahead query                  |
+| 15  | Selects a key suggestion                   | Sets `keyId`, loads `value_type` + `chip_options`, focuses value field                                                                                                                                                                                                | Schema loaded                    |
+| 16  | Clicks "Create \"{input}\""                | Creates new key with `value_type = "text"`, proceeds to value                                                                                                                                                                                                         | Supabase insert                  |
+| 17  | Fills value + Enter/blur                   | Creates `image_metadata` row (upsert), appends to metadata list                                                                                                                                                                                                       | Supabase upsert                  |
+| 18  | Clicks a chip (chip-type metadata)         | Saves selected chip value immediately — no confirm needed                                                                                                                                                                                                             | Supabase upsert                  |
+| 19  | Hovers metadata row                        | Reveals delete icon on the right                                                                                                                                                                                                                                      | CSS hover                        |
+| 20  | Clicks delete icon on metadata row         | Removes the metadata entry (optimistic, then Supabase delete)                                                                                                                                                                                                         | Supabase delete                  |
+| 21  | Presses Escape during any edit             | Cancels edit, restores original value, no DB write                                                                                                                                                                                                                    | `editingField` → null            |
+| 22  | Clicks "Edit location"                     | Enters correction mode (drag marker on map)                                                                                                                                                                                                                           | Correction flow                  |
+| 23  | Clicks "Add to project"                    | Opens project picker                                                                                                                                                                                                                                                  | Project assignment               |
+| 24  | Clicks "Delete" in actions menu            | Confirmation dialog, then deletes image                                                                                                                                                                                                                               | Supabase delete                  |
+| 25  | Scrolls down                               | Reveals more metadata and coordinate info                                                                                                                                                                                                                             | Scroll                           |
+| 26  | Clicks Replace Photo button (edit overlay) | Opens file picker; validates file; uploads via direct storage; updates DB `storage_path` + clears `thumbnail_path`; refreshes signed URLs; updates `rawImages` grid cache (clear `thumbnailPath` + `signedThumbnailUrl`); triggers thumbnail re-signing from new file | `replacing` → true, then false   |
+| 27  | Replace Photo upload fails                 | Shows inline error below photo; no DB/storage changes                                                                                                                                                                                                                 | `replaceError` set               |
 
 ## Component Hierarchy
 
@@ -618,6 +620,126 @@ sequenceDiagram
 - On mobile: opens as full-screen overlay on top of current view
 - Metadata edits call `SupabaseService` to update `image_metadata`
 - "Edit location" triggers correction mode in `MapShellComponent`
+- Injects `UploadService` for file validation (`validateFile()`) and MIME type constants
+- Injects `WorkspaceViewService` to update the grid cache after Replace Photo
+- Emits `(imagePropertyChanged)` output when any DB property save succeeds (address, coords, project, captured_at, etc.) — consumed by `MapShellComponent` to update the corresponding marker in real time
+- Emits `(imageThumbnailChanged)` output when Replace Photo completes — consumed by `MapShellComponent` to regenerate the marker's DivIcon with the new thumbnail URL
+
+### Replace Photo & Upload Manager
+
+The **Replace Photo** feature (edit icon overlay on the hero photo) currently performs a **direct storage upload + DB update**, bypassing the `UploadManagerService`. This is intentional for now because Replace Photo replaces an _existing_ image's file (same `images` row, new `storage_path`), while the upload manager's `submit()` creates _new_ image rows.
+
+When replacing a photo, the component must:
+
+1. Upload the new file to Supabase Storage at `{org_id}/{user_id}/{uuid}.{ext}`
+2. Update the DB: `storage_path = newPath` AND `thumbnail_path = null` (clear stale pre-generated thumbnail)
+3. Delete old original file AND old thumbnail from storage (best-effort, after confirmed DB update)
+4. Update local `image` signal with new `storage_path` and `thumbnail_path: null`
+5. Refresh signed URLs for the detail view
+6. Update `WorkspaceViewService.rawImages`: set `storagePath`, clear `thumbnailPath`, `signedThumbnailUrl`, and `thumbnailUnavailable` — so `batchSignThumbnails` generates a new thumbnail from the new file via on-the-fly transform
+7. Call `batchSignThumbnails` on the updated image to re-sign immediately
+
+**Future**: When `UploadManagerService` gains a `replaceFile(imageId, file)` method, the detail view should delegate to it for lifecycle resilience, progress tracking, and dedup checking.
+
+## Marker Sync — Live Updates
+
+When the user edits image properties in the detail view and the save succeeds, the corresponding **photo marker on the map must update immediately** without waiting for a viewport refresh or page reload. This ensures the map always reflects the latest state.
+
+### What Changes Propagate
+
+| Property Changed         | Marker Effect                                                                           |
+| ------------------------ | --------------------------------------------------------------------------------------- |
+| `address_label`          | Marker tooltip/hover text updates (if shown)                                            |
+| `latitude` / `longitude` | Marker **moves** to the new coordinates via `marker.setLatLng()`                        |
+| `project_id`             | No direct marker visual change (marker doesn't show project)                            |
+| `captured_at`            | No direct marker visual change                                                          |
+| `direction`              | Direction cone angle updates                                                            |
+| `storage_path` (Replace) | Marker thumbnail regenerates — new signed URL, DivIcon HTML rebuilt via `setIcon()`     |
+| Address fields (street…) | Marker grouping may change if workspace groups by address — viewport query handles this |
+
+### Event Flow
+
+```mermaid
+sequenceDiagram
+  actor User
+  participant Detail as ImageDetailView
+  participant Shell as MapShellComponent
+  participant Map as Leaflet Map
+  participant DB as Supabase
+
+  User->>Detail: Edit address label inline
+  Detail->>DB: UPDATE images SET address_label = 'New Label'
+  DB-->>Detail: OK (optimistic already applied)
+
+  Detail->>Shell: (imagePropertyChanged) {imageId, field: 'address_label', value: 'New Label'}
+  Shell->>Shell: Find marker by imageId in uploadedPhotoMarkers
+  Shell->>Shell: Update marker's cached data (addressLabel)
+  Note over Shell: No visual change needed for address-only edit
+
+  User->>Detail: Click "Edit location" → drag marker
+  Detail->>DB: INSERT coordinate_corrections; UPDATE images SET latitude, longitude
+  DB-->>Detail: OK
+
+  Detail->>Shell: (imagePropertyChanged) {imageId, field: 'coordinates', value: {lat, lng}}
+  Shell->>Shell: Find marker by imageId
+  Shell->>Map: marker.setLatLng([newLat, newLng])
+  Shell->>Shell: Update markerKey mapping (old coords → new coords)
+  Note over Map: Marker slides to new position
+
+  User->>Detail: Replace photo file
+  Detail->>DB: UPDATE images SET storage_path, thumbnail_path = null
+  DB-->>Detail: OK
+
+  Detail->>Shell: (imageThumbnailChanged) {imageId, newStoragePath, localObjectUrl}
+  Shell->>Shell: Find marker by imageId
+  Shell->>Shell: Set marker thumbnail to localObjectUrl (instant)
+  Shell->>Map: marker.setIcon(rebuiltDivIcon)
+  Note over Map: Marker shows new photo immediately
+```
+
+### Implementation Approach
+
+The detail view emits **two output events** that the parent (`MapShellComponent` via `WorkspacePaneComponent`) bubbles up:
+
+1. **`(imagePropertyChanged)`** — emitted on every successful property save:
+
+   ```typescript
+   interface ImagePropertyChangedEvent {
+     imageId: string;
+     field: string; // 'address_label' | 'latitude' | 'longitude' | 'captured_at' | 'direction' | 'project_id' | 'street' | 'city' | ...
+     value: unknown; // The new value
+     coords?: { lat: number; lng: number }; // Set when field is coordinates
+   }
+   ```
+
+2. **`(imageThumbnailChanged)`** — emitted when Replace Photo completes:
+   ```typescript
+   interface ImageThumbnailChangedEvent {
+     imageId: string;
+     newStoragePath: string;
+     /** Local ObjectURL for immediate marker display (avoids signed-URL round trip). */
+     localObjectUrl?: string;
+   }
+   ```
+
+`MapShellComponent` handles these events by:
+
+- Looking up the `L.Marker` instance in `uploadedPhotoMarkers` (keyed by imageId or markerKey)
+- For coordinate changes: calling `marker.setLatLng()` and updating the key mapping
+- For thumbnail changes: rebuilding the DivIcon HTML via `buildPhotoMarkerHtml()` with the new `localObjectUrl` and calling `marker.setIcon()`
+- For other property changes: updating the cached marker data (no DOM change unless the property affects rendering)
+
+### Correction Mode Integration
+
+When the user starts "Edit location" from the detail view:
+
+1. Detail emits `(editLocationRequested)` with the imageId
+2. Map Shell enters correction mode — marker becomes draggable
+3. User drags marker to new position and confirms
+4. Map Shell writes the correction to `coordinate_corrections` and updates `images.latitude` / `images.longitude`
+5. Map Shell emits the new coords back to Detail via a shared signal or callback
+6. Detail refreshes its `image` signal to show updated GPS row
+7. The marker is already at the new position from the drag — no additional move needed
 
 ## Acceptance Criteria
 
@@ -719,3 +841,25 @@ sequenceDiagram
 - [ ] Add to project opens project picker
 - [ ] Delete confirmation before removal
 - [ ] Projects dropdown loads from `projects` table filtered by `organization_id`
+
+### Replace Photo
+
+- [x] Edit icon overlay on hero photo opens file picker
+- [x] File validated before upload (size + MIME type via `UploadService.validateFile()`)
+- [x] New file uploaded to Supabase Storage; DB `storage_path` updated
+- [x] DB `thumbnail_path` cleared to `null` (stale pre-generated thumbnail invalidated)
+- [x] Old original AND old thumbnail deleted from storage (best-effort)
+- [x] Detail view refreshes signed URLs → shows new photo immediately
+- [x] Grid cache (`rawImages`) updated: `thumbnailPath` cleared so `batchSignThumbnails` generates thumbnail from new file
+- [x] Spinner shown on button during upload; error shown inline below photo on failure
+- [ ] **Future**: Delegate to `UploadManagerService.replaceFile()` for lifecycle resilience and dedup
+
+### Marker Sync — Live Updates
+
+- [ ] Emits `(imagePropertyChanged)` on every successful inline edit (address_label, captured_at, project_id, street, city, district, country)
+- [ ] Emits `(imageThumbnailChanged)` when Replace Photo completes with new `storagePath` + `localObjectUrl`
+- [ ] Coordinate edit (via "Edit location" correction mode) moves the marker on the map in real time via `marker.setLatLng()`
+- [ ] Replace Photo updates the marker thumbnail immediately using the local `ObjectURL` (no signed-URL delay)
+- [ ] Direction change (if editable in future) updates the direction cone angle on the marker
+- [ ] Events bubble through `WorkspacePaneComponent` to `MapShellComponent`
+- [ ] Map marker state stays in sync with detail view — no stale data after edits

@@ -699,10 +699,10 @@ export class ImageDetailViewComponent implements OnDestroy {
       return;
     }
 
-    // Update DB record (same pattern as saveImageField — check error only)
+    // Update DB record: new storage path + clear stale thumbnail reference.
     const { error: dbError } = await this.supabaseService.client
       .from('images')
-      .update({ storage_path: newPath })
+      .update({ storage_path: newPath, thumbnail_path: null })
       .eq('id', img.id);
 
     if (dbError) {
@@ -713,13 +713,15 @@ export class ImageDetailViewComponent implements OnDestroy {
       return;
     }
 
-    // Clean up old original file (best-effort, only after confirmed DB update).
-    // Keep old thumbnail — it's still referenced by thumbnail_path in the DB
-    // and used by the grid until a new thumbnail is regenerated server-side.
-    this.supabaseService.client.storage.from('images').remove([oldPath]);
+    // Clean up old files (best-effort, only after confirmed DB update).
+    const pathsToRemove = [oldPath];
+    if (oldThumbPath) pathsToRemove.push(oldThumbPath);
+    this.supabaseService.client.storage.from('images').remove(pathsToRemove);
 
     // Update local state and refresh
-    this.image.update((prev) => (prev ? { ...prev, storage_path: newPath } : prev));
+    this.image.update((prev) =>
+      prev ? { ...prev, storage_path: newPath, thumbnail_path: null } : prev,
+    );
     this.fullResLoaded.set(false);
     this.thumbnailLoaded.set(false);
     this.imageErrored.set(false);
@@ -743,6 +745,7 @@ export class ImageDetailViewComponent implements OnDestroy {
           ? {
               ...wi,
               storagePath: newPath,
+              thumbnailPath: null,
               signedThumbnailUrl: undefined,
               thumbnailUnavailable: false,
             }

@@ -17,13 +17,14 @@ A temporary map interaction mode activated when an uploaded photo has no GPS dat
 
 ## Actions
 
-| #   | User Action                      | System Response                                           | Triggers                                              |
-| --- | -------------------------------- | --------------------------------------------------------- | ----------------------------------------------------- |
-| 1   | Upload panel reports missing GPS | Placement mode activates, banner appears, cursor changes  | `placementActive` → true                              |
-| 2   | Clicks on map                    | Places marker at click coordinates, completes file upload | Coordinates sent to upload service                    |
-| 3   | After pin placed                 | Reverse-geocode coordinates to populate address fields    | Async: city, district, street, country, address_label |
-| 4   | Clicks Cancel                    | Exits placement mode, file stays in `awaiting_placement`  | `placementActive` → false                             |
-| 5   | Presses Escape                   | Same as Cancel                                            | `placementActive` → false                             |
+| #   | User Action                      | System Response                                                                 | Triggers                                              |
+| --- | -------------------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| 1   | Upload panel reports missing GPS | Placement mode activates, banner appears, cursor changes                        | `placementActive` → true                              |
+| 2   | Clicks on map                    | Places marker at click coordinates, completes file upload                       | Coordinates sent to upload service                    |
+| 3   | After pin placed                 | Reverse-geocode coordinates to populate address fields                          | Async: city, district, street, country, address_label |
+| 3b  | After pin placed (conflict)      | If a photoless row exists near placed coords, show conflict popup before upload | `locationConflict$` from UploadManager                |
+| 4   | Clicks Cancel                    | Exits placement mode, file stays in `awaiting_placement`                        | `placementActive` → false                             |
+| 5   | Presses Escape                   | Same as Cancel                                                                  | `placementActive` → false                             |
 
 ## Placement → Address Resolution Flow
 

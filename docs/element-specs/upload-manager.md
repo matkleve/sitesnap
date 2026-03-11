@@ -128,6 +128,15 @@ export class UploadManagerService {
   /** Cancel all jobs in a batch. */
   cancelBatch(batchId: string): void;
 
+  /**
+   * Resolve a location conflict for a paused job.
+   * Called when the user responds to the conflict popup.
+   *
+   * @param jobId       The job in 'awaiting_conflict_resolution' phase.
+   * @param resolution  The user's choice: attach (replace or keep location), or create new.
+   */
+  resolveConflict(jobId: string, resolution: ConflictResolution): void;
+
   // ── Batch progress signals ──
 
   /** All active and recent batches. */
@@ -156,8 +165,10 @@ type UploadPhase =
   | "dedup_check" // Checking hash against server
   | "skipped" // Duplicate detected — already uploaded
   | "extracting_title" // Parsing filename for address hint
+  | "conflict_check" // Checking for existing photoless rows at same location
+  | "awaiting_conflict_resolution" // Matching row found — waiting for user decision
   | "uploading" // Sending bytes to Supabase Storage
-  | "saving_record" // Inserting the images row
+  | "saving_record" // Inserting OR updating the images row
   | "resolving_address" // Reverse geocoding: GPS → address (non-blocking)
   | "resolving_coordinates" // Forward geocoding: address → GPS (non-blocking)
   | "missing_data" // No GPS + no address → handed to MissingDataManager
@@ -197,6 +208,10 @@ interface UploadJob {
   submittedAt: Date;
   /** Dedup content hash (set after 'hashing' phase). */
   contentHash?: string;
+  /** If conflict detected, the existing photoless row that matched. */
+  conflictCandidate?: ConflictCandidate;
+  /** User's resolution when a conflict was detected. */
+  conflictResolution?: ConflictResolution;
   /** If phase === 'skipped', the existing image ID that matched. */
   existingImageId?: string;
 }
@@ -224,7 +239,63 @@ interface UploadBatch {
   /** Timestamp when the last file finished (complete, skipped, or error). */
   finishedAt?: Date;
 }
+
+/** An existing images row (no photo) that conflicts with an incoming upload's location. */
+interface ConflictCandidate {
+  /** UUID of the existing images row. */
+  imageId: string;
+  /** The existing row's address label (may be null). */
+  addressLabel?: string;
+  /** The existing row's latitude (may be null). */
+  latitude?: number;
+  /** The existing row's longitude (may be null). */
+  longitude?: number;
+  /** Distance in meters between the existing row and the upload's coordinates (null if matched by address only). */
+  distanceMeters?: number;
+}
+
+/**
+ * How the user wants to resolve a location conflict.
+ * - `attach_replace`: attach photo to existing row, overwrite location with EXIF/upload data.
+ * - `attach_keep`: attach photo to existing row, keep the row's current location data.
+ * - `create_new`: ignore the match, create a brand-new images row (normal flow).
+ */
+type ConflictResolution = "attach_replace" | "attach_keep" | "create_new";
 ```
+
+## Entry Points
+
+### UploadPanelComponent (implemented)
+
+Drag-and-drop or file picker → calls `submit(files)` or `submitFolder(dirHandle)`. The panel is a thin UI layer that reads from `jobs()` and bridges manager events to component outputs.
+
+### ImageDetailView — Replace Photo (partially integrated)
+
+The image detail view has a **Replace Photo** button (edit icon overlay on the hero photo). This flow replaces the _existing_ image's file — same `images` row, new `storage_path`.
+
+**Current implementation**: Direct storage upload + DB update, bypassing the upload manager. This was necessary because `submit()` creates _new_ image rows, while Replace Photo updates an _existing_ row.
+
+**What it does today:**
+
+1. Validates the file via `UploadService.validateFile()`
+2. Uploads to Supabase Storage at `{org_id}/{user_id}/{uuid}.{ext}`
+3. Updates DB: `storage_path = newPath`, `thumbnail_path = null`
+4. Deletes old original + old thumbnail from storage (best-effort)
+5. Updates `WorkspaceViewService.rawImages` grid cache — clears `thumbnailPath` and `signedThumbnailUrl` so `batchSignThumbnails` generates a fresh thumbnail from the new file
+6. Calls `batchSignThumbnails` to immediately re-sign
+
+**Future**: Add `replaceFile(imageId: string, file: File): string` to `UploadManagerService` that:
+
+- Validates, optionally dedup-checks, uploads to storage
+- Updates the existing `images` row (not insert)
+- Clears `thumbnail_path` in DB
+- Cleans up old files
+- Emits `imageReplaced$` event for map marker thumbnail refresh
+- Tracks progress as an `UploadJob` with a `'replacing'` phase label
+
+### FolderImportAdapter (not yet implemented)
+
+Will use `submitFolder()` to process a `FileSystemDirectoryHandle` from `showDirectoryPicker()`.
 
 ## Pipeline Phases
 
@@ -250,17 +321,28 @@ stateDiagram-v2
 
   dedup_check --> skipped : hash exists in DB (duplicate)
   dedup_check --> extracting_title : hash is new + no GPS
-  dedup_check --> uploading : hash is new + GPS found (Path A)
+  dedup_check --> conflict_check : hash is new + GPS found (Path A)
 
-  extracting_title --> uploading : address found in title (Path B)
+  extracting_title --> conflict_check : address found in title (Path B)
   extracting_title --> missing_data : no address either (Path C)
+
+  conflict_check --> awaiting_conflict_resolution : photoless row at same location found
+  conflict_check --> uploading : no conflict
+
+  awaiting_conflict_resolution --> uploading : user chose 'create_new'
+  awaiting_conflict_resolution --> uploading : user chose 'attach_replace' or 'attach_keep'
+  note right of awaiting_conflict_resolution
+    attach_replace: overwrite existing row's location with EXIF
+    attach_keep: preserve existing row's location data
+    create_new: ignore match, insert a new row
+  end note
 
   uploading --> saving_record : storage success
   uploading --> error : storage failure
 
   saving_record --> resolving_address : Path A (has GPS, needs address)
   saving_record --> resolving_coordinates : Path B (has address, needs GPS)
-  saving_record --> complete : no enrichment needed
+  saving_record --> complete : no enrichment needed (or attach_keep)
   saving_record --> error : DB failure → orphan cleanup
 
   resolving_address --> complete : address resolved or silent failure
@@ -277,20 +359,22 @@ stateDiagram-v2
 
 ### Phase Detail
 
-| #   | Phase                   | Critical? | Blocks UI? | Failure Behaviour                                                        |
-| --- | ----------------------- | --------- | ---------- | ------------------------------------------------------------------------ |
-| 1   | `queued`                | —         | No         | Waits for a concurrency slot (max 3 parallel)                            |
-| 2   | `validating`            | Yes       | Instant    | Rejects immediately with reason (size, MIME type)                        |
-| 3   | `parsing_exif`          | Yes       | Brief      | No GPS → continue to hashing; parse error → treat as no-EXIF             |
-| 3a  | `hashing`               | Yes       | Brief      | Computes content hash from file bytes + EXIF GPS + title + direction     |
-| 3b  | `dedup_check`           | Yes       | Brief      | Queries server for existing hash; match → `skipped`; no match → continue |
-| 3c  | `skipped`               | —         | No         | Duplicate detected — file is not uploaded. Job is terminal.              |
-| 4   | `extracting_title`      | Yes       | Brief      | Address found → continue; no address → `missing_data`                    |
-| 5   | `uploading`             | Yes       | Yes        | Hard stop, error shown, job can be retried                               |
-| 6   | `saving_record`         | Yes       | Yes        | Hard stop, attempt to delete orphaned storage file                       |
-| 7a  | `resolving_address`     | No        | No         | Path A: reverse geocode. Silent — address stays null                     |
-| 7b  | `resolving_coordinates` | No        | No         | Path B: forward geocode. Silent — coords stay null                       |
-| —   | `missing_data`          | No        | No         | Parked. Handed to MissingDataManager (not yet implemented)               |
+| #   | Phase                          | Critical? | Blocks UI? | Failure Behaviour                                                        |
+| --- | ------------------------------ | --------- | ---------- | ------------------------------------------------------------------------ |
+| 1   | `queued`                       | —         | No         | Waits for a concurrency slot (max 3 parallel)                            |
+| 2   | `validating`                   | Yes       | Instant    | Rejects immediately with reason (size, MIME type)                        |
+| 3   | `parsing_exif`                 | Yes       | Brief      | No GPS → continue to hashing; parse error → treat as no-EXIF             |
+| 3a  | `hashing`                      | Yes       | Brief      | Computes content hash from file bytes + EXIF GPS + title + direction     |
+| 3b  | `dedup_check`                  | Yes       | Brief      | Queries server for existing hash; match → `skipped`; no match → continue |
+| 3c  | `skipped`                      | —         | No         | Duplicate detected — file is not uploaded. Job is terminal.              |
+| 4   | `extracting_title`             | Yes       | Brief      | Address found → continue; no address → `missing_data`                    |
+| 4a  | `conflict_check`               | Yes       | Brief      | Queries photoless rows near the upload's location or matching address    |
+| 4b  | `awaiting_conflict_resolution` | —         | **Yes**    | Paused — waiting for user to pick Attach (replace/keep) or Create New    |
+| 5   | `uploading`                    | Yes       | Yes        | Hard stop, error shown, job can be retried                               |
+| 6   | `saving_record`                | Yes       | Yes        | Hard stop, attempt to delete orphaned storage file                       |
+| 7a  | `resolving_address`            | No        | No         | Path A: reverse geocode. Silent — address stays null                     |
+| 7b  | `resolving_coordinates`        | No        | No         | Path B: forward geocode. Silent — coords stay null                       |
+| —   | `missing_data`                 | No        | No         | Parked. Handed to MissingDataManager (not yet implemented)               |
 
 ## Concurrency Model
 
@@ -367,6 +451,9 @@ readonly missingData$: Observable<MissingDataEvent>;
 /** Emitted when a job enters 'skipped' (duplicate detected). */
 readonly uploadSkipped$: Observable<UploadSkippedEvent>;
 
+/** Emitted when a job enters 'awaiting_conflict_resolution' (photoless row at same location). */
+readonly locationConflict$: Observable<LocationConflictEvent>;
+
 /** Emitted whenever a job's phase changes (any transition). */
 readonly jobPhaseChanged$: Observable<JobPhaseChangedEvent>;
 
@@ -414,6 +501,18 @@ interface UploadSkippedEvent {
   contentHash: string;
   /** The existing image ID in the database. */
   existingImageId: string;
+}
+
+interface LocationConflictEvent {
+  jobId: string;
+  batchId: string;
+  fileName: string;
+  /** The existing photoless row that matched the upload's location. */
+  candidate: ConflictCandidate;
+  /** The upload's coordinates from EXIF (if any). */
+  uploadCoords?: ExifCoords;
+  /** The upload's address extracted from filename (if any). */
+  uploadAddress?: string;
 }
 
 interface JobPhaseChangedEvent {
@@ -475,7 +574,13 @@ sequenceDiagram
     alt Duplicate detected
       Manager->>Panel: uploadSkipped$ {fileName, existingImageId}
       Manager->>Panel: batchProgress$ {skippedFiles++}
-    else New file
+    else Conflict with existing photoless row
+      Manager->>Panel: jobPhaseChanged$ {currentPhase: 'conflict_check'}
+      Manager->>Panel: locationConflict$ {candidate, uploadCoords}
+      Note over Panel: Show conflict popup
+      Panel->>Manager: resolveConflict(jobId, 'attach_keep')
+      Manager->>Panel: jobPhaseChanged$ {currentPhase: 'uploading'}
+    else New file (no conflict)
       Manager->>Panel: jobPhaseChanged$ {currentPhase: 'uploading'}
       Manager->>Marker: jobPhaseChanged$ → PendingRing shown
       Manager->>Card: jobPhaseChanged$ → uploading icon shown
@@ -491,19 +596,20 @@ sequenceDiagram
 
 ### Event Consumers
 
-| Event              | Consumer               | Reaction                                                                        |
-| ------------------ | ---------------------- | ------------------------------------------------------------------------------- |
-| `imageUploaded$`   | `MapShellComponent`    | Adds optimistic marker to the map                                               |
-| `imageUploaded$`   | `ThumbnailGrid`        | Refreshes grid if the uploaded image belongs to the active group                |
-| `uploadFailed$`    | `MapShellComponent`    | Shows toast notification                                                        |
-| `uploadSkipped$`   | `UploadPanelComponent` | Shows "Already uploaded" label on the file item                                 |
-| `jobPhaseChanged$` | `UploadPanelComponent` | Updates per-file status label and icon                                          |
-| `jobPhaseChanged$` | `PhotoMarker`          | Shows/hides PendingRing on markers for files currently in `uploading` phase     |
-| `jobPhaseChanged$` | `ThumbnailCard`        | Shows/hides uploading overlay on cards for files currently in `uploading` phase |
-| `batchProgress$`   | `UploadPanelComponent` | Updates the batch progress bar (0–100%)                                         |
-| `batchProgress$`   | `UploadButtonZone`     | Shows progress ring/badge on the upload button                                  |
-| `batchComplete$`   | `UploadPanelComponent` | Shows batch summary (completed, skipped, failed)                                |
-| `missingData$`     | `MissingDataManager`   | Queues file for manual placement (future)                                       |
+| Event               | Consumer               | Reaction                                                                        |
+| ------------------- | ---------------------- | ------------------------------------------------------------------------------- |
+| `imageUploaded$`    | `MapShellComponent`    | Adds optimistic marker to the map                                               |
+| `imageUploaded$`    | `ThumbnailGrid`        | Refreshes grid if the uploaded image belongs to the active group                |
+| `uploadFailed$`     | `MapShellComponent`    | Shows toast notification                                                        |
+| `uploadSkipped$`    | `UploadPanelComponent` | Shows "Already uploaded" label on the file item                                 |
+| `locationConflict$` | `UploadPanelComponent` | Shows conflict resolution popup (attach replace / attach keep / create new)     |
+| `jobPhaseChanged$`  | `UploadPanelComponent` | Updates per-file status label and icon                                          |
+| `jobPhaseChanged$`  | `PhotoMarker`          | Shows/hides PendingRing on markers for files currently in `uploading` phase     |
+| `jobPhaseChanged$`  | `ThumbnailCard`        | Shows/hides uploading overlay on cards for files currently in `uploading` phase |
+| `batchProgress$`    | `UploadPanelComponent` | Updates the batch progress bar (0–100%)                                         |
+| `batchProgress$`    | `UploadButtonZone`     | Shows progress ring/badge on the upload button                                  |
+| `batchComplete$`    | `UploadPanelComponent` | Shows batch summary (completed, skipped, failed)                                |
+| `missingData$`      | `MissingDataManager`   | Queues file for manual placement (future)                                       |
 
 ## Folder Upload (Multi-File / Directory Selection)
 
@@ -720,6 +826,112 @@ sequenceDiagram
   Manager->>User: batchProgress$ shows:\n"350 already uploaded, uploading 150 remaining"
 ```
 
+## Location Conflict Detection
+
+When an upload has GPS coordinates (from EXIF) or an address (from filename), the pipeline checks for **existing `images` rows that have location data but no photo file** (`storage_path IS NULL`). These "photoless datapoints" may have been created through bulk import, manual address entry, or other workflows. If the upload's location matches one of these rows, the user is prompted to decide whether to attach the photo to the existing row or create a new one.
+
+### Why This Exists
+
+| Problem                                                                                          | Solution                                                                          |
+| ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| Datapoints created with address/GPS but no photo file                                            | Upload can attach a photo to an existing row instead of always creating a new one |
+| EXIF GPS may differ slightly from the manually entered location                                  | User chooses whether to trust the EXIF location or keep the existing one          |
+| Duplicate rows accumulate when photos are uploaded to addresses that already exist as datapoints | Conflict popup prevents accidental duplication                                    |
+
+### Matching Criteria
+
+A conflict is detected when **all** of the following are true:
+
+1. The job has GPS coordinates (EXIF or forward-geocoded) OR a resolved address.
+2. There exists an `images` row in the same organization where `storage_path IS NULL`.
+3. **GPS match**: the existing row's coordinates are within **50 meters** of the upload's coordinates (PostGIS `ST_DWithin`), **OR**
+4. **Address match**: the existing row's `address_label` is a case-insensitive match of the upload's title-derived address.
+
+If multiple candidates match, the **closest by distance** (GPS match) or **first by `created_at`** (address match) is selected.
+
+### Conflict Check Query
+
+```sql
+-- Find photoless rows near the upload's coordinates or matching address
+SELECT id, address_label, latitude, longitude,
+       ST_Distance(geog, ST_SetSRID(ST_MakePoint($lng, $lat), 4326)::geography) AS distance_m
+FROM images
+WHERE organization_id = $org_id
+  AND storage_path IS NULL
+  AND (
+    -- GPS proximity match (50m radius)
+    ($lat IS NOT NULL AND $lng IS NOT NULL AND
+     ST_DWithin(geog, ST_SetSRID(ST_MakePoint($lng, $lat), 4326)::geography, 50))
+    OR
+    -- Address label match (case-insensitive)
+    ($address IS NOT NULL AND LOWER(address_label) = LOWER($address))
+  )
+ORDER BY
+  CASE WHEN $lat IS NOT NULL THEN
+    ST_Distance(geog, ST_SetSRID(ST_MakePoint($lng, $lat), 4326)::geography)
+  ELSE 0 END ASC,
+  created_at ASC
+LIMIT 1;
+```
+
+### Conflict Resolution Flow
+
+```mermaid
+sequenceDiagram
+  actor User
+  participant Panel as UploadPanelComponent
+  participant Manager as UploadManagerService
+  participant DB as Supabase DB
+
+  Manager->>Manager: conflict_check phase starts
+  Manager->>DB: Query photoless rows near upload coords/address
+  DB-->>Manager: Candidate row found (id, address, coords)
+
+  Manager->>Manager: Phase → awaiting_conflict_resolution
+  Manager->>Panel: locationConflict$ {candidate, uploadCoords, uploadAddress}
+
+  Panel->>User: Show conflict popup
+  Note over User,Panel: "A datapoint already exists at [address].\nThe photo has different GPS data.\nWhat would you like to do?"
+
+  alt User picks "Use photo's location"
+    User->>Panel: Click "Replace location"
+    Panel->>Manager: resolveConflict(jobId, 'attach_replace')
+    Manager->>Manager: Phase → uploading (will UPDATE existing row with EXIF coords + storage_path)
+  else User picks "Keep existing location"
+    User->>Panel: Click "Keep existing"
+    Panel->>Manager: resolveConflict(jobId, 'attach_keep')
+    Manager->>Manager: Phase → uploading (will UPDATE existing row with storage_path only)
+  else User picks "Create new"
+    User->>Panel: Click "Create new entry"
+    Panel->>Manager: resolveConflict(jobId, 'create_new')
+    Manager->>Manager: Phase → uploading (will INSERT a new row as normal)
+  end
+```
+
+### Saving Record with Conflict Resolution
+
+When `conflictResolution` is set, the `saving_record` phase behaves differently:
+
+- **`attach_replace`**: UPDATE the existing row — set `storage_path`, `exif_latitude`, `exif_longitude`, `latitude`, `longitude`, `direction`, `captured_at`. The existing address fields are overwritten by a subsequent reverse-geocode (Path A enrichment).
+- **`attach_keep`**: UPDATE the existing row — set `storage_path`, `exif_latitude`, `exif_longitude`, `direction`, `captured_at` only. The `latitude`, `longitude`, and address fields are **preserved**. No enrichment phase runs (coordinates and address already present).
+- **`create_new`**: Normal INSERT flow, as if no conflict was detected.
+
+### Conflict Resolution Popup (UI)
+
+The popup is a **modal dialog** (not inline in the file list) with:
+
+- **Title**: "Existing datapoint found"
+- **Body**: "A datapoint at **[existing address or coords]** already exists without a photo. The uploaded photo has **[EXIF coords / filename address]**."
+- **Three action buttons** (stacked vertically, dd-item styling):
+  - `place` icon + **"Replace location"** — attach photo and overwrite location with EXIF. Subtitle: "Use the photo's GPS coordinates"
+  - `keep` icon + **"Keep existing location"** — attach photo, preserve current address/GPS. Subtitle: "Preserve the current address and coordinates"
+  - `add` icon + **"Create new entry"** — create a separate row. Subtitle: "Upload as a new datapoint"
+- **Dismiss (×)**: Equivalent to "Create new entry" (safe default).
+
+### `awaiting_conflict_resolution` and Concurrency
+
+Jobs in `awaiting_conflict_resolution` **release their concurrency slot**. This prevents one pending popup from blocking the entire upload queue. When the user resolves the conflict, the job re-enters the concurrency queue at the front (priority re-queue).
+
 ## Relationship to Existing Code
 
 ```mermaid
@@ -792,6 +1004,7 @@ graph LR
 - Subscribe to `jobPhaseChanged$` in `PhotoMarker` (via MapShell) to show/hide PendingRing
 - Subscribe to `jobPhaseChanged$` in `ThumbnailCard` to show uploading overlay
 - Subscribe to `uploadSkipped$` in `UploadPanelComponent` to show "Already uploaded" status
+- Subscribe to `locationConflict$` in `UploadPanelComponent` to show conflict resolution popup
 - `dedup_hashes` table must exist in Supabase with RLS enabled (see Deduplication section)
 
 ## Acceptance Criteria
@@ -845,3 +1058,28 @@ graph LR
 - [x] `batchProgress$` emits aggregate progress (0–100%) for the batch
 - [x] `batchComplete$` emits when a batch finishes with summary counts
 - [ ] UI consumers (`UploadPanel`, `UploadButtonZone`, `PhotoMarker`, `ThumbnailCard`) can subscribe to relevant events
+
+### ImageDetailView — Replace Photo
+
+- [x] Replace Photo validates file via `UploadService.validateFile()` before uploading
+- [x] DB `thumbnail_path` cleared to `null` when photo is replaced (invalidates stale pre-generated thumbnail)
+- [x] Old original AND old thumbnail deleted from storage after confirmed DB update
+- [x] `WorkspaceViewService.rawImages` grid cache updated: `thumbnailPath` cleared so `batchSignThumbnails` generates a fresh thumbnail via on-the-fly transform
+- [x] Detail view refreshes signed URLs and shows the new photo immediately
+- [ ] **Future**: `replaceFile(imageId, file)` method on `UploadManagerService` for lifecycle resilience, progress tracking, and dedup
+
+### Location Conflict Detection
+
+- [ ] After dedup passes, pipeline checks for photoless rows matching the upload's GPS (within 50m) or address
+- [ ] `conflict_check` query uses PostGIS `ST_DWithin` for GPS proximity and case-insensitive `address_label` match
+- [ ] Only rows with `storage_path IS NULL` are considered candidates
+- [ ] If a candidate is found, job transitions to `awaiting_conflict_resolution` and emits `locationConflict$`
+- [ ] `awaiting_conflict_resolution` releases the concurrency slot (does not block other uploads)
+- [ ] Conflict popup shows existing address/coords vs upload's EXIF data
+- [ ] Three resolution options: "Replace location" (`attach_replace`), "Keep existing" (`attach_keep`), "Create new" (`create_new`)
+- [ ] Dismissing the popup defaults to `create_new` (safe default)
+- [ ] `resolveConflict()` re-queues the job at the front of the concurrency queue
+- [ ] `attach_replace` UPDATEs existing row: `storage_path` + EXIF coords + `captured_at` + `direction`, then runs reverse-geocode enrichment
+- [ ] `attach_keep` UPDATEs existing row: `storage_path` + EXIF-only fields (`exif_latitude`, `exif_longitude`, `captured_at`, `direction`) — preserves existing `latitude`, `longitude`, and address
+- [ ] `create_new` INSERTs a new row as normal (same as no-conflict flow)
+- [ ] If no photoless rows match, pipeline continues to `uploading` automatically (no popup)
