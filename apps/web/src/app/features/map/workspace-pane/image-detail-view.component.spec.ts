@@ -40,6 +40,7 @@ const MOCK_IMAGE: ImageRecord = {
   country: 'Austria',
   direction: 180,
   location_unresolved: false,
+  has_time: true,
 };
 
 const MOCK_CORRECTED_IMAGE: ImageRecord = {
@@ -229,10 +230,6 @@ describe('ImageDetailViewComponent', () => {
       expect(component.projectOptions()).toEqual([]);
     });
 
-    it('has showAddMetadata set to false', () => {
-      const { component } = setup();
-      expect(component.showAddMetadata()).toBe(false);
-    });
   });
 
   // ── Computed signals ─────────────────────────────────────────────────────
@@ -523,17 +520,6 @@ describe('ImageDetailViewComponent', () => {
       expect(fake.client.from).not.toHaveBeenCalled();
     });
 
-    it('hides add-metadata form after success', async () => {
-      const { component } = setup();
-      component.image.set({ ...MOCK_IMAGE });
-      component.showAddMetadata.set(true);
-
-      await component.addMetadata('Phase', 'Construction');
-
-      expect(component.showAddMetadata()).toBe(false);
-      expect(component.saving()).toBe(false);
-    });
-
     it('appends new entry to metadata list on success', async () => {
       const { component } = setup();
       component.image.set({ ...MOCK_IMAGE });
@@ -689,58 +675,13 @@ describe('ImageDetailViewComponent', () => {
   // ── Address search ─────────────────────────────────────────────────────
 
   describe('address search', () => {
-    it('openAddressSearch pre-fills with current full address', () => {
+    it('openAddressSearch sets editingField to address_search', () => {
       const { component } = setup();
-      component.image.set({
-        ...MOCK_IMAGE,
-        street: 'Stephansplatz',
-        city: 'Wien',
-        district: 'Innere Stadt',
-        country: 'Austria',
-      });
+      component.image.set({ ...MOCK_IMAGE });
 
       component.openAddressSearch();
 
-      expect(component.addressSearchQuery()).toBe('Stephansplatz, Wien, Innere Stadt, Austria');
       expect(component.editingField()).toBe('address_search');
-    });
-
-    it('openAddressSearch sets empty query when no address', () => {
-      const { component } = setup();
-      component.image.set({
-        ...MOCK_IMAGE,
-        street: null,
-        city: null,
-        district: null,
-        country: null,
-      });
-
-      component.openAddressSearch();
-
-      expect(component.addressSearchQuery()).toBe('');
-    });
-
-    it('cancelAddressSearch clears state', () => {
-      const { component } = setup();
-      component.editingField.set('address_search');
-      component.addressSearchQuery.set('test query');
-      component.addressSuggestions.set([
-        {
-          lat: 48.2,
-          lng: 16.3,
-          addressLabel: 'Test',
-          city: 'Wien',
-          district: null,
-          street: null,
-          country: 'Austria',
-        },
-      ]);
-
-      component.cancelAddressSearch();
-
-      expect(component.editingField()).toBeNull();
-      expect(component.addressSearchQuery()).toBe('');
-      expect(component.addressSuggestions()).toEqual([]);
     });
 
     it('applyAddressSuggestion updates image address fields', async () => {
@@ -787,204 +728,169 @@ describe('ImageDetailViewComponent', () => {
         }),
       );
     });
-
-    it('onAddressSearchInput debounces geocoding call', () => {
-      vi.useFakeTimers();
-      const { component, fakeGeocoding } = setup();
-
-      component.onAddressSearchInput('Wien');
-
-      expect(fakeGeocoding.forward).not.toHaveBeenCalled();
-
-      vi.advanceTimersByTime(400);
-
-      expect(fakeGeocoding.forward).toHaveBeenCalledWith('Wien');
-      vi.useRealTimers();
-    });
-
-    it('onAddressSearchInput clears suggestions on empty input', () => {
-      const { component } = setup();
-      component.addressSuggestions.set([
-        {
-          lat: 48.2,
-          lng: 16.3,
-          addressLabel: 'Test',
-          city: 'Wien',
-          district: null,
-          street: null,
-          country: 'Austria',
-        },
-      ]);
-
-      component.onAddressSearchInput('');
-
-      expect(component.addressSuggestions()).toEqual([]);
-    });
-
-    it('selectFirstAddressResult applies first suggestion', async () => {
-      const { component } = setup();
-      component.image.set({ ...MOCK_IMAGE });
-      component.addressSuggestions.set([
-        {
-          lat: 47.07,
-          lng: 15.44,
-          addressLabel: 'Graz',
-          street: 'Main St',
-          city: 'Graz',
-          district: null,
-          country: 'Austria',
-        },
-      ]);
-
-      await component.selectFirstAddressResult();
-
-      expect(component.image()!.city).toBe('Graz');
-    });
-
-    it('selectFirstAddressResult does nothing when no suggestions', () => {
-      const { component } = setup();
-      component.image.set({ ...MOCK_IMAGE });
-      component.addressSuggestions.set([]);
-
-      component.selectFirstAddressResult();
-
-      // No change
-      expect(component.image()!.city).toBe('Wien');
-    });
   });
 
-  // ── Metadata key autocomplete ──────────────────────────────────────────
-
-  describe('metadata key autocomplete', () => {
-    it('filters matching keys from allMetadataKeyNames', () => {
-      const { component } = setup();
-      component.allMetadataKeyNames.set(['Building type', 'Floor', 'Phase', 'Builder']);
-      component.metadata.set([]);
-
-      component.onMetadataKeyInput('build');
-
-      expect(component.metadataKeySuggestions()).toEqual(['Building type', 'Builder']);
-    });
-
-    it('excludes keys already assigned to the image', () => {
-      const { component } = setup();
-      component.allMetadataKeyNames.set(['Building type', 'Floor', 'Phase']);
-      component.metadata.set([...MOCK_METADATA]); // has 'Building type' and 'Floor'
-
-      component.onMetadataKeyInput('f');
-
-      // 'Floor' is excluded because it's already assigned
-      expect(component.metadataKeySuggestions()).toEqual([]);
-    });
-
-    it('clears suggestions on empty input', () => {
-      const { component } = setup();
-      component.metadataKeySuggestions.set(['Building type']);
-
-      component.onMetadataKeyInput('');
-
-      expect(component.metadataKeySuggestions()).toEqual([]);
-    });
-
-    it('limits results to 5 suggestions', () => {
-      const { component } = setup();
-      component.allMetadataKeyNames.set(['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7']);
-      component.metadata.set([]);
-
-      component.onMetadataKeyInput('A');
-
-      expect(component.metadataKeySuggestions().length).toBe(5);
-    });
-  });
-
-  // ── Captured date editor ───────────────────────────────────────────────
+  // ── Captured date editor (DateSaveEvent + has_time) ────────────────────
 
   describe('captured date editor', () => {
-    it('openCapturedAtEditor parses existing captured_at into date and time', () => {
+    it('openCapturedAtEditor parses date and time when has_time=true', () => {
       const { component } = setup();
       component.image.set({
         ...MOCK_IMAGE,
         captured_at: '2025-06-15T10:30:00Z',
+        has_time: true,
       });
 
       component.openCapturedAtEditor();
 
       expect(component.editingField()).toBe('captured_at');
       expect(component.editDate()).toBe('2025-06-15');
-      // Time depends on local timezone, but should contain digits
       expect(component.editTime()).toMatch(/^\d{2}:\d{2}$/);
     });
 
-    it('openCapturedAtEditor defaults to today when no captured_at', () => {
+    it('openCapturedAtEditor sets empty time when has_time=false', () => {
       const { component } = setup();
-      component.image.set({ ...MOCK_IMAGE, captured_at: null });
+      component.image.set({
+        ...MOCK_IMAGE,
+        captured_at: '2025-06-15T00:00:00Z',
+        has_time: false,
+      });
 
       component.openCapturedAtEditor();
 
-      const today = new Date();
-      const yyyy = today.getFullYear();
-      const mm = String(today.getMonth() + 1).padStart(2, '0');
-      const dd = String(today.getDate()).padStart(2, '0');
-      expect(component.editDate()).toBe(`${yyyy}-${mm}-${dd}`);
+      expect(component.editDate()).toBe('2025-06-15');
+      expect(component.editTime()).toBe('');
+    });
+
+    it('openCapturedAtEditor sets empty fields when no captured_at', () => {
+      const { component } = setup();
+      component.image.set({ ...MOCK_IMAGE, captured_at: null, has_time: false });
+
+      component.openCapturedAtEditor();
+
+      expect(component.editDate()).toBe('');
       expect(component.editTime()).toBe('');
       expect(component.editingField()).toBe('captured_at');
     });
 
-    it('saveCapturedAt saves the combined date-time string', async () => {
+    it('saveCapturedAt with date+time saves combined with has_time=true', async () => {
       const { component, fake } = setup();
       component.image.set({ ...MOCK_IMAGE });
 
-      await component.saveCapturedAt('2025-07-20T14:30:00');
+      await component.saveCapturedAt({ date: '2025-07-20', time: '14:30' });
 
-      expect(fake.updateFn).toHaveBeenCalledWith({ captured_at: '2025-07-20T14:30:00' });
+      const expectedIso = new Date('2025-07-20T14:30:00').toISOString();
+      expect(fake.updateFn).toHaveBeenCalledWith({
+        captured_at: expectedIso,
+        has_time: true,
+      });
+      expect(component.image()!.has_time).toBe(true);
     });
 
-    it('saveCapturedAt saves date with midnight when no time', async () => {
-      const { component } = setup();
-      component.image.set({ ...MOCK_IMAGE });
-
-      await component.saveCapturedAt('2025-07-20T00:00:00');
-
-      expect(component.image()!.captured_at).toBe('2025-07-20T00:00:00');
-    });
-
-    it('saveCapturedAt delegates to saveImageField', async () => {
+    it('saveCapturedAt with date-only saves with has_time=false', async () => {
       const { component, fake } = setup();
       component.image.set({ ...MOCK_IMAGE });
 
-      await component.saveCapturedAt('2025-01-15T09:00:00');
+      await component.saveCapturedAt({ date: '2025-07-20', time: null });
 
-      expect(fake.updateFn).toHaveBeenCalledWith({ captured_at: '2025-01-15T09:00:00' });
+      const expectedIso = new Date('2025-07-20T00:00:00').toISOString();
+      expect(fake.updateFn).toHaveBeenCalledWith({
+        captured_at: expectedIso,
+        has_time: false,
+      });
+      expect(component.image()!.has_time).toBe(false);
     });
 
-    it('clearCapturedAt sets captured_at to null', async () => {
-      const { component } = setup();
+    it('saveCapturedAt with 00:00 time saves with has_time=true', async () => {
+      const { component, fake } = setup();
       component.image.set({ ...MOCK_IMAGE });
 
-      await component.clearCapturedAt();
+      await component.saveCapturedAt({ date: '2025-07-20', time: '00:00' });
+
+      const expectedIso = new Date('2025-07-20T00:00:00').toISOString();
+      expect(fake.updateFn).toHaveBeenCalledWith({
+        captured_at: expectedIso,
+        has_time: true,
+      });
+      expect(component.image()!.has_time).toBe(true);
+    });
+
+    it('saveCapturedAt with null date clears captured_at', async () => {
+      const { component, fake } = setup();
+      component.image.set({ ...MOCK_IMAGE });
+
+      await component.saveCapturedAt({ date: null, time: null });
 
       expect(component.image()!.captured_at).toBeNull();
+      expect(component.image()!.has_time).toBe(false);
+      expect(fake.updateFn).toHaveBeenCalledWith({
+        captured_at: null,
+        has_time: false,
+      });
+    });
+
+    it('saveCapturedAt closes editor', async () => {
+      const { component } = setup();
+      component.image.set({ ...MOCK_IMAGE });
+      component.editingField.set('captured_at');
+
+      await component.saveCapturedAt({ date: '2025-07-20', time: '09:00' });
+
       expect(component.editingField()).toBeNull();
     });
 
-    it('clearCapturedAt calls Supabase with null', async () => {
-      const { component, fake } = setup();
-      component.image.set({ ...MOCK_IMAGE });
-
-      await component.clearCapturedAt();
-
-      expect(fake.updateFn).toHaveBeenCalledWith({ captured_at: null });
-    });
-
-    it('clearCapturedAt rolls back on error', async () => {
+    it('saveCapturedAt rolls back on Supabase error', async () => {
       const { component, fake } = setup();
       const original = '2025-06-15T10:30:00Z';
-      component.image.set({ ...MOCK_IMAGE, captured_at: original });
+      component.image.set({ ...MOCK_IMAGE, captured_at: original, has_time: true });
       fake.updateEqFn.mockResolvedValueOnce({ data: null, error: { message: 'fail' } });
 
-      await component.clearCapturedAt();
+      await component.saveCapturedAt({ date: '2026-01-01', time: '08:00' });
 
       expect(component.image()!.captured_at).toBe(original);
+      expect(component.image()!.has_time).toBe(true);
+    });
+
+    it('saveCapturedAt does nothing when image is null', async () => {
+      const { component, fake } = setup();
+      component.image.set(null);
+      fake.client.from.mockClear();
+
+      await component.saveCapturedAt({ date: '2025-07-20', time: '14:30' });
+
+      expect(fake.updateFn).not.toHaveBeenCalled();
+    });
+
+    it('captureDate shows date+time when has_time=true', () => {
+      const { component } = setup();
+      component.image.set({
+        ...MOCK_IMAGE,
+        captured_at: '2025-06-15T10:30:00',
+        has_time: true,
+      });
+
+      const display = component.captureDate();
+      expect(display).toContain('2025');
+      expect(display).toContain('10:30');
+    });
+
+    it('captureDate shows date-only when has_time=false', () => {
+      const { component } = setup();
+      component.image.set({
+        ...MOCK_IMAGE,
+        captured_at: '2025-06-15T00:00:00',
+        has_time: false,
+      });
+
+      const display = component.captureDate();
+      expect(display).toContain('2025');
+      expect(display).not.toContain('00:00');
+    });
+
+    it('captureDate returns null when captured_at is null', () => {
+      const { component } = setup();
+      component.image.set({ ...MOCK_IMAGE, captured_at: null });
+      expect(component.captureDate()).toBeNull();
     });
   });
 
@@ -1001,17 +907,4 @@ describe('ImageDetailViewComponent', () => {
     });
   });
 
-  // ── showAddMetadata ──────────────────────────────────────────────────────
-
-  describe('showAddMetadata', () => {
-    it('toggles between true and false', () => {
-      const { component } = setup();
-
-      component.showAddMetadata.set(true);
-      expect(component.showAddMetadata()).toBe(true);
-
-      component.showAddMetadata.set(false);
-      expect(component.showAddMetadata()).toBe(false);
-    });
-  });
 });

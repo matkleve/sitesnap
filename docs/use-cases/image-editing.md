@@ -11,17 +11,18 @@ These scenarios describe how users edit image properties inline from the Image D
 
 ### Scenario Index
 
-| ID   | Scenario                              | Persona    |
-| ---- | ------------------------------------- | ---------- |
-| IE-1 | Edit address label (title)            | Technician |
-| IE-2 | Edit captured date                    | Clerk      |
-| IE-3 | Change project assignment             | Clerk      |
-| IE-4 | Edit custom metadata value            | Technician |
-| IE-5 | Add new custom metadata entry         | Clerk      |
-| IE-6 | Remove custom metadata entry          | Clerk      |
-| IE-7 | Edit address components               | Clerk      |
-| IE-8 | Discard edit via Escape               | Any        |
-| IE-9 | Concurrent edit conflict (optimistic) | Any        |
+| ID    | Scenario                              | Persona    |
+| ----- | ------------------------------------- | ---------- |
+| IE-1  | Edit address label (title)            | Technician |
+| IE-2  | Edit captured date                    | Clerk      |
+| IE-3  | Change project assignment             | Clerk      |
+| IE-4  | Edit custom metadata value            | Technician |
+| IE-5  | Add new custom metadata entry         | Clerk      |
+| IE-6  | Remove custom metadata entry          | Clerk      |
+| IE-7  | Edit address components               | Clerk      |
+| IE-8  | Discard edit via Escape               | Any        |
+| IE-9  | Concurrent edit conflict (optimistic) | Any        |
+| IE-10 | Replace photo file                    | Technician |
 
 ---
 
@@ -319,3 +320,96 @@ sequenceDiagram
 - Database has the last-written value
 - Each user's UI reflects their own optimistic write
 - No real-time sync — resolved on next load
+
+---
+
+## IE-10: Replace Photo File
+
+**Context:** Technician notices the wrong photo was uploaded for a location, or wants to replace a placeholder/corrupt image with the correct file. They click the edit button overlaid on the image in the detail view.
+
+### Trigger
+
+An **edit button** is overlaid in the **top-right corner** of the image container in the Image Detail View. The button:
+
+- Is **always visible** on touch devices (no hover state available)
+- Appears **on hover** on desktop — the button fades in when the cursor enters the image area
+- Uses a semi-transparent scrim background for contrast against any image content
+- Uses the `edit` Material Icon
+
+### Flow
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Detail as ImageDetailView
+    participant FilePicker as Native File Picker
+    participant Upload as UploadService
+    participant Storage as Supabase Storage
+    participant DB as Supabase DB
+
+    User->>Detail: Click edit button on image
+    Detail->>FilePicker: Open file picker (accept: image/*)
+    FilePicker-->>Detail: File selected (or cancelled)
+
+    alt File selected
+        Detail->>Upload: validateFile(file)
+        Upload-->>Detail: { valid: true }
+
+        Note over Detail: Show loading spinner on image
+
+        Detail->>Upload: parseExif(file)
+        Upload-->>Detail: ParsedExif (coords, capturedAt, direction)
+
+        Detail->>Detail: Build new storage path: {org}/{user}/{uuid}.{ext}
+        Detail->>Storage: storage.from('images').upload(newPath, file)
+        Storage-->>Detail: Upload OK
+
+        Detail->>DB: .from('images').update({ storage_path: newPath, thumbnail_path: null }).eq('id', imageId)
+        DB-->>Detail: OK
+
+        Detail->>Storage: storage.from('images').remove([oldStoragePath])
+        Note over Storage: Old file cleaned up (best-effort)
+
+        Detail->>Detail: Refresh signed URLs
+        Detail->>Detail: Reset image loading state (show new image)
+
+    else File cancelled
+        Note over Detail: No action
+    end
+
+    alt Validation fails
+        Upload-->>Detail: { valid: false, error: "..." }
+        Detail->>Detail: Show error message (toast or inline)
+    end
+
+    alt Upload fails
+        Storage-->>Detail: error
+        Detail->>Detail: Show error, keep old image
+    end
+```
+
+### EXIF Handling on Replace
+
+When a photo is replaced, the new file's EXIF data is parsed but **NOT** used to overwrite location fields. The rationale:
+
+- The image record already has user-verified location data (possibly manually corrected)
+- Overwriting coordinates would lose corrections
+- The `exif_latitude`/`exif_longitude` columns are **not** updated — they reflect the original upload's EXIF
+- `captured_at` is **not** updated — the user may have already corrected this field
+
+If the user wants to update location or date from the new file's EXIF, they can do so manually via the existing inline edit flows (IE-1 through IE-7).
+
+### Constraints
+
+- File must pass `UploadService.validateFile()` (25 MB max, allowed MIME types)
+- Only the file owner or org admin can replace (enforced by RLS on `images` update)
+- Old storage file is deleted best-effort — a failed cleanup doesn't block the operation
+- `thumbnail_path` is set to `null` after replace since the old thumbnail no longer matches. A new thumbnail can be regenerated server-side.
+
+**Expected state after:**
+
+- `storage_path` updated in `images` table to the new file path
+- `thumbnail_path` set to `null` (old thumbnail invalidated)
+- Old file removed from Supabase Storage (best-effort)
+- Image display refreshes to show the new photo
+- All metadata (address, project, coordinates, custom fields) remains unchanged

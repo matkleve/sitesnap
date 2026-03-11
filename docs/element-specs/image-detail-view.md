@@ -41,6 +41,7 @@ Full-resolution image with progressive loading (placeholder → thumbnail → fu
 - **Size**: Fixed to approximately **1/3 of the viewport height** (`max-height: 33vh`), maintaining a 4:3 aspect ratio. The photo does not grow with pane width — it stays compact to leave room for metadata below.
 - **Shape**: Rounded corners (`--radius-lg`), horizontally centered with side margins (`--spacing-4`). On hover, a subtle `--color-primary` ring appears.
 - **Click to enlarge**: Clicking the photo opens a **full-screen lightbox overlay** (dark backdrop, `rgba(0,0,0,0.9)`). The lightbox shows the image at `95vw / 95vh` max with `object-fit: contain`. Close button (X) top-right. Click backdrop or press Escape to close.
+- **Replace Photo button**: An `edit` Material Icon button is positioned in the **top-right corner** of the image container, overlaid on the image. Appears on hover (desktop) or always visible (touch). Uses a semi-transparent dark scrim (`rgba(0,0,0,0.5)`) for contrast. Clicking opens the native file picker to replace the photo file. See use case [IE-10](../use-cases/image-editing.md#ie-10-replace-photo-file).
 
 #### 3. Quick Info Bar (HIGH — at-a-glance context)
 

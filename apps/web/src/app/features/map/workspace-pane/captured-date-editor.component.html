@@ -2,13 +2,23 @@
 <div class="captured-date-editor" (keydown)="onKeydown($event)">
   <!-- Header: date + time split fields -->
   <div class="captured-date-editor__header">
-    <span class="captured-date-editor__date-display">{{ formattedDate() }}</span>
+    <input
+      #dateField
+      class="captured-date-editor__date-input"
+      type="text"
+      placeholder="DD.MM.YYYY"
+      [value]="dateInput()"
+      aria-label="Edit date"
+      (input)="dateInput.set(dateField.value)"
+      (blur)="onDateBlur()"
+      (keydown)="onDateKeydown($event)"
+    />
     <input
       #timeField
       class="captured-date-editor__time-input"
       type="text"
       inputmode="numeric"
-      placeholder="None"
+      placeholder="No time"
       [value]="timeInput()"
       aria-label="Edit time (24h format)"
       (input)="timeInput.set(timeField.value)"
@@ -20,7 +30,7 @@
   <!-- Month navigation -->
   <div class="captured-date-editor__month-nav">
     <span class="captured-date-editor__month-label">{{ monthLabel() }}</span>
-    <button class="captured-date-editor__now-btn" type="button" (click)="setNow()">Now</button>
+    <button class="captured-date-editor__now-btn" type="button" (click)="setToday()">Today</button>
     <button
       class="captured-date-editor__nav-btn"
       type="button"

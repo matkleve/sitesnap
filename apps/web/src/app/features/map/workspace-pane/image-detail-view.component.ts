@@ -8,7 +8,7 @@ import {
   output,
   signal,
 } from '@angular/core';
-import { CapturedDateEditorComponent } from './captured-date-editor.component';
+import { CapturedDateEditorComponent, DateSaveEvent } from './captured-date-editor.component';
 import { SupabaseService } from '../../../core/supabase.service';
 import { ForwardGeocodeResult } from '../../../core/geocoding.service';
 import { ImageRecord, MetadataEntry, SelectOption } from './image-detail-view.types';
@@ -79,26 +79,36 @@ export class ImageDetailViewComponent implements OnDestroy {
   readonly captureDate = computed(() => {
     const img = this.image();
     if (!img) return null;
-    const ts = img.captured_at ?? img.created_at;
-    return new Date(ts).toLocaleString(undefined, {
+    if (!img.captured_at) return null;
+    const ts = img.captured_at;
+    if (img.has_time) {
+      return new Date(ts).toLocaleString('de-AT', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      });
+    } else {
+      return new Date(ts).toLocaleDateString('de-AT', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      });
+    }
+  });
+
+  readonly uploadDate = computed(() => {
+    const img = this.image();
+    if (!img) return null;
+    return new Date(img.created_at).toLocaleString('de-AT', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,
-    });
-  });
-
-  readonly uploadDate = computed(() => {
-    const img = this.image();
-    if (!img) return null;
-    return new Date(img.created_at).toLocaleString(undefined, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
     });
   });
 
@@ -454,36 +464,61 @@ export class ImageDetailViewComponent implements OnDestroy {
       this.editDate.set(
         `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
       );
-      this.editTime.set(
-        `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
-      );
+      if (img.has_time) {
+        this.editTime.set(
+          `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
+        );
+      } else {
+        this.editTime.set('');
+      }
     } else {
-      const now = new Date();
-      this.editDate.set(
-        `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`,
-      );
+      this.editDate.set('');
       this.editTime.set('');
     }
     this.editingField.set('captured_at');
   }
 
-  async saveCapturedAt(combined: string): Promise<void> {
-    await this.saveImageField('captured_at', combined);
-  }
-
-  async clearCapturedAt(): Promise<void> {
+  async saveCapturedAt(event: DateSaveEvent): Promise<void> {
+    this.editingField.set(null);
     const img = this.image();
     if (!img) return;
-    const oldValue = img.captured_at;
-    this.image.update((prev) => (prev ? { ...prev, captured_at: null } : prev));
-    this.editingField.set(null);
+
+    if (!event.date) {
+      // Cleared — set captured_at to null
+      const oldCapturedAt = img.captured_at;
+      const oldHasTime = img.has_time;
+      this.image.update((prev) => (prev ? { ...prev, captured_at: null, has_time: false } : prev));
+      this.saving.set(true);
+      const { error } = await this.supabaseService.client
+        .from('images')
+        .update({ captured_at: null, has_time: false })
+        .eq('id', img.id);
+      if (error) {
+        this.image.update((prev) =>
+          prev ? { ...prev, captured_at: oldCapturedAt, has_time: oldHasTime } : prev,
+        );
+      }
+      this.saving.set(false);
+      return;
+    }
+
+    const hasTime = !!event.time;
+    const localStr = hasTime ? `${event.date}T${event.time}:00` : `${event.date}T00:00:00`;
+    const combined = new Date(localStr).toISOString();
+    const oldCapturedAt = img.captured_at;
+    const oldHasTime = img.has_time;
+    this.image.update((prev) =>
+      prev ? { ...prev, captured_at: combined, has_time: hasTime } : prev,
+    );
     this.saving.set(true);
     const { error } = await this.supabaseService.client
       .from('images')
-      .update({ captured_at: null })
+      .update({ captured_at: combined, has_time: hasTime })
       .eq('id', img.id);
     if (error) {
-      this.image.update((prev) => (prev ? { ...prev, captured_at: oldValue } : prev));
+      this.image.update((prev) =>
+        prev ? { ...prev, captured_at: oldCapturedAt, has_time: oldHasTime } : prev,
+      );
     }
     this.saving.set(false);
   }

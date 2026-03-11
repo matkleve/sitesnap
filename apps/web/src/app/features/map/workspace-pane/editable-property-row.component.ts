@@ -184,8 +184,9 @@ export class EditablePropertyRowComponent {
     if (!v) return '';
     try {
       const d = new Date(v);
-      // datetime-local needs YYYY-MM-DDTHH:MM format
-      return d.toISOString().slice(0, 16);
+      // datetime-local needs YYYY-MM-DDTHH:MM format (local time, not UTC)
+      const pad = (n: number) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
     } catch {
       return '';
     }

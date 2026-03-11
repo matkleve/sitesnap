@@ -10,6 +10,7 @@ export interface ImageRecord {
   exif_latitude: number | null;
   exif_longitude: number | null;
   captured_at: string | null;
+  has_time: boolean;
   created_at: string;
   address_label: string | null;
   street: string | null;

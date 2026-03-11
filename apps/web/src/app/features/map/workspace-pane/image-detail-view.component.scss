@@ -313,11 +313,14 @@
   }
 
   &--editing {
-    flex-wrap: wrap;
+    position: relative;
     background: color-mix(in srgb, var(--color-primary) 6%, transparent);
 
     app-captured-date-editor {
-      flex: 1 1 100%;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      z-index: 200;
       margin-top: var(--spacing-1);
     }
   }

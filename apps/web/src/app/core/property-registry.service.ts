@@ -168,7 +168,7 @@ const BUILT_IN_FIELD_MAP: Record<string, (img: WorkspaceImage) => string | numbe
 const BUILT_IN_GROUP_FORMAT: Record<string, (img: WorkspaceImage) => string> = {
   'date-captured': (img) => {
     if (!img.capturedAt) return 'Unknown date';
-    return new Date(img.capturedAt).toLocaleDateString(undefined, {
+    return new Date(img.capturedAt).toLocaleDateString('de-AT', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -176,7 +176,7 @@ const BUILT_IN_GROUP_FORMAT: Record<string, (img: WorkspaceImage) => string> = {
   },
   'date-uploaded': (img) => {
     if (!img.createdAt) return 'Unknown date';
-    return new Date(img.createdAt).toLocaleDateString(undefined, {
+    return new Date(img.createdAt).toLocaleDateString('de-AT', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -187,7 +187,7 @@ const BUILT_IN_GROUP_FORMAT: Record<string, (img: WorkspaceImage) => string> = {
   project: (img) => img.projectName ?? 'No project',
   date: (img) => {
     if (!img.capturedAt) return 'Unknown date';
-    return new Date(img.capturedAt).toLocaleDateString(undefined, {
+    return new Date(img.capturedAt).toLocaleDateString('de-AT', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -199,7 +199,7 @@ const BUILT_IN_GROUP_FORMAT: Record<string, (img: WorkspaceImage) => string> = {
   },
   month: (img) => {
     if (!img.capturedAt) return 'Unknown month';
-    return new Date(img.capturedAt).toLocaleDateString(undefined, {
+    return new Date(img.capturedAt).toLocaleDateString('de-AT', {
       year: 'numeric',
       month: 'long',
     });
