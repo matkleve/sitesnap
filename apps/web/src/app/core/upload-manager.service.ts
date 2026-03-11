@@ -1119,6 +1119,10 @@ export class UploadManagerService {
       updateData['longitude'] = parsedExif.coords.lng;
     }
 
+    console.log('[attach] targetImageId:', job.targetImageId);
+    console.log('[attach] updateData:', updateData);
+    console.log('[attach] contentHash:', job.contentHash);
+
     const { error: updateError } = await this.supabase.client
       .from('images')
       .update(updateData)
@@ -1262,6 +1266,12 @@ export class UploadManagerService {
     this.runningIds.delete(jobId);
 
     const finalJob = this.findJob(jobId)!;
+
+    // Inject blob URL into PhotoLoadService cache for instant display across all surfaces
+    if (finalJob.thumbnailUrl && finalJob.imageId) {
+      this.photoLoad.setLocalUrl(finalJob.imageId, finalJob.thumbnailUrl);
+    }
+
     this._imageUploaded$.next({
       jobId,
       batchId: finalJob.batchId,

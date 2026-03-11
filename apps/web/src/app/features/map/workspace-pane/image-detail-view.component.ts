@@ -17,8 +17,10 @@ import {
   UploadManagerService,
   ImageReplacedEvent,
   ImageAttachedEvent,
+  UploadFailedEvent,
 } from '../../../core/upload-manager.service';
 import { WorkspaceViewService } from '../../../core/workspace-view.service';
+import { ToastService } from '../../../core/toast.service';
 import {
   PhotoLoadService,
   PHOTO_PLACEHOLDER_ICON,
@@ -67,6 +69,7 @@ export class ImageDetailViewComponent implements OnDestroy {
   private readonly uploadManager = inject(UploadManagerService);
   private readonly workspaceView = inject(WorkspaceViewService);
   private readonly photoLoad = inject(PhotoLoadService);
+  private readonly toastService = inject(ToastService);
 
   readonly imageId = input<string | null>(null);
   readonly closed = output<void>();
@@ -252,6 +255,22 @@ export class ImageDetailViewComponent implements OnDestroy {
         filter((e) => e.imageId === this.imageId()),
       )
       .subscribe((event) => this.handleImageAttached(event));
+
+    // React to uploadFailed$ — surface pipeline errors for replace/attach jobs
+    this.uploadManager.uploadFailed$
+      .pipe(
+        takeUntilDestroyed(),
+        filter((e: UploadFailedEvent) => {
+          const jobs = this.uploadManager.jobs();
+          const job = jobs.find((j) => j.id === e.jobId);
+          return job?.targetImageId === this.imageId();
+        }),
+      )
+      .subscribe((event: UploadFailedEvent) => {
+        this.replaceError.set(event.error);
+        this.activeJobId.set(null);
+        this.toastService.show({ message: event.error, type: 'error' });
+      });
   }
 
   ngOnDestroy(): void {
@@ -519,6 +538,7 @@ export class ImageDetailViewComponent implements OnDestroy {
     navigator.clipboard.writeText(text).catch(() => {
       /* silent — clipboard may be unavailable */
     });
+    this.toastService.show({ message: 'Coordinates copied', type: 'info', duration: 2000 });
     this.showContextMenu.set(false);
   }
 
@@ -739,10 +759,7 @@ export class ImageDetailViewComponent implements OnDestroy {
 
     const img = this.image();
     if (img?.storage_path) {
-      await this.loadSignedUrls(
-        img,
-        this.abortController?.signal ?? new AbortController().signal,
-      );
+      await this.loadSignedUrls(img, this.abortController?.signal ?? new AbortController().signal);
     }
 
     // Free blob URL memory (no-op if no blob was provided)
@@ -751,6 +768,7 @@ export class ImageDetailViewComponent implements OnDestroy {
     }
 
     this.updateGridCache(event.imageId, event.newStoragePath);
+    this.toastService.show({ message: 'Photo replaced', type: 'success' });
   }
 
   private async handleImageAttached(event: ImageAttachedEvent): Promise<void> {
@@ -769,10 +787,7 @@ export class ImageDetailViewComponent implements OnDestroy {
 
     const img = this.image();
     if (img?.storage_path) {
-      await this.loadSignedUrls(
-        img,
-        this.abortController?.signal ?? new AbortController().signal,
-      );
+      await this.loadSignedUrls(img, this.abortController?.signal ?? new AbortController().signal);
     }
 
     // Free blob URL memory
@@ -781,6 +796,7 @@ export class ImageDetailViewComponent implements OnDestroy {
     }
 
     this.updateGridCache(event.imageId, event.newStoragePath);
+    this.toastService.show({ message: 'Photo attached', type: 'success' });
   }
 
   private updateGridCache(imageId: string, newStoragePath: string): void {

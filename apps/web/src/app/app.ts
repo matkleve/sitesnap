@@ -3,12 +3,13 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { filter, map, startWith } from 'rxjs/operators';
 import { NavComponent } from './features/nav/nav.component';
+import { ToastContainerComponent } from './core/toast-container.component';
 import { LocationResolverService } from './core/location-resolver.service';
 import { AuthService } from './core/auth.service';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, NavComponent],
+  imports: [RouterOutlet, NavComponent, ToastContainerComponent],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })

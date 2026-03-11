@@ -36,9 +36,11 @@ import {
   UploadManagerService,
   ImageReplacedEvent,
   ImageAttachedEvent,
+  UploadFailedEvent,
 } from '../../../core/upload-manager.service';
 import { WorkspaceViewService } from '../../../core/workspace-view.service';
 import { PhotoLoadService, PHOTO_PLACEHOLDER_ICON } from '../../../core/photo-load.service';
+import { ToastService } from '../../../core/toast.service';
 import { SearchBarComponent } from '../search-bar/search-bar.component';
 import { WorkspacePaneComponent } from '../workspace-pane/workspace-pane.component';
 import { DragDividerComponent } from '../workspace-pane/drag-divider/drag-divider.component';
@@ -65,6 +67,7 @@ export class MapShellComponent implements OnDestroy {
   private readonly uploadManagerService = inject(UploadManagerService);
   private readonly workspaceViewService = inject(WorkspaceViewService);
   private readonly photoLoadService = inject(PhotoLoadService);
+  private readonly toastService = inject(ToastService);
 
   /** Reference to the Leaflet map container div. */
   private readonly mapContainerRef = viewChild.required<ElementRef<HTMLDivElement>>('mapContainer');
@@ -541,6 +544,9 @@ export class MapShellComponent implements OnDestroy {
       }),
       this.uploadManagerService.imageAttached$.subscribe((event: ImageAttachedEvent) => {
         this.handleImageAttached(event);
+      }),
+      this.uploadManagerService.uploadFailed$.subscribe((event: UploadFailedEvent) => {
+        this.toastService.show({ message: event.error, type: 'error' });
       }),
     );
   }

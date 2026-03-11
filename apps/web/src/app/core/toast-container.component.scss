@@ -1,0 +1,21 @@
+:host {
+  position: fixed;
+  left: calc(3rem + 0.75rem); // sidebar collapsed width + gap
+  bottom: 1.5rem;
+  z-index: var(--z-toast, 450);
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 0.5rem;
+  transition: gap 200ms ease;
+  max-width: 24rem;
+  pointer-events: none;
+}
+
+@media (max-width: 48rem) {
+  :host {
+    left: 1rem;
+    right: 1rem;
+    bottom: 5rem; // above bottom sheet
+    max-width: none;
+  }
+}

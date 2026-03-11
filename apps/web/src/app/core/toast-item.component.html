@@ -1,0 +1,12 @@
+<div class="toast-body">
+  <span class="toast-icon material-symbols-outlined" aria-hidden="true">{{ icon }}</span>
+  <span class="toast-message">{{ item().message }}</span>
+  <button
+    type="button"
+    class="toast-dismiss"
+    aria-label="Dismiss notification"
+    (click)="onDismiss()"
+  >
+    <span class="material-symbols-outlined" aria-hidden="true">close</span>
+  </button>
+</div>
