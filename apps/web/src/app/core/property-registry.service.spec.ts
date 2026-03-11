@@ -145,9 +145,9 @@ describe('PropertyRegistryService', () => {
       expect(service.getGroupValue(makeImage({ city: null }), 'city')).toBe('Unknown city');
     });
 
-    it('returns "No value" for unknown groupable property', () => {
+    it('returns "No {id}" for unknown groupable property', () => {
       const img = makeImage();
-      expect(service.getGroupValue(img, 'nonexistent')).toBe('No value');
+      expect(service.getGroupValue(img, 'nonexistent')).toBe('No nonexistent');
     });
   });
 
@@ -215,11 +215,10 @@ describe('PropertyRegistryService', () => {
       service.setCustomProperties([
         { id: 'chimney-number', key_name: 'Chimney Number', key_type: 'text' },
       ]);
-      const img = makeImage();
-      (img as unknown as Record<string, unknown>)['metadata'] = { 'chimney-number': 'CH-42' };
+      const img = makeImage({ metadata: { 'chimney-number': 'CH-42' } });
 
       expect(service.getSortValue(img, 'chimney-number')).toBe('CH-42');
-      expect(service.getGroupValue(img, 'chimney-number')).toBe('CH-42');
+      expect(service.getGroupValue(img, 'chimney-number')).toBe('Chimney Number CH-42');
       expect(service.getFieldValue(img, 'chimney-number')).toBe('CH-42');
     });
 
@@ -229,8 +228,58 @@ describe('PropertyRegistryService', () => {
       ]);
       const img = makeImage();
       expect(service.getSortValue(img, 'chimney-number')).toBeNull();
-      expect(service.getGroupValue(img, 'chimney-number')).toBe('No value');
+      expect(service.getGroupValue(img, 'chimney-number')).toBe('No Chimney Number');
       expect(service.getFieldValue(img, 'chimney-number')).toBeNull();
+    });
+  });
+
+  // ── Numeric custom properties ──────────────────────────────────────────
+
+  describe('numeric custom properties', () => {
+    beforeEach(() => {
+      service.setCustomProperties([{ id: 'fang', key_name: 'Fang', key_type: 'number' }]);
+    });
+
+    it('getSortValue returns parsed number for number-type property', () => {
+      const img = makeImage({ metadata: { fang: '42' } });
+      expect(service.getSortValue(img, 'fang')).toBe(42);
+    });
+
+    it('getSortValue returns float for decimal values', () => {
+      const img = makeImage({ metadata: { fang: '3.14' } });
+      expect(service.getSortValue(img, 'fang')).toBeCloseTo(3.14);
+    });
+
+    it('getSortValue returns null for non-numeric string', () => {
+      const img = makeImage({ metadata: { fang: 'abc' } });
+      expect(service.getSortValue(img, 'fang')).toBeNull();
+    });
+
+    it('getSortValue returns null for empty string', () => {
+      const img = makeImage({ metadata: { fang: '' } });
+      expect(service.getSortValue(img, 'fang')).toBeNull();
+    });
+
+    it('getGroupValue returns label + value', () => {
+      const img = makeImage({ metadata: { fang: '42' } });
+      expect(service.getGroupValue(img, 'fang')).toBe('Fang 42');
+    });
+
+    it('getGroupValue returns "No {label}" for NaN', () => {
+      const img = makeImage({ metadata: { fang: 'abc' } });
+      expect(service.getGroupValue(img, 'fang')).toBe('No Fang');
+    });
+
+    it('getFieldValue returns string for number-type property', () => {
+      const img = makeImage({ metadata: { fang: '42' } });
+      expect(service.getFieldValue(img, 'fang')).toBe('42');
+    });
+
+    it('text-type property returns raw string (not parsed)', () => {
+      service.setCustomProperties([{ id: 'label', key_name: 'Label', key_type: 'text' }]);
+      const img = makeImage({ metadata: { label: '42' } });
+      expect(service.getSortValue(img, 'label')).toBe('42');
+      expect(typeof service.getSortValue(img, 'label')).toBe('string');
     });
   });
 });

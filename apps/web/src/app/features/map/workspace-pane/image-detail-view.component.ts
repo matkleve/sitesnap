@@ -1,5 +1,6 @@
 import {
   Component,
+  ElementRef,
   OnDestroy,
   computed,
   effect,
@@ -7,9 +8,13 @@ import {
   input,
   output,
   signal,
+  viewChild,
 } from '@angular/core';
 import { CapturedDateEditorComponent, DateSaveEvent } from './captured-date-editor.component';
 import { SupabaseService } from '../../../core/supabase.service';
+import { UploadService, ALLOWED_MIME_TYPES } from '../../../core/upload.service';
+import { AuthService } from '../../../core/auth.service';
+import { WorkspaceViewService } from '../../../core/workspace-view.service';
 import { ForwardGeocodeResult } from '../../../core/geocoding.service';
 import { ImageRecord, MetadataEntry, SelectOption } from './image-detail-view.types';
 import { PhotoLightboxComponent } from '../../../shared/photo-lightbox/photo-lightbox.component';
@@ -40,6 +45,9 @@ export type { ImageRecord, MetadataEntry } from './image-detail-view.types';
 })
 export class ImageDetailViewComponent implements OnDestroy {
   private readonly supabaseService = inject(SupabaseService);
+  private readonly uploadService = inject(UploadService);
+  private readonly authService = inject(AuthService);
+  private readonly workspaceView = inject(WorkspaceViewService);
 
   readonly imageId = input<string | null>(null);
   readonly closed = output<void>();
@@ -61,6 +69,9 @@ export class ImageDetailViewComponent implements OnDestroy {
   readonly thumbnailUrl = signal<string | null>(null);
   readonly showLightbox = signal(false);
   readonly allMetadataKeyNames = signal<string[]>([]);
+  readonly replacing = signal(false);
+  readonly replaceError = signal<string | null>(null);
+  readonly fileInput = viewChild<ElementRef<HTMLInputElement>>('fileInput');
   readonly editDate = signal('');
   readonly editTime = signal('');
 
@@ -134,8 +145,10 @@ export class ImageDetailViewComponent implements OnDestroy {
   });
 
   readonly imageReady = computed(() => {
-    if (this.imageErrored()) return false;
-    return this.thumbnailLoaded() || this.fullResLoaded();
+    if (this.fullResLoaded()) return true;
+    if (this.thumbnailLoaded()) return true;
+    // Only treat as "no image" if the full-res also errored (not just thumbnail)
+    return false;
   });
 
   private abortController: AbortController | null = null;
@@ -443,6 +456,12 @@ export class ImageDetailViewComponent implements OnDestroy {
     this.thumbnailLoaded.set(true);
   }
 
+  onThumbnailError(): void {
+    // Thumbnail failed (e.g. deleted/missing) — don't poison imageErrored,
+    // let the full-res image attempt to load independently.
+    this.thumbnailLoaded.set(false);
+  }
+
   onImageError(): void {
     this.imageErrored.set(true);
   }
@@ -618,5 +637,124 @@ export class ImageDetailViewComponent implements OnDestroy {
 
   openProjectPicker(): void {
     this.editingField.set('project_id');
+  }
+
+  /** Accepted MIME types for the file input */
+  readonly acceptTypes = Array.from(ALLOWED_MIME_TYPES).join(',');
+
+  triggerFileInput(): void {
+    const input = this.fileInput()?.nativeElement;
+    if (input) {
+      input.value = '';
+      input.click();
+    }
+  }
+
+  async onFileSelected(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    const img = this.image();
+    if (!img) return;
+
+    const user = this.authService.user();
+    if (!user) {
+      this.replaceError.set('Not authenticated.');
+      return;
+    }
+
+    // Validate
+    const validation = this.uploadService.validateFile(file);
+    if (!validation.valid) {
+      this.replaceError.set(validation.error!);
+      return;
+    }
+
+    if (!img.organization_id) {
+      this.replaceError.set('Image has no organization.');
+      return;
+    }
+
+    this.replacing.set(true);
+    this.replaceError.set(null);
+
+    // Build new storage path
+    const uuid = crypto.randomUUID();
+    const ext = (file.name.split('.').pop() ?? 'jpg').toLowerCase();
+    const orgId = img.organization_id;
+    const newPath = `${orgId}/${user.id}/${uuid}.${ext}`;
+    const oldPath = img.storage_path;
+    const oldThumbPath = img.thumbnail_path;
+
+    // Upload to storage
+    const { error: storageError } = await this.supabaseService.client.storage
+      .from('images')
+      .upload(newPath, file, { contentType: file.type, upsert: false });
+
+    if (storageError) {
+      console.error('[ReplacePhoto] Storage upload failed:', storageError);
+      this.replacing.set(false);
+      this.replaceError.set('Upload failed. Please try again.');
+      return;
+    }
+
+    // Update DB record (same pattern as saveImageField — check error only)
+    const { error: dbError } = await this.supabaseService.client
+      .from('images')
+      .update({ storage_path: newPath })
+      .eq('id', img.id);
+
+    if (dbError) {
+      console.error('[ReplacePhoto] DB update failed:', dbError);
+      await this.supabaseService.client.storage.from('images').remove([newPath]);
+      this.replacing.set(false);
+      this.replaceError.set('Failed to update image record.');
+      return;
+    }
+
+    // Clean up old original file (best-effort, only after confirmed DB update).
+    // Keep old thumbnail — it's still referenced by thumbnail_path in the DB
+    // and used by the grid until a new thumbnail is regenerated server-side.
+    this.supabaseService.client.storage.from('images').remove([oldPath]);
+
+    // Update local state and refresh
+    this.image.update((prev) => (prev ? { ...prev, storage_path: newPath } : prev));
+    this.fullResLoaded.set(false);
+    this.thumbnailLoaded.set(false);
+    this.imageErrored.set(false);
+    this.fullResUrl.set(null);
+    this.thumbnailUrl.set(null);
+
+    // Load new signed URLs
+    const updatedImg = this.image();
+    if (updatedImg) {
+      await this.loadSignedUrls(
+        updatedImg,
+        this.abortController?.signal ?? new AbortController().signal,
+      );
+    }
+
+    // Update the workspace grid cache AND re-sign the thumbnail so the grid
+    // immediately shows the new image instead of a broken placeholder.
+    this.workspaceView.rawImages.update((all) =>
+      all.map((wi) =>
+        wi.id === img.id
+          ? {
+              ...wi,
+              storagePath: newPath,
+              signedThumbnailUrl: undefined,
+              thumbnailUnavailable: false,
+            }
+          : wi,
+      ),
+    );
+    // Trigger thumbnail re-signing for the updated image
+    const updatedGridImages = this.workspaceView.rawImages().filter((wi) => wi.id === img.id);
+    if (updatedGridImages.length > 0) {
+      void this.workspaceView.batchSignThumbnails(updatedGridImages);
+    }
+
+    this.replacing.set(false);
   }
 }

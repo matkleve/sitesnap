@@ -67,10 +67,34 @@ export class FilterService {
     const ruleValue = rule.value.toLowerCase();
 
     if (fieldValue == null) {
-      return rule.operator === 'is not' ? ruleValue !== '' : false;
+      return rule.operator === 'is not' || rule.operator === '≠' ? ruleValue !== '' : false;
     }
 
     const fieldStr = String(fieldValue).toLowerCase();
+
+    // Numeric operators — compare as numbers
+    const numericOps = ['=', '≠', '>', '<', '≥', '≤'];
+    if (numericOps.includes(rule.operator)) {
+      const numField = parseFloat(fieldStr);
+      const numRule = parseFloat(ruleValue);
+      if (Number.isNaN(numField) || Number.isNaN(numRule)) return false;
+      switch (rule.operator) {
+        case '=':
+          return numField === numRule;
+        case '≠':
+          return numField !== numRule;
+        case '>':
+          return numField > numRule;
+        case '<':
+          return numField < numRule;
+        case '≥':
+          return numField >= numRule;
+        case '≤':
+          return numField <= numRule;
+        default:
+          return true;
+      }
+    }
 
     switch (rule.operator) {
       case 'contains':

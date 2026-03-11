@@ -63,7 +63,9 @@ SortDropdown                               ← floating dropdown, --color-bg-ele
 └── [no results] EmptyHint                 ← "No matching properties"
 ```
 
-### Sort Options (built-in)
+### Sort Options (built-in + custom)
+
+Built-in sort options:
 
 | Property      | Default Direction | Icon            |
 | ------------- | ----------------- | --------------- |
@@ -75,6 +77,21 @@ SortDropdown                               ← floating dropdown, --color-bg-ele
 | City          | Ascending (↑)     | `location_city` |
 | Country       | Ascending (↑)     | `flag`          |
 | Project       | Ascending (↑)     | `folder`        |
+
+Custom properties also appear here — filtered by `capabilities.sortable`. Custom property icons are type-based: `tag` (text), `numbers` (number), `event` (date), `check_box` (checkbox), `arrow_drop_down_circle` (select/chip).
+
+### Numeric Sort Behavior
+
+Number-type properties (built-in `distance`, custom number properties) are sorted **numerically**, not lexicographically:
+
+- Values are parsed via `parseFloat()` before comparison
+- Valid numbers compare as numbers: 1 < 5 < 12 < 100
+- Invalid or empty values treated as `null` → sort last
+- This prevents the common "1, 100, 12, 2, 5" lexicographic error
+
+### Dropdown Max-Height
+
+The `.dd-items` container inside the sort dropdown has `max-height: 24rem` with `overflow-y: auto`. This prevents the dropdown from overflowing the viewport when many custom properties are defined (e.g., 14 built-in + 15 custom = 29 options).
 
 ### Direction Toggle — Tri-State
 

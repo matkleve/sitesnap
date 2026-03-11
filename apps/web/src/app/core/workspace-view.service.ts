@@ -87,7 +87,16 @@ export class WorkspaceViewService {
         if (valA == null && valB == null) continue;
         if (valA == null) return 1;
         if (valB == null) return -1;
-        const cmp = valA < valB ? -1 : valA > valB ? 1 : 0;
+
+        // Numeric comparison when both values are numbers
+        let cmp: number;
+        if (typeof valA === 'number' && typeof valB === 'number') {
+          cmp = valA - valB;
+        } else {
+          const strA = String(valA).toLowerCase();
+          const strB = String(valB).toLowerCase();
+          cmp = strA < strB ? -1 : strA > strB ? 1 : 0;
+        }
         if (cmp !== 0) return sort.direction === 'asc' ? cmp : -cmp;
       }
       return 0;
@@ -157,6 +166,7 @@ export class WorkspaceViewService {
       if (images.length > 0) {
         this.resolveUnresolvedAddresses(images);
         void this.batchSignThumbnails(images);
+        void this.loadImageMetadata(images);
       }
     } finally {
       if (requestId === this.clusterLoadId) {
@@ -171,6 +181,7 @@ export class WorkspaceViewService {
     this.rawImages.set(images);
     this.resolveUnresolvedAddresses(images);
     void this.batchSignThumbnails(images);
+    void this.loadImageMetadata(images);
   }
 
   /** Convenience: "select" state populated but holding zero rows (RPC returned nothing). */
@@ -292,12 +303,70 @@ export class WorkspaceViewService {
     );
   }
 
+  /**
+   * Load the organization's custom property definitions from the metadata_keys
+   * table and register them in the PropertyRegistryService so they appear in
+   * sort / group / filter dropdowns.
+   */
+  async loadCustomProperties(): Promise<void> {
+    const { data, error } = await this.supabase.client.from('metadata_keys').select('id, key_name');
+
+    if (error || !data || data.length === 0) return;
+
+    this.registry.setCustomProperties(
+      (data as Array<{ id: string; key_name: string }>).map((k) => ({
+        id: k.id,
+        key_name: k.key_name,
+        key_type: 'text',
+      })),
+    );
+  }
+
   private getSortValue(img: WorkspaceImage, key: string): string | number | null {
     return this.registry.getSortValue(img, key);
   }
 
   private getGroupValue(img: WorkspaceImage, propertyId: string): string {
     return this.registry.getGroupValue(img, propertyId);
+  }
+
+  /**
+   * Load custom property values (image_metadata) for a batch of images.
+   * Patches the metadata map onto each WorkspaceImage in the signal.
+   */
+  private async loadImageMetadata(images: WorkspaceImage[]): Promise<void> {
+    const imageIds = images.map((img) => img.id);
+    if (imageIds.length === 0) return;
+
+    const { data, error } = await this.supabase.client
+      .from('image_metadata')
+      .select('image_id, metadata_key_id, value_text')
+      .in('image_id', imageIds);
+
+    if (error || !data || data.length === 0) return;
+
+    // Build map: imageId → { metadataKeyId → value }
+    const metadataMap = new Map<string, Record<string, string>>();
+    for (const row of data as Array<{
+      image_id: string;
+      metadata_key_id: string;
+      value_text: string;
+    }>) {
+      let entry = metadataMap.get(row.image_id);
+      if (!entry) {
+        entry = {};
+        metadataMap.set(row.image_id, entry);
+      }
+      entry[row.metadata_key_id] = row.value_text;
+    }
+
+    // Patch metadata onto images
+    this.rawImages.update((all) =>
+      all.map((img) => {
+        const meta = metadataMap.get(img.id);
+        return meta ? { ...img, metadata: { ...img.metadata, ...meta } } : img;
+      }),
+    );
   }
 
   private buildGroups(

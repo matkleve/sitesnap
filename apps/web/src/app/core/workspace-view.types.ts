@@ -27,6 +27,8 @@ export interface WorkspaceImage {
   signedThumbnailUrl?: string;
   /** True when batch signing was attempted but no URL could be produced. */
   thumbnailUnavailable?: boolean;
+  /** Custom property values — maps metadata_key UUID → stored value. */
+  metadata?: Record<string, string>;
 }
 
 /** A grouped section of images, produced by the WorkspaceViewService pipeline. */

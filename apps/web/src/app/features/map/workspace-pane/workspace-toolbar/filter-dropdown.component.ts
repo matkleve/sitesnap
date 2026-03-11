@@ -1,6 +1,22 @@
 import { Component, computed, inject } from '@angular/core';
 import { FilterService } from '../../../../core/filter.service';
 import { PropertyRegistryService } from '../../../../core/property-registry.service';
+import type { PropertyType } from '../../../../core/property-registry.types';
+
+const TEXT_OPERATORS = ['contains', 'equals', 'is', 'is not', 'before', 'after'];
+const NUMBER_OPERATORS = ['=', '≠', '>', '<', '≥', '≤'];
+const DATE_OPERATORS = ['is', 'is not', 'before', 'after'];
+
+function operatorsForType(type: PropertyType | undefined): string[] {
+  switch (type) {
+    case 'number':
+      return NUMBER_OPERATORS;
+    case 'date':
+      return DATE_OPERATORS;
+    default:
+      return TEXT_OPERATORS;
+  }
+}
 
 @Component({
   selector: 'app-filter-dropdown',
@@ -31,13 +47,13 @@ import { PropertyRegistryService } from '../../../../core/property-registry.serv
                 (change)="updateOperator(rule.id, $any($event.target).value)"
               >
                 <option value="" disabled>Operator</option>
-                @for (op of operatorOptions; track op) {
+                @for (op of getOperatorsForRule(rule.property); track op) {
                   <option [value]="op">{{ op }}</option>
                 }
               </select>
               <input
                 class="filter-rule__value"
-                type="text"
+                [type]="getInputType(rule.property)"
                 placeholder="Value…"
                 [value]="rule.value"
                 (input)="updateValue(rule.id, $any($event.target).value)"
@@ -68,7 +84,6 @@ export class FilterDropdownComponent {
   readonly propertyOptions = computed(() =>
     this.registry.filterableProperties().map((p) => ({ id: p.id, label: p.label })),
   );
-  readonly operatorOptions = ['contains', 'equals', 'is', 'is not', 'before', 'after'];
 
   removeRule(id: string): void {
     this.filterService.removeRule(id);
@@ -85,7 +100,16 @@ export class FilterDropdownComponent {
   }
 
   updateProperty(id: string, value: string): void {
-    this.filterService.updateRule(id, { property: value });
+    // When property changes, reset operator if it's not valid for the new type
+    const prop = this.registry.getProperty(value);
+    const validOps = operatorsForType(prop?.type);
+    const rules = this.filterService.rules();
+    const rule = rules.find((r) => r.id === id);
+    const patch: Record<string, string> = { property: value };
+    if (rule && !validOps.includes(rule.operator)) {
+      patch['operator'] = '';
+    }
+    this.filterService.updateRule(id, patch);
   }
 
   updateOperator(id: string, value: string): void {
@@ -94,5 +118,17 @@ export class FilterDropdownComponent {
 
   updateValue(id: string, value: string): void {
     this.filterService.updateRule(id, { value });
+  }
+
+  getOperatorsForRule(propertyId: string): string[] {
+    if (!propertyId) return TEXT_OPERATORS;
+    const prop = this.registry.getProperty(propertyId);
+    return operatorsForType(prop?.type);
+  }
+
+  getInputType(propertyId: string): string {
+    if (!propertyId) return 'text';
+    const prop = this.registry.getProperty(propertyId);
+    return prop?.type === 'number' ? 'number' : 'text';
   }
 }

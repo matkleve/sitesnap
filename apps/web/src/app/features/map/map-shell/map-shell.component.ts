@@ -211,6 +211,7 @@ export class MapShellComponent implements OnDestroy {
   constructor() {
     afterNextRender(() => {
       this.initMap();
+      void this.workspaceViewService.loadCustomProperties();
     });
   }
 

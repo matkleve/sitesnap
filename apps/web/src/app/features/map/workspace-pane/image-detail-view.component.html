@@ -88,46 +88,78 @@
     }
   </div>
 
+  <!-- Hidden file input for photo replacement -->
+  <input
+    #fileInput
+    type="file"
+    [accept]="acceptTypes"
+    class="visually-hidden"
+    aria-hidden="true"
+    (change)="onFileSelected($event)"
+  />
+
   <!-- Scrollable content area -->
   <div class="detail-scroll">
     <!-- FullResImage: progressive load — click opens lightbox -->
-    <button
-      class="detail-image-wrap"
-      type="button"
-      aria-label="View full-size photo"
-      (click)="showLightbox.set(true)"
-    >
-      <!-- Placeholder: pulsing gradient while loading -->
-      @if (!imageReady()) {
-        <div
-          class="detail-image-placeholder"
-          [class.detail-image-placeholder--loading]="isImageLoading()"
-          [class.detail-image-placeholder--no-photo]="!isImageLoading()"
-        >
-          <span class="detail-image-placeholder__icon" aria-hidden="true"></span>
-        </div>
+    <div class="detail-image-container">
+      <button
+        class="detail-image-wrap"
+        type="button"
+        aria-label="View full-size photo"
+        (click)="showLightbox.set(true)"
+      >
+        <!-- Placeholder: pulsing gradient while loading -->
+        @if (!imageReady()) {
+          <div
+            class="detail-image-placeholder"
+            [class.detail-image-placeholder--loading]="isImageLoading()"
+            [class.detail-image-placeholder--no-photo]="!isImageLoading()"
+          >
+            <span class="detail-image-placeholder__icon" aria-hidden="true"></span>
+          </div>
+        }
+        @if (thumbnailUrl() && !fullResLoaded()) {
+          <img
+            class="detail-image detail-image--thumb"
+            [src]="thumbnailUrl()"
+            alt="Photo preview"
+            aria-hidden="true"
+            (load)="onThumbnailLoaded()"
+            (error)="onThumbnailError()"
+          />
+        }
+        @if (fullResUrl()) {
+          <img
+            class="detail-image detail-image--full"
+            [class.detail-image--loaded]="fullResLoaded()"
+            [src]="fullResUrl()"
+            [alt]="displayTitle()"
+            (load)="onFullResLoaded()"
+            (error)="onImageError()"
+          />
+        }
+      </button>
+
+      <!-- Replace photo overlay button -->
+      <button
+        class="detail-image-edit-btn"
+        type="button"
+        aria-label="Replace photo"
+        title="Replace photo"
+        [disabled]="replacing()"
+        (click)="triggerFileInput()"
+      >
+        @if (replacing()) {
+          <span class="detail-image-edit-btn__spinner" aria-hidden="true"></span>
+        } @else {
+          <span class="material-icons" aria-hidden="true">edit</span>
+        }
+      </button>
+
+      @if (replaceError()) {
+        <div class="detail-replace-error" role="alert">{{ replaceError() }}</div>
       }
-      @if (thumbnailUrl() && !fullResLoaded()) {
-        <img
-          class="detail-image detail-image--thumb"
-          [src]="thumbnailUrl()"
-          alt="Photo preview"
-          aria-hidden="true"
-          (load)="onThumbnailLoaded()"
-          (error)="onImageError()"
-        />
-      }
-      @if (fullResUrl()) {
-        <img
-          class="detail-image detail-image--full"
-          [class.detail-image--loaded]="fullResLoaded()"
-          [src]="fullResUrl()"
-          [alt]="displayTitle()"
-          (load)="onFullResLoaded()"
-          (error)="onImageError()"
-        />
-      }
-    </button>
+    </div>
 
     <!-- Metadata content area — capped width for readability -->
     <div class="detail-content">

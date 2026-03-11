@@ -268,10 +268,11 @@ export class PropertyRegistryService {
     const formatter = BUILT_IN_GROUP_FORMAT[propertyId];
     if (formatter) return formatter(img);
 
-    // Custom property — use raw value or fallback
+    // Custom property — prefix with property label
     const value = this.getCustomPropertyValue(img, propertyId);
-    if (value == null || value === '') return 'No value';
-    return String(value);
+    const label = this.getProperty(propertyId)?.label ?? propertyId;
+    if (value == null || value === '') return `No ${label}`;
+    return `${label} ${value}`;
   }
 
   /**
@@ -308,15 +309,21 @@ export class PropertyRegistryService {
 
   /**
    * Get a custom property value from an image's metadata.
-   * Currently returns null — will be wired when image_metadata is loaded onto WorkspaceImage.
+   * For number-type properties, parses the string to a float for numeric comparison.
    */
-  private getCustomPropertyValue(img: WorkspaceImage, _propertyId: string): string | number | null {
-    // Custom metadata is stored in image_metadata table.
-    // When loaded onto WorkspaceImage (via a `metadata` map), resolve here.
-    const metadata = (img as unknown as Record<string, unknown>)['metadata'] as
-      | Record<string, string>
-      | undefined;
+  private getCustomPropertyValue(img: WorkspaceImage, propertyId: string): string | number | null {
+    const metadata = img.metadata;
     if (!metadata) return null;
-    return metadata[_propertyId] ?? null;
+    const raw = metadata[propertyId];
+    if (raw == null || raw === '') return null;
+
+    // For number-type properties, parse as float for numeric sorting/comparison.
+    const prop = this.getProperty(propertyId);
+    if (prop?.type === 'number') {
+      const num = parseFloat(raw);
+      return Number.isNaN(num) ? null : num;
+    }
+
+    return raw;
   }
 }

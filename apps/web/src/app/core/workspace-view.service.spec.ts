@@ -57,6 +57,9 @@ function buildFakeSupabase() {
         update: vi.fn().mockReturnValue({
           in: vi.fn().mockResolvedValue({ error: null }),
         }),
+        select: vi.fn().mockReturnValue({
+          in: vi.fn().mockResolvedValue({ data: [], error: null }),
+        }),
       }),
       rpc: vi.fn().mockResolvedValue({ data: 0, error: null }),
       storage: {
@@ -507,5 +510,398 @@ describe('WorkspaceViewService — sort + grouping sync', () => {
     sections = service.groupedSections();
     expect(sections[0].heading).toBe('Zürich');
     expect(sections[2].heading).toBe('Berlin');
+  });
+});
+
+// ── Numeric sorting (custom number properties) ────────────────────────────────
+
+describe('WorkspaceViewService — numeric sorting', () => {
+  it('sorts number-type custom properties numerically, not lexicographically', () => {
+    const { service } = setup();
+    const registry = TestBed.inject(PropertyRegistryService);
+
+    registry.setCustomProperties([{ id: 'fang', key_name: 'Fang', key_type: 'number' }]);
+
+    const images = [
+      makeImage({ id: 'a', metadata: { fang: '100' } }),
+      makeImage({ id: 'b', metadata: { fang: '5' } }),
+      makeImage({ id: 'c', metadata: { fang: '12' } }),
+      makeImage({ id: 'd', metadata: { fang: '1' } }),
+    ];
+    service.setActiveSelectionImages(images);
+    service.activeSorts.set([{ key: 'fang', direction: 'asc' }]);
+
+    const sorted = service.groupedSections()[0].images;
+    // Numeric order: 1, 5, 12, 100 (not lexicographic "1", "100", "12", "5")
+    expect(sorted.map((i) => i.id)).toEqual(['d', 'b', 'c', 'a']);
+  });
+
+  it('sorts number-type custom properties descending', () => {
+    const { service } = setup();
+    const registry = TestBed.inject(PropertyRegistryService);
+
+    registry.setCustomProperties([{ id: 'fang', key_name: 'Fang', key_type: 'number' }]);
+
+    const images = [
+      makeImage({ id: 'a', metadata: { fang: '1' } }),
+      makeImage({ id: 'b', metadata: { fang: '100' } }),
+      makeImage({ id: 'c', metadata: { fang: '12' } }),
+    ];
+    service.setActiveSelectionImages(images);
+    service.activeSorts.set([{ key: 'fang', direction: 'desc' }]);
+
+    const sorted = service.groupedSections()[0].images;
+    expect(sorted.map((i) => i.id)).toEqual(['b', 'c', 'a']);
+  });
+
+  it('pushes null metadata values to the end during numeric sort', () => {
+    const { service } = setup();
+    const registry = TestBed.inject(PropertyRegistryService);
+
+    registry.setCustomProperties([{ id: 'fang', key_name: 'Fang', key_type: 'number' }]);
+
+    const images = [
+      makeImage({ id: 'a', metadata: { fang: '5' } }),
+      makeImage({ id: 'b' }), // no metadata
+      makeImage({ id: 'c', metadata: { fang: '1' } }),
+    ];
+    service.setActiveSelectionImages(images);
+    service.activeSorts.set([{ key: 'fang', direction: 'asc' }]);
+
+    const sorted = service.groupedSections()[0].images;
+    expect(sorted[0].id).toBe('c'); // 1
+    expect(sorted[1].id).toBe('a'); // 5
+    expect(sorted[2].id).toBe('b'); // null → end
+  });
+
+  it('groups by number-type custom property', () => {
+    const { service } = setup();
+    const registry = TestBed.inject(PropertyRegistryService);
+
+    registry.setCustomProperties([{ id: 'floor', key_name: 'Floor', key_type: 'number' }]);
+
+    const images = [
+      makeImage({ id: 'a', metadata: { floor: '1' } }),
+      makeImage({ id: 'b', metadata: { floor: '2' } }),
+      makeImage({ id: 'c', metadata: { floor: '1' } }),
+    ];
+    service.setActiveSelectionImages(images);
+    service.activeGroupings.set([{ id: 'floor', label: 'Floor', icon: 'numbers' }]);
+
+    const sections = service.groupedSections();
+    expect(sections.length).toBe(2);
+    const headings = sections.map((s) => s.heading);
+    expect(headings).toContain('Floor 1');
+    expect(headings).toContain('Floor 2');
+  });
+});
+
+// ── Integration: loadCustomProperties → registry → dropdown signals ────────────
+
+describe('WorkspaceViewService — loadCustomProperties integration', () => {
+  it('loads metadata_keys from Supabase and registers them in PropertyRegistryService', async () => {
+    const fakeMetadataKeys = [
+      { id: 'uuid-bauphase', key_name: 'Bauphase' },
+      { id: 'uuid-fang', key_name: 'Fang' },
+    ];
+    const fakeSupabase = buildFakeSupabase();
+    // Override the from('metadata_keys') chain to return our fake data
+    fakeSupabase.client.from.mockImplementation((table: string) => {
+      if (table === 'metadata_keys') {
+        return {
+          select: vi.fn().mockResolvedValue({ data: fakeMetadataKeys, error: null }),
+        };
+      }
+      // Default for other tables (image_metadata, images, etc.)
+      return {
+        update: vi.fn().mockReturnValue({
+          in: vi.fn().mockResolvedValue({ error: null }),
+        }),
+        select: vi.fn().mockReturnValue({
+          in: vi.fn().mockResolvedValue({ data: [], error: null }),
+        }),
+      };
+    });
+
+    TestBed.configureTestingModule({
+      providers: [
+        WorkspaceViewService,
+        PropertyRegistryService,
+        { provide: SupabaseService, useValue: fakeSupabase },
+        { provide: GeocodingService, useValue: buildFakeGeocoding() },
+        { provide: FilterService, useValue: buildFakeFilterService() },
+      ],
+    });
+
+    const service = TestBed.inject(WorkspaceViewService);
+    const registry = TestBed.inject(PropertyRegistryService);
+
+    // Before loading: only built-in properties
+    const builtInCount = registry.allProperties().length;
+    expect(registry.allProperties().every((p) => p.builtIn)).toBe(true);
+
+    // Load custom properties (the method under test)
+    await service.loadCustomProperties();
+
+    // After loading: custom properties appear in the registry
+    expect(registry.allProperties().length).toBe(builtInCount + 2);
+    expect(registry.allProperties().some((p) => p.label === 'Bauphase')).toBe(true);
+    expect(registry.allProperties().some((p) => p.label === 'Fang')).toBe(true);
+
+    // Custom properties show up in all dropdown lists
+    expect(registry.sortableProperties().some((p) => p.label === 'Bauphase')).toBe(true);
+    expect(registry.groupableProperties().some((p) => p.label === 'Fang')).toBe(true);
+    expect(registry.filterableProperties().some((p) => p.label === 'Bauphase')).toBe(true);
+  });
+
+  it('custom properties are not marked as builtIn after loading', async () => {
+    const fakeMetadataKeys = [{ id: 'uuid-floor', key_name: 'Floor' }];
+    const fakeSupabase = buildFakeSupabase();
+    fakeSupabase.client.from.mockImplementation((table: string) => {
+      if (table === 'metadata_keys') {
+        return {
+          select: vi.fn().mockResolvedValue({ data: fakeMetadataKeys, error: null }),
+        };
+      }
+      return {
+        update: vi.fn().mockReturnValue({
+          in: vi.fn().mockResolvedValue({ error: null }),
+        }),
+        select: vi.fn().mockReturnValue({
+          in: vi.fn().mockResolvedValue({ data: [], error: null }),
+        }),
+      };
+    });
+
+    TestBed.configureTestingModule({
+      providers: [
+        WorkspaceViewService,
+        PropertyRegistryService,
+        { provide: SupabaseService, useValue: fakeSupabase },
+        { provide: GeocodingService, useValue: buildFakeGeocoding() },
+        { provide: FilterService, useValue: buildFakeFilterService() },
+      ],
+    });
+
+    const service = TestBed.inject(WorkspaceViewService);
+    const registry = TestBed.inject(PropertyRegistryService);
+
+    await service.loadCustomProperties();
+
+    const floorProp = registry.getProperty('uuid-floor');
+    expect(floorProp).toBeDefined();
+    expect(floorProp!.builtIn).toBe(false);
+    expect(floorProp!.label).toBe('Floor');
+  });
+
+  it('handles empty metadata_keys gracefully', async () => {
+    const fakeSupabase = buildFakeSupabase();
+    fakeSupabase.client.from.mockImplementation((table: string) => {
+      if (table === 'metadata_keys') {
+        return {
+          select: vi.fn().mockResolvedValue({ data: [], error: null }),
+        };
+      }
+      return {
+        update: vi.fn().mockReturnValue({
+          in: vi.fn().mockResolvedValue({ error: null }),
+        }),
+        select: vi.fn().mockReturnValue({
+          in: vi.fn().mockResolvedValue({ data: [], error: null }),
+        }),
+      };
+    });
+
+    TestBed.configureTestingModule({
+      providers: [
+        WorkspaceViewService,
+        PropertyRegistryService,
+        { provide: SupabaseService, useValue: fakeSupabase },
+        { provide: GeocodingService, useValue: buildFakeGeocoding() },
+        { provide: FilterService, useValue: buildFakeFilterService() },
+      ],
+    });
+
+    const service = TestBed.inject(WorkspaceViewService);
+    const registry = TestBed.inject(PropertyRegistryService);
+    const before = registry.allProperties().length;
+
+    await service.loadCustomProperties();
+
+    expect(registry.allProperties().length).toBe(before);
+  });
+
+  it('end-to-end: load custom property → add metadata to image → group by it', async () => {
+    const fakeMetadataKeys = [{ id: 'uuid-bauphase', key_name: 'Bauphase' }];
+    const fakeSupabase = buildFakeSupabase();
+    fakeSupabase.client.from.mockImplementation((table: string) => {
+      if (table === 'metadata_keys') {
+        return {
+          select: vi.fn().mockResolvedValue({ data: fakeMetadataKeys, error: null }),
+        };
+      }
+      return {
+        update: vi.fn().mockReturnValue({
+          in: vi.fn().mockResolvedValue({ error: null }),
+        }),
+        select: vi.fn().mockReturnValue({
+          in: vi.fn().mockResolvedValue({ data: [], error: null }),
+        }),
+      };
+    });
+
+    TestBed.configureTestingModule({
+      providers: [
+        WorkspaceViewService,
+        PropertyRegistryService,
+        { provide: SupabaseService, useValue: fakeSupabase },
+        { provide: GeocodingService, useValue: buildFakeGeocoding() },
+        { provide: FilterService, useValue: buildFakeFilterService() },
+      ],
+    });
+
+    const service = TestBed.inject(WorkspaceViewService);
+    const registry = TestBed.inject(PropertyRegistryService);
+
+    // Step 1: Load custom properties from DB
+    await service.loadCustomProperties();
+    expect(registry.groupableProperties().some((p) => p.label === 'Bauphase')).toBe(true);
+
+    // Step 2: Add images with metadata values
+    const images = [
+      makeImage({ id: 'a', metadata: { 'uuid-bauphase': 'Rohbau' } }),
+      makeImage({ id: 'b', metadata: { 'uuid-bauphase': 'Innenausbau' } }),
+      makeImage({ id: 'c', metadata: { 'uuid-bauphase': 'Rohbau' } }),
+      makeImage({ id: 'd' }), // no Bauphase
+    ];
+    service.setActiveSelectionImages(images);
+
+    // Step 3: Group by Bauphase
+    service.activeGroupings.set([{ id: 'uuid-bauphase', label: 'Bauphase', icon: 'tag' }]);
+
+    // Step 4: Verify groups
+    const sections = service.groupedSections();
+    const headings = sections.map((s) => s.heading);
+    expect(headings).toContain('Bauphase Rohbau');
+    expect(headings).toContain('Bauphase Innenausbau');
+    expect(headings).toContain('No Bauphase');
+
+    const rohbau = sections.find((s) => s.heading === 'Bauphase Rohbau')!;
+    expect(rohbau.images.length).toBe(2);
+  });
+
+  it('end-to-end: load custom property → add metadata → sort numerically', async () => {
+    const fakeMetadataKeys = [{ id: 'uuid-fang', key_name: 'Fang' }];
+    const fakeSupabase = buildFakeSupabase();
+    fakeSupabase.client.from.mockImplementation((table: string) => {
+      if (table === 'metadata_keys') {
+        return {
+          select: vi.fn().mockResolvedValue({ data: fakeMetadataKeys, error: null }),
+        };
+      }
+      return {
+        update: vi.fn().mockReturnValue({
+          in: vi.fn().mockResolvedValue({ error: null }),
+        }),
+        select: vi.fn().mockReturnValue({
+          in: vi.fn().mockResolvedValue({ data: [], error: null }),
+        }),
+      };
+    });
+
+    TestBed.configureTestingModule({
+      providers: [
+        WorkspaceViewService,
+        PropertyRegistryService,
+        { provide: SupabaseService, useValue: fakeSupabase },
+        { provide: GeocodingService, useValue: buildFakeGeocoding() },
+        { provide: FilterService, useValue: buildFakeFilterService() },
+      ],
+    });
+
+    const service = TestBed.inject(WorkspaceViewService);
+    const registry = TestBed.inject(PropertyRegistryService);
+
+    // Step 1: Load custom properties — Fang defaults to 'text' type from DB
+    await service.loadCustomProperties();
+    expect(registry.sortableProperties().some((p) => p.label === 'Fang')).toBe(true);
+
+    // Step 2: Add images with numeric metadata
+    const images = [
+      makeImage({ id: 'a', metadata: { 'uuid-fang': '100' } }),
+      makeImage({ id: 'b', metadata: { 'uuid-fang': '5' } }),
+      makeImage({ id: 'c', metadata: { 'uuid-fang': '12' } }),
+    ];
+    service.setActiveSelectionImages(images);
+
+    // Step 3: Sort by Fang ascending
+    service.activeSorts.set([{ key: 'uuid-fang', direction: 'asc' }]);
+
+    // Step 4: Verify text-type sort (since DB has no key_type, defaults to text)
+    // Text sort ascending: '100' < '12' < '5' (lexicographic)
+    const sorted = service.groupedSections()[0].images;
+    expect(sorted.map((i) => i.id)).toEqual(['a', 'c', 'b']);
+  });
+
+  it('end-to-end: load custom property → add metadata → filter by it', async () => {
+    const fakeMetadataKeys = [{ id: 'uuid-bauphase', key_name: 'Bauphase' }];
+    const fakeSupabase = buildFakeSupabase();
+    fakeSupabase.client.from.mockImplementation((table: string) => {
+      if (table === 'metadata_keys') {
+        return {
+          select: vi.fn().mockResolvedValue({ data: fakeMetadataKeys, error: null }),
+        };
+      }
+      return {
+        update: vi.fn().mockReturnValue({
+          in: vi.fn().mockResolvedValue({ error: null }),
+        }),
+        select: vi.fn().mockReturnValue({
+          in: vi.fn().mockResolvedValue({ data: [], error: null }),
+        }),
+      };
+    });
+
+    // Use real FilterService for the integration test
+    TestBed.configureTestingModule({
+      providers: [
+        WorkspaceViewService,
+        PropertyRegistryService,
+        FilterService,
+        { provide: SupabaseService, useValue: fakeSupabase },
+        { provide: GeocodingService, useValue: buildFakeGeocoding() },
+      ],
+    });
+
+    const service = TestBed.inject(WorkspaceViewService);
+    const registry = TestBed.inject(PropertyRegistryService);
+    const filterService = TestBed.inject(FilterService);
+
+    // Step 1: Load custom properties
+    await service.loadCustomProperties();
+    expect(registry.filterableProperties().some((p) => p.label === 'Bauphase')).toBe(true);
+
+    // Step 2: Add images with metadata
+    const images = [
+      makeImage({ id: 'a', metadata: { 'uuid-bauphase': 'Rohbau' } }),
+      makeImage({ id: 'b', metadata: { 'uuid-bauphase': 'Innenausbau' } }),
+      makeImage({ id: 'c', metadata: { 'uuid-bauphase': 'Rohbau' } }),
+    ];
+    service.setActiveSelectionImages(images);
+
+    // Step 3: Add a filter rule for Bauphase = "Rohbau"
+    filterService.addRule();
+    const ruleId = filterService.rules()[0].id;
+    filterService.updateRule(ruleId, {
+      property: 'uuid-bauphase',
+      operator: 'is',
+      value: 'Rohbau',
+    });
+
+    // Step 4: Verify filtered results
+    const sections = service.groupedSections();
+    const allImages = sections.flatMap((s) => s.images);
+    expect(allImages.length).toBe(2);
+    expect(allImages.every((img) => img.metadata?.['uuid-bauphase'] === 'Rohbau')).toBe(true);
   });
 });

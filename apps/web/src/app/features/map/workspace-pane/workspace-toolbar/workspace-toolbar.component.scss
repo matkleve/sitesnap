@@ -73,6 +73,9 @@
   z-index: var(--z-dropdown);
   min-width: 15rem; // 240px base
   max-width: calc(100vw - 1rem); // never exceed viewport minus 8px each side
+  max-height: min(24rem, calc(100vh - 6rem)); // cap at 24rem or viewport height minus toolbar
+  display: flex;
+  flex-direction: column;
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);

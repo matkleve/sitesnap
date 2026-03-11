@@ -65,9 +65,23 @@ FilterDropdown                             ← floating dropdown, --color-bg-ele
 | **text**      | Address, City, Country, Name, User | contains, does not contain, is, is not, is empty |
 | **date**      | Date captured, Date uploaded       | is, is before, is after, is between              |
 | **select**    | Project                            | is, is not, is empty                             |
-| **metadata**  | _Custom keys_                      | contains, does not contain, is, is not, is empty |
-| **number**    | Distance (from ref point)          | ≤, ≥, =, between                                 |
+| **metadata**  | _Custom text keys_                 | contains, does not contain, is, is not, is empty |
+| **number**    | Distance, _Custom number keys_     | =, ≠, >, <, ≥, ≤                                 |
 | **boolean**   | Has corrections, Has GPS           | is true, is false                                |
+
+### Number Filter Operators
+
+For number-type properties (built-in `distance` and custom number properties), the filter service compares values **numerically**:
+
+- Values are parsed via `parseFloat()` before comparison
+- `=` → exact numeric equality
+- `≠` → not equal
+- `>`, `<`, `≥`, `≤` → numeric comparison
+- Images with no value for the property are excluded by all numeric operators except `is empty`
+
+### Dropdown Max-Height
+
+The filter dropdown's rule list has `max-height: 20rem` with `overflow-y: auto`. The property `<select>` uses native browser dropdowns which handle long lists natively.
 
 ## Data
 

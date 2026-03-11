@@ -364,14 +364,24 @@ sequenceDiagram
         Detail->>Storage: storage.from('images').upload(newPath, file)
         Storage-->>Detail: Upload OK
 
-        Detail->>DB: .from('images').update({ storage_path: newPath, thumbnail_path: null }).eq('id', imageId)
-        DB-->>Detail: OK
+        Detail->>DB: .from('images').update({ storage_path: newPath }).eq('id', imageId)
 
-        Detail->>Storage: storage.from('images').remove([oldStoragePath])
-        Note over Storage: Old file cleaned up (best-effort)
+        alt DB update succeeds (no error)
+            DB-->>Detail: { error: null }
 
-        Detail->>Detail: Refresh signed URLs
-        Detail->>Detail: Reset image loading state (show new image)
+            Detail->>Storage: storage.from('images').remove([oldStoragePath])
+            Note over Storage: Old original cleaned up (best-effort)
+
+            Detail->>Detail: Refresh signed URLs for detail view
+            Detail->>Detail: Reset image loading state (show new image)
+            Detail->>Detail: Update workspace grid cache (rawImages signal)
+            Detail->>Detail: Trigger batchSignThumbnails for updated image
+        else DB update returns error
+            DB-->>Detail: { error: { message: "..." } }
+            Detail->>Storage: storage.from('images').remove([newPath])
+            Note over Storage: Clean up orphaned upload
+            Detail->>Detail: Show error "Failed to update image record"
+        end
 
     else File cancelled
         Note over Detail: No action
@@ -404,12 +414,12 @@ If the user wants to update location or date from the new file's EXIF, they can 
 - File must pass `UploadService.validateFile()` (25 MB max, allowed MIME types)
 - Only the file owner or org admin can replace (enforced by RLS on `images` update)
 - Old storage file is deleted best-effort — a failed cleanup doesn't block the operation
-- `thumbnail_path` is set to `null` after replace since the old thumbnail no longer matches. A new thumbnail can be regenerated server-side.
+- `thumbnail_path` is left as-is after replace (stale but harmless). A new thumbnail can be regenerated server-side.
 
 **Expected state after:**
 
 - `storage_path` updated in `images` table to the new file path
-- `thumbnail_path` set to `null` (old thumbnail invalidated)
+- `thumbnail_path` left as-is (stale thumbnail until regenerated)
 - Old file removed from Supabase Storage (best-effort)
 - Image display refreshes to show the new photo
 - All metadata (address, project, coordinates, custom fields) remains unchanged
