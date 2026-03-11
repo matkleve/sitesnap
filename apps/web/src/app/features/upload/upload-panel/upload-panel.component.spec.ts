@@ -55,13 +55,15 @@ function buildFakeUploadManager() {
 function makeUploadJob(overrides: Partial<UploadJob> = {}): UploadJob {
   return {
     id: crypto.randomUUID(),
-    file: new File([new Uint8Array(512)], 'photo.jpg', { type: 'image/jpeg' }),
+    batchId: 'test-batch',
+    file: new File([new Uint8Array(512) as BlobPart], 'photo.jpg', { type: 'image/jpeg' }),
     phase: 'queued' as UploadPhase,
     progress: 0,
     statusLabel: 'Queued',
+    mode: 'new',
     submittedAt: new Date(),
     ...overrides,
-  };
+  } as UploadJob;
 }
 
 async function setup() {

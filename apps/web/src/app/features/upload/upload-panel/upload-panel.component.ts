@@ -177,9 +177,13 @@ export class UploadPanelComponent {
       case 'hashing':
       case 'dedup_check':
       case 'extracting_title':
+      case 'conflict_check':
         return 'parsing';
+      case 'awaiting_conflict_resolution':
+        return 'awaiting_placement';
       case 'uploading':
       case 'saving_record':
+      case 'replacing_record':
         return 'uploading';
       case 'resolving_address':
       case 'resolving_coordinates':

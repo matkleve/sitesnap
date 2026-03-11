@@ -53,13 +53,18 @@ export type UploadPhase =
   | 'dedup_check'
   | 'skipped'
   | 'extracting_title'
+  | 'conflict_check'
+  | 'awaiting_conflict_resolution'
   | 'uploading'
   | 'saving_record'
+  | 'replacing_record'
   | 'resolving_address'
   | 'resolving_coordinates'
   | 'missing_data'
   | 'complete'
   | 'error';
+
+export type UploadJobMode = 'new' | 'replace' | 'attach';
 
 export interface UploadJob {
   id: string;
@@ -83,6 +88,21 @@ export interface UploadJob {
   contentHash?: string;
   /** If phase === 'skipped', the existing image ID that matched. */
   existingImageId?: string;
+
+  // ── Replace / Attach mode fields ──
+
+  /** Pipeline mode. Determines the pipeline path the job follows. */
+  mode: UploadJobMode;
+  /** For 'replace' and 'attach' modes: the existing image row ID to update. */
+  targetImageId?: string;
+  /** For 'replace' mode: the old storage_path to delete after DB update succeeds. */
+  oldStoragePath?: string;
+  /** For 'replace' mode: the old thumbnail_path to delete after DB update succeeds. */
+  oldThumbnailPath?: string;
+  /** If conflict detected, the existing photoless row that matched. */
+  conflictCandidate?: ConflictCandidate;
+  /** User's resolution when a conflict was detected. */
+  conflictResolution?: ConflictResolution;
 }
 
 export interface SubmitOptions {
@@ -152,6 +172,51 @@ export interface BatchCompleteEvent {
   durationMs: number;
 }
 
+export interface LocationConflictEvent {
+  jobId: string;
+  batchId: string;
+  fileName: string;
+  candidate: ConflictCandidate;
+  uploadCoords?: ExifCoords;
+  uploadAddress?: string;
+}
+
+export interface ImageReplacedEvent {
+  jobId: string;
+  imageId: string;
+  newStoragePath: string;
+  localObjectUrl?: string;
+  coords?: ExifCoords;
+  direction?: number;
+}
+
+export interface ImageAttachedEvent {
+  jobId: string;
+  imageId: string;
+  newStoragePath: string;
+  localObjectUrl?: string;
+  coords?: ExifCoords;
+  direction?: number;
+  hadExistingCoords: boolean;
+}
+
+/** An existing images row (no photo) that conflicts with an incoming upload's location. */
+export interface ConflictCandidate {
+  imageId: string;
+  addressLabel?: string;
+  latitude?: number;
+  longitude?: number;
+  distanceMeters?: number;
+}
+
+/**
+ * How the user wants to resolve a location conflict.
+ * - `attach_replace`: attach photo to existing row, overwrite location with EXIF/upload data.
+ * - `attach_keep`: attach photo to existing row, keep the row's current location data.
+ * - `create_new`: ignore the match, create a brand-new images row (normal flow).
+ */
+export type ConflictResolution = 'attach_replace' | 'attach_keep' | 'create_new';
+
 /** Tracks aggregate progress for a multi-file submission. */
 export interface UploadBatch {
   id: string;
@@ -168,7 +233,12 @@ export interface UploadBatch {
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-const TERMINAL_PHASES: ReadonlySet<UploadPhase> = new Set(['complete', 'error', 'missing_data', 'skipped']);
+const TERMINAL_PHASES: ReadonlySet<UploadPhase> = new Set([
+  'complete',
+  'error',
+  'missing_data',
+  'skipped',
+]);
 
 const ACTIVE_PHASES: ReadonlySet<UploadPhase> = new Set([
   'validating',
@@ -176,8 +246,10 @@ const ACTIVE_PHASES: ReadonlySet<UploadPhase> = new Set([
   'hashing',
   'dedup_check',
   'extracting_title',
+  'conflict_check',
   'uploading',
   'saving_record',
+  'replacing_record',
   'resolving_address',
   'resolving_coordinates',
 ]);
@@ -198,10 +270,16 @@ function phaseLabel(phase: UploadPhase): string {
       return 'Already uploaded';
     case 'extracting_title':
       return 'Checking filename…';
+    case 'conflict_check':
+      return 'Checking conflicts…';
+    case 'awaiting_conflict_resolution':
+      return 'Waiting for decision…';
     case 'uploading':
       return 'Uploading…';
     case 'saving_record':
       return 'Saving…';
+    case 'replacing_record':
+      return 'Updating record…';
     case 'resolving_address':
       return 'Resolving address…';
     case 'resolving_coordinates':
@@ -260,14 +338,22 @@ export class UploadManagerService {
   private readonly _jobPhaseChanged$ = new Subject<JobPhaseChangedEvent>();
   private readonly _batchProgress$ = new Subject<BatchProgressEvent>();
   private readonly _batchComplete$ = new Subject<BatchCompleteEvent>();
+  private readonly _locationConflict$ = new Subject<LocationConflictEvent>();
+  private readonly _imageReplaced$ = new Subject<ImageReplacedEvent>();
+  private readonly _imageAttached$ = new Subject<ImageAttachedEvent>();
 
   readonly imageUploaded$: Observable<ImageUploadedEvent> = this._imageUploaded$.asObservable();
   readonly uploadFailed$: Observable<UploadFailedEvent> = this._uploadFailed$.asObservable();
   readonly missingData$: Observable<MissingDataEvent> = this._missingData$.asObservable();
   readonly uploadSkipped$: Observable<UploadSkippedEvent> = this._uploadSkipped$.asObservable();
-  readonly jobPhaseChanged$: Observable<JobPhaseChangedEvent> = this._jobPhaseChanged$.asObservable();
+  readonly jobPhaseChanged$: Observable<JobPhaseChangedEvent> =
+    this._jobPhaseChanged$.asObservable();
   readonly batchProgress$: Observable<BatchProgressEvent> = this._batchProgress$.asObservable();
   readonly batchComplete$: Observable<BatchCompleteEvent> = this._batchComplete$.asObservable();
+  readonly locationConflict$: Observable<LocationConflictEvent> =
+    this._locationConflict$.asObservable();
+  readonly imageReplaced$: Observable<ImageReplacedEvent> = this._imageReplaced$.asObservable();
+  readonly imageAttached$: Observable<ImageAttachedEvent> = this._imageAttached$.asObservable();
 
   // ── Concurrency tracking ───────────────────────────────────────────────────
 
@@ -334,6 +420,7 @@ export class UploadManagerService {
       statusLabel: phaseLabel('queued'),
       thumbnailUrl: URL.createObjectURL(file),
       submittedAt: new Date(),
+      mode: 'new' as UploadJobMode,
     }));
 
     this._jobs.update((prev) => [...prev, ...newJobs]);
@@ -393,6 +480,7 @@ export class UploadManagerService {
       statusLabel: phaseLabel('queued'),
       thumbnailUrl: URL.createObjectURL(file),
       submittedAt: new Date(),
+      mode: 'new' as UploadJobMode,
     }));
 
     this._jobs.update((prev) => [...prev, ...newJobs]);
@@ -488,6 +576,118 @@ export class UploadManagerService {
     this.drainQueue();
   }
 
+  /**
+   * Replace the photo file for an existing image row.
+   * Pipeline: validating → hashing → dedup_check → uploading → replacing_record → complete.
+   *
+   * @param imageId  The existing image UUID whose file is being replaced.
+   * @param file     The new photo file.
+   * @returns        The job ID for tracking progress.
+   */
+  replaceFile(imageId: string, file: File): string {
+    const batchId = crypto.randomUUID();
+    const jobId = crypto.randomUUID();
+
+    const batch: UploadBatch = {
+      id: batchId,
+      label: `Replace photo`,
+      totalFiles: 1,
+      completedFiles: 0,
+      skippedFiles: 0,
+      failedFiles: 0,
+      overallProgress: 0,
+      status: 'uploading',
+      startedAt: new Date(),
+    };
+    this._batches.update((prev) => [...prev, batch]);
+
+    const job: UploadJob = {
+      id: jobId,
+      batchId,
+      file,
+      phase: 'queued',
+      progress: 0,
+      statusLabel: phaseLabel('queued'),
+      thumbnailUrl: URL.createObjectURL(file),
+      submittedAt: new Date(),
+      mode: 'replace',
+      targetImageId: imageId,
+    };
+
+    this._jobs.update((prev) => [...prev, job]);
+    this.drainQueue();
+    return jobId;
+  }
+
+  /**
+   * Upload a photo to an existing image row that has no file (photoless datapoint).
+   * Pipeline: validating → parsing_exif → hashing → dedup_check → uploading → replacing_record → enrichment → complete.
+   *
+   * @param imageId  The existing photoless image UUID.
+   * @param file     The photo file to attach.
+   * @returns        The job ID for tracking progress.
+   */
+  attachFile(imageId: string, file: File): string {
+    const batchId = crypto.randomUUID();
+    const jobId = crypto.randomUUID();
+
+    const batch: UploadBatch = {
+      id: batchId,
+      label: `Attach photo`,
+      totalFiles: 1,
+      completedFiles: 0,
+      skippedFiles: 0,
+      failedFiles: 0,
+      overallProgress: 0,
+      status: 'uploading',
+      startedAt: new Date(),
+    };
+    this._batches.update((prev) => [...prev, batch]);
+
+    const job: UploadJob = {
+      id: jobId,
+      batchId,
+      file,
+      phase: 'queued',
+      progress: 0,
+      statusLabel: phaseLabel('queued'),
+      thumbnailUrl: URL.createObjectURL(file),
+      submittedAt: new Date(),
+      mode: 'attach',
+      targetImageId: imageId,
+    };
+
+    this._jobs.update((prev) => [...prev, job]);
+    this.drainQueue();
+    return jobId;
+  }
+
+  /**
+   * Resolve a location conflict for a paused job.
+   * Called when the user responds to the conflict popup.
+   * Re-queues the job at the front of the concurrency queue.
+   */
+  resolveConflict(jobId: string, resolution: ConflictResolution): void {
+    const job = this.findJob(jobId);
+    if (!job || job.phase !== 'awaiting_conflict_resolution') return;
+
+    this.updateJob(jobId, {
+      conflictResolution: resolution,
+      phase: 'queued',
+      statusLabel: phaseLabel('queued'),
+    });
+
+    // If attaching to existing row, switch mode accordingly.
+    if (resolution === 'attach_replace' || resolution === 'attach_keep') {
+      this.updateJob(jobId, {
+        mode: 'attach',
+        targetImageId: job.conflictCandidate!.imageId,
+      });
+    }
+
+    this.drainQueue();
+  }
+
   // ── Pipeline ───────────────────────────────────────────────────────────────
 
   /**
@@ -508,102 +708,19 @@ export class UploadManagerService {
     }
   }
 
-  /** Runs the full pipeline for one job. */
+  /** Runs the full pipeline for one job. Routes by mode. */
   private async runPipeline(jobId: string): Promise<void> {
     try {
       const job = this.findJob(jobId);
       if (!job) return;
 
-      // If the job already has manually-placed coords (from placeJob),
-      // skip validation/EXIF/title phases and go straight to upload.
-      if (job.coords) {
-        await this.runUploadPhase(jobId, job.coords, job.parsedExif);
-        return;
+      if (job.mode === 'replace') {
+        await this.runReplacePipeline(jobId);
+      } else if (job.mode === 'attach') {
+        await this.runAttachPipeline(jobId);
+      } else {
+        await this.runNewPipeline(jobId);
       }
-
-      // ── Phase: validating ──────────────────────────────────────────────
-      this.setPhase(jobId, 'validating');
-      const validation = this.uploadService.validateFile(job.file);
-      if (!validation.valid) {
-        this.failJob(jobId, 'validating', validation.error!);
-        return;
-      }
-
-      // ── Phase: parsing_exif ────────────────────────────────────────────
-      this.setPhase(jobId, 'parsing_exif');
-      const parsedExif = job.parsedExif ?? (await this.uploadService.parseExif(job.file));
-      this.updateJob(jobId, { parsedExif });
-
-      if (parsedExif.coords) {
-        this.updateJob(jobId, { coords: parsedExif.coords, direction: parsedExif.direction });
-      }
-
-      // ── Phase: hashing ─────────────────────────────────────────────────
-      this.setPhase(jobId, 'hashing');
-      const fileHead = await readFileHead(job.file);
-      const contentHash = await computeContentHash({
-        fileHeadBytes: fileHead,
-        fileSize: job.file.size,
-        gpsCoords: parsedExif.coords
-          ? { lat: parsedExif.coords.lat, lng: parsedExif.coords.lng }
-          : undefined,
-        capturedAt: parsedExif.capturedAt?.toISOString(),
-        direction: parsedExif.direction,
-      });
-      this.updateJob(jobId, { contentHash });
-
-      // ── Phase: dedup_check ─────────────────────────────────────────────
-      this.setPhase(jobId, 'dedup_check');
-      const dedupResult = await this.checkDedupHash(contentHash);
-      if (dedupResult) {
-        this.setPhase(jobId, 'skipped');
-        this.updateJob(jobId, { existingImageId: dedupResult });
-        this.runningIds.delete(jobId);
-        this._uploadSkipped$.next({
-          jobId,
-          batchId: job.batchId,
-          fileName: job.file.name,
-          contentHash,
-          existingImageId: dedupResult,
-        });
-        this.emitBatchProgress(job.batchId);
-        this.checkBatchComplete(job.batchId);
-        this.drainQueue();
-        return;
-      }
-
-      // ── Routing by data availability ───────────────────────────────────
-      const updatedJob = this.findJob(jobId)!;
-
-      if (updatedJob.coords) {
-        // Path A: GPS found → upload → save → reverse-geocode (enrichment)
-        await this.runUploadPhase(jobId, updatedJob.coords, parsedExif);
-        return;
-      }
-
-      // ── Phase: extracting_title ────────────────────────────────────────
-      this.setPhase(jobId, 'extracting_title');
-      const titleAddress = this.extractAddressFromFilename(job.file.name);
-
-      if (titleAddress) {
-        // Path B: address in title → upload → save → forward-geocode (enrichment)
-        this.updateJob(jobId, { titleAddress });
-        await this.runUploadPhase(jobId, undefined, parsedExif);
-        return;
-      }
-
-      // Path C: no GPS + no address → missing_data
-      this.setPhase(jobId, 'missing_data');
-      this.runningIds.delete(jobId);
-      this._missingData$.next({
-        jobId,
-        batchId: job.batchId,
-        fileName: job.file.name,
-        reason: 'no_gps_no_address',
-      });
-      this.emitBatchProgress(job.batchId);
-      this.checkBatchComplete(job.batchId);
-      this.drainQueue();
     } catch (err) {
       const current = this.findJob(jobId);
       this.failJob(
@@ -612,6 +729,452 @@ export class UploadManagerService {
         err instanceof Error ? err.message : String(err),
       );
     }
+  }
+
+  // ── Pipeline: mode = 'new' ─────────────────────────────────────────────────
+
+  /** Standard new-upload pipeline (Paths A, B, C). */
+  private async runNewPipeline(jobId: string): Promise<void> {
+    const job = this.findJob(jobId)!;
+
+    // If the job already has manually-placed coords (from placeJob),
+    // skip validation/EXIF/title phases and go straight to upload.
+    if (job.coords && !job.conflictResolution) {
+      await this.runUploadPhase(jobId, job.coords, job.parsedExif);
+      return;
+    }
+
+    // If returning from conflict resolution, resume the appropriate flow.
+    if (job.conflictResolution) {
+      const updatedJob = this.findJob(jobId)!;
+      if (updatedJob.mode === 'attach') {
+        // resolveConflict changed mode to 'attach' — run attach pipeline
+        await this.runAttachPipeline(jobId);
+        return;
+      }
+      // create_new — continue with normal upload
+      await this.runUploadPhase(jobId, updatedJob.coords, updatedJob.parsedExif);
+      return;
+    }
+
+    // ── Phase: validating ──────────────────────────────────────────────
+    this.setPhase(jobId, 'validating');
+    const validation = this.uploadService.validateFile(job.file);
+    if (!validation.valid) {
+      this.failJob(jobId, 'validating', validation.error!);
+      return;
+    }
+
+    // ── Phase: parsing_exif ────────────────────────────────────────────
+    this.setPhase(jobId, 'parsing_exif');
+    const parsedExif = job.parsedExif ?? (await this.uploadService.parseExif(job.file));
+    this.updateJob(jobId, { parsedExif });
+
+    if (parsedExif.coords) {
+      this.updateJob(jobId, { coords: parsedExif.coords, direction: parsedExif.direction });
+    }
+
+    // ── Phase: hashing ─────────────────────────────────────────────────
+    this.setPhase(jobId, 'hashing');
+    const fileHead = await readFileHead(job.file);
+    const contentHash = await computeContentHash({
+      fileHeadBytes: fileHead,
+      fileSize: job.file.size,
+      gpsCoords: parsedExif.coords
+        ? { lat: parsedExif.coords.lat, lng: parsedExif.coords.lng }
+        : undefined,
+      capturedAt: parsedExif.capturedAt?.toISOString(),
+      direction: parsedExif.direction,
+    });
+    this.updateJob(jobId, { contentHash });
+
+    // ── Phase: dedup_check ─────────────────────────────────────────────
+    this.setPhase(jobId, 'dedup_check');
+    const dedupResult = await this.checkDedupHash(contentHash);
+    if (dedupResult) {
+      this.setPhase(jobId, 'skipped');
+      this.updateJob(jobId, { existingImageId: dedupResult });
+      this.runningIds.delete(jobId);
+      this._uploadSkipped$.next({
+        jobId,
+        batchId: job.batchId,
+        fileName: job.file.name,
+        contentHash,
+        existingImageId: dedupResult,
+      });
+      this.emitBatchProgress(job.batchId);
+      this.checkBatchComplete(job.batchId);
+      this.drainQueue();
+      return;
+    }
+
+    // ── Routing by data availability ───────────────────────────────────
+    const updatedJob = this.findJob(jobId)!;
+
+    if (updatedJob.coords) {
+      // Path A: GPS found → conflict check → upload → save → reverse-geocode
+      const conflicted = await this.runConflictCheck(jobId);
+      if (conflicted) return; // Job is paused at awaiting_conflict_resolution
+      await this.runUploadPhase(jobId, updatedJob.coords, parsedExif);
+      return;
+    }
+
+    // ── Phase: extracting_title ────────────────────────────────────────
+    this.setPhase(jobId, 'extracting_title');
+    const titleAddress = this.extractAddressFromFilename(job.file.name);
+
+    if (titleAddress) {
+      // Path B: address in title → conflict check → upload → save → forward-geocode
+      this.updateJob(jobId, { titleAddress });
+      const conflicted = await this.runConflictCheck(jobId);
+      if (conflicted) return; // Job is paused at awaiting_conflict_resolution
+      await this.runUploadPhase(jobId, undefined, parsedExif);
+      return;
+    }
+
+    // Path C: no GPS + no address → missing_data
+    this.setPhase(jobId, 'missing_data');
+    this.runningIds.delete(jobId);
+    this._missingData$.next({
+      jobId,
+      batchId: job.batchId,
+      fileName: job.file.name,
+      reason: 'no_gps_no_address',
+    });
+    this.emitBatchProgress(job.batchId);
+    this.checkBatchComplete(job.batchId);
+    this.drainQueue();
+  }
+
+  // ── Pipeline: mode = 'replace' ─────────────────────────────────────────────
+
+  /** Replace pipeline: validating → hashing → dedup_check → uploading → replacing_record → complete. */
+  private async runReplacePipeline(jobId: string): Promise<void> {
+    const job = this.findJob(jobId)!;
+
+    // ── Phase: validating ──────────────────────────────────────────────
+    this.setPhase(jobId, 'validating');
+    const validation = this.uploadService.validateFile(job.file);
+    if (!validation.valid) {
+      this.failJob(jobId, 'validating', validation.error!);
+      return;
+    }
+
+    // ── Fetch existing row to capture old paths ────────────────────────
+    const { data: existingRow, error: fetchError } = await this.supabase.client
+      .from('images')
+      .select('storage_path, thumbnail_path')
+      .eq('id', job.targetImageId!)
+      .single();
+
+    if (fetchError || !existingRow) {
+      this.failJob(jobId, 'validating', 'Could not find the existing image row.');
+      return;
+    }
+
+    this.updateJob(jobId, {
+      oldStoragePath: existingRow.storage_path ?? undefined,
+      oldThumbnailPath: existingRow.thumbnail_path ?? undefined,
+    });
+
+    // ── Phase: hashing (skip EXIF for replace — existing row has metadata) ──
+    this.setPhase(jobId, 'hashing');
+    const fileHead = await readFileHead(job.file);
+    const contentHash = await computeContentHash({
+      fileHeadBytes: fileHead,
+      fileSize: job.file.size,
+    });
+    this.updateJob(jobId, { contentHash });
+
+    // ── Phase: dedup_check ─────────────────────────────────────────────
+    this.setPhase(jobId, 'dedup_check');
+    const dedupResult = await this.checkDedupHash(contentHash);
+    if (dedupResult) {
+      this.setPhase(jobId, 'skipped');
+      this.updateJob(jobId, { existingImageId: dedupResult });
+      this.runningIds.delete(jobId);
+      this._uploadSkipped$.next({
+        jobId,
+        batchId: job.batchId,
+        fileName: job.file.name,
+        contentHash,
+        existingImageId: dedupResult,
+      });
+      this.emitBatchProgress(job.batchId);
+      this.checkBatchComplete(job.batchId);
+      this.drainQueue();
+      return;
+    }
+
+    // ── Phase: uploading ───────────────────────────────────────────────
+    this.setPhase(jobId, 'uploading');
+    this.updateJob(jobId, { progress: 0 });
+
+    const storagePath = await this.uploadToStorage(job.file);
+    if (!storagePath) {
+      this.failJob(jobId, 'uploading', 'Storage upload failed.');
+      return;
+    }
+    this.updateJob(jobId, { storagePath, progress: 100 });
+
+    // ── Phase: replacing_record ────────────────────────────────────────
+    this.setPhase(jobId, 'replacing_record');
+
+    // Parse EXIF from new file for metadata update
+    const parsedExif = await this.uploadService.parseExif(job.file);
+
+    const updateData: Record<string, unknown> = {
+      storage_path: storagePath,
+      thumbnail_path: null,
+    };
+    if (parsedExif.coords) {
+      updateData['exif_latitude'] = parsedExif.coords.lat;
+      updateData['exif_longitude'] = parsedExif.coords.lng;
+    }
+    if (parsedExif.capturedAt) {
+      updateData['captured_at'] = parsedExif.capturedAt;
+    }
+    if (parsedExif.direction != null) {
+      updateData['direction'] = parsedExif.direction;
+    }
+
+    const { error: updateError } = await this.supabase.client
+      .from('images')
+      .update(updateData)
+      .eq('id', job.targetImageId!);
+
+    if (updateError) {
+      // Attempt to clean up orphaned storage file
+      await this.supabase.client.storage.from('images').remove([storagePath]);
+      this.failJob(jobId, 'replacing_record', updateError.message);
+      return;
+    }
+
+    // Best-effort cleanup of old files
+    const updatedJob = this.findJob(jobId)!;
+    const pathsToDelete: string[] = [];
+    if (updatedJob.oldStoragePath) pathsToDelete.push(updatedJob.oldStoragePath);
+    if (updatedJob.oldThumbnailPath) pathsToDelete.push(updatedJob.oldThumbnailPath);
+    if (pathsToDelete.length > 0) {
+      this.supabase.client.storage.from('images').remove(pathsToDelete);
+    }
+
+    // Insert dedup hash
+    if (updatedJob.contentHash) {
+      this.supabase.client
+        .from('dedup_hashes')
+        .insert({
+          image_id: updatedJob.targetImageId,
+          content_hash: updatedJob.contentHash,
+          user_id: this.auth.user()?.id,
+        })
+        .then();
+    }
+
+    this.updateJob(jobId, {
+      imageId: updatedJob.targetImageId,
+      coords: parsedExif.coords,
+      direction: parsedExif.direction,
+    });
+
+    // ── Complete ───────────────────────────────────────────────────────
+    this.setPhase(jobId, 'complete');
+    this.runningIds.delete(jobId);
+
+    const finalJob = this.findJob(jobId)!;
+    this._imageReplaced$.next({
+      jobId,
+      imageId: finalJob.targetImageId!,
+      newStoragePath: storagePath,
+      localObjectUrl: finalJob.thumbnailUrl,
+      coords: parsedExif.coords,
+      direction: parsedExif.direction,
+    });
+
+    this.emitBatchProgress(finalJob.batchId);
+    this.checkBatchComplete(finalJob.batchId);
+    this.drainQueue();
+  }
+
+  // ── Pipeline: mode = 'attach' ──────────────────────────────────────────────
+
+  /** Attach pipeline: validating → parsing_exif → hashing → dedup_check → uploading → replacing_record → enrichment → complete. */
+  private async runAttachPipeline(jobId: string): Promise<void> {
+    const job = this.findJob(jobId)!;
+
+    // ── Phase: validating ──────────────────────────────────────────────
+    this.setPhase(jobId, 'validating');
+    const validation = this.uploadService.validateFile(job.file);
+    if (!validation.valid) {
+      this.failJob(jobId, 'validating', validation.error!);
+      return;
+    }
+
+    // ── Phase: parsing_exif ────────────────────────────────────────────
+    this.setPhase(jobId, 'parsing_exif');
+    const parsedExif = job.parsedExif ?? (await this.uploadService.parseExif(job.file));
+    this.updateJob(jobId, { parsedExif });
+
+    if (parsedExif.coords) {
+      this.updateJob(jobId, { coords: parsedExif.coords, direction: parsedExif.direction });
+    }
+
+    // ── Phase: hashing ─────────────────────────────────────────────────
+    this.setPhase(jobId, 'hashing');
+    const fileHead = await readFileHead(job.file);
+    const contentHash = await computeContentHash({
+      fileHeadBytes: fileHead,
+      fileSize: job.file.size,
+      gpsCoords: parsedExif.coords
+        ? { lat: parsedExif.coords.lat, lng: parsedExif.coords.lng }
+        : undefined,
+      capturedAt: parsedExif.capturedAt?.toISOString(),
+      direction: parsedExif.direction,
+    });
+    this.updateJob(jobId, { contentHash });
+
+    // ── Phase: dedup_check ─────────────────────────────────────────────
+    this.setPhase(jobId, 'dedup_check');
+    const dedupResult = await this.checkDedupHash(contentHash);
+    if (dedupResult) {
+      this.setPhase(jobId, 'skipped');
+      this.updateJob(jobId, { existingImageId: dedupResult });
+      this.runningIds.delete(jobId);
+      this._uploadSkipped$.next({
+        jobId,
+        batchId: job.batchId,
+        fileName: job.file.name,
+        contentHash,
+        existingImageId: dedupResult,
+      });
+      this.emitBatchProgress(job.batchId);
+      this.checkBatchComplete(job.batchId);
+      this.drainQueue();
+      return;
+    }
+
+    // ── Phase: uploading ───────────────────────────────────────────────
+    this.setPhase(jobId, 'uploading');
+    this.updateJob(jobId, { progress: 0 });
+
+    const storagePath = await this.uploadToStorage(job.file);
+    if (!storagePath) {
+      this.failJob(jobId, 'uploading', 'Storage upload failed.');
+      return;
+    }
+    this.updateJob(jobId, { storagePath, progress: 100 });
+
+    // ── Phase: replacing_record ────────────────────────────────────────
+    this.setPhase(jobId, 'replacing_record');
+
+    // Fetch existing row to check if it already has coordinates
+    const { data: existingRow, error: fetchError } = await this.supabase.client
+      .from('images')
+      .select('latitude, longitude')
+      .eq('id', job.targetImageId!)
+      .single();
+
+    if (fetchError) {
+      await this.supabase.client.storage.from('images').remove([storagePath]);
+      this.failJob(jobId, 'replacing_record', 'Could not read existing image row.');
+      return;
+    }
+
+    const hadExistingCoords = existingRow.latitude != null && existingRow.longitude != null;
+
+    // Determine what to update based on conflict resolution or default behavior
+    const isAttachKeep = job.conflictResolution === 'attach_keep';
+
+    const updateData: Record<string, unknown> = {
+      storage_path: storagePath,
+    };
+
+    // Always write EXIF-specific fields
+    if (parsedExif.coords) {
+      updateData['exif_latitude'] = parsedExif.coords.lat;
+      updateData['exif_longitude'] = parsedExif.coords.lng;
+    }
+    if (parsedExif.capturedAt) {
+      updateData['captured_at'] = parsedExif.capturedAt;
+    }
+    if (parsedExif.direction != null) {
+      updateData['direction'] = parsedExif.direction;
+    }
+
+    // Write lat/lng only if the row doesn't already have coords
+    // (or if conflict resolution chose attach_replace)
+    if (!hadExistingCoords && parsedExif.coords && !isAttachKeep) {
+      updateData['latitude'] = parsedExif.coords.lat;
+      updateData['longitude'] = parsedExif.coords.lng;
+    } else if (job.conflictResolution === 'attach_replace' && parsedExif.coords) {
+      updateData['latitude'] = parsedExif.coords.lat;
+      updateData['longitude'] = parsedExif.coords.lng;
+    }
+
+    const { error: updateError } = await this.supabase.client
+      .from('images')
+      .update(updateData)
+      .eq('id', job.targetImageId!);
+
+    if (updateError) {
+      await this.supabase.client.storage.from('images').remove([storagePath]);
+      this.failJob(jobId, 'replacing_record', updateError.message);
+      return;
+    }
+
+    // Insert dedup hash
+    const updatedJob = this.findJob(jobId)!;
+    if (updatedJob.contentHash) {
+      this.supabase.client
+        .from('dedup_hashes')
+        .insert({
+          image_id: updatedJob.targetImageId,
+          content_hash: updatedJob.contentHash,
+          user_id: this.auth.user()?.id,
+        })
+        .then();
+    }
+
+    const finalCoords =
+      parsedExif.coords ??
+      (hadExistingCoords ? { lat: existingRow.latitude!, lng: existingRow.longitude! } : undefined);
+
+    this.updateJob(jobId, {
+      imageId: updatedJob.targetImageId,
+      coords: finalCoords,
+      direction: parsedExif.direction,
+    });
+
+    // ── Post-attach enrichment ─────────────────────────────────────────
+    // Skip enrichment if attach_keep (coords and address already present)
+    if (!isAttachKeep) {
+      if (finalCoords && !updatedJob.titleAddress) {
+        // Reverse-geocode GPS → address
+        await this.enrichWithReverseGeocode(jobId);
+      } else if (updatedJob.titleAddress && !finalCoords) {
+        // Forward-geocode address → GPS
+        await this.enrichWithForwardGeocode(jobId);
+      }
+    }
+
+    // ── Complete ───────────────────────────────────────────────────────
+    this.setPhase(jobId, 'complete');
+    this.runningIds.delete(jobId);
+
+    const finalJob = this.findJob(jobId)!;
+    this._imageAttached$.next({
+      jobId,
+      imageId: finalJob.targetImageId!,
+      newStoragePath: storagePath,
+      localObjectUrl: finalJob.thumbnailUrl,
+      coords: finalJob.coords,
+      direction: finalJob.direction,
+      hadExistingCoords,
+    });
+
+    this.emitBatchProgress(finalJob.batchId);
+    this.checkBatchComplete(finalJob.batchId);
+    this.drainQueue();
   }
 
   /**
@@ -750,6 +1313,105 @@ export class UploadManagerService {
     }
   }
 
+  // ── Conflict check ──────────────────────────────────────────────────────────
+
+  /**
+   * Check for existing photoless rows that match the upload's location.
+   * If a conflict is found, pauses the job at `awaiting_conflict_resolution`
+   * and releases the concurrency slot. Returns true if the job was paused.
+   */
+  private async runConflictCheck(jobId: string): Promise<boolean> {
+    const job = this.findJob(jobId);
+    if (!job) return false;
+
+    this.setPhase(jobId, 'conflict_check');
+
+    // Fetch the user's org ID for querying
+    const user = this.auth.user();
+    if (!user) return false;
+
+    const { data: profile } = await this.supabase.client
+      .from('profiles')
+      .select('organization_id')
+      .eq('id', user.id)
+      .single();
+
+    if (!profile) return false;
+
+    const lat = job.coords?.lat ?? null;
+    const lng = job.coords?.lng ?? null;
+    const address = job.titleAddress ?? null;
+
+    // Query for photoless rows near the upload's coordinates or matching address
+    const { data: candidates, error } = await this.supabase.client.rpc('find_photoless_conflicts', {
+      p_org_id: profile.organization_id,
+      p_lat: lat,
+      p_lng: lng,
+      p_address: address,
+    });
+
+    if (error || !candidates || candidates.length === 0) {
+      // No conflict (or query failed non-critically) — continue normally
+      return false;
+    }
+
+    const candidate: ConflictCandidate = {
+      imageId: candidates[0].id,
+      addressLabel: candidates[0].address_label ?? undefined,
+      latitude: candidates[0].latitude ?? undefined,
+      longitude: candidates[0].longitude ?? undefined,
+      distanceMeters: candidates[0].distance_m ?? undefined,
+    };
+
+    this.updateJob(jobId, { conflictCandidate: candidate });
+    this.setPhase(jobId, 'awaiting_conflict_resolution');
+
+    // Release concurrency slot — this job is paused
+    this.runningIds.delete(jobId);
+
+    this._locationConflict$.next({
+      jobId,
+      batchId: job.batchId,
+      fileName: job.file.name,
+      candidate,
+      uploadCoords: job.coords,
+      uploadAddress: job.titleAddress,
+    });
+
+    this.drainQueue();
+    return true;
+  }
+
+  // ── Storage upload helper ──────────────────────────────────────────────────
+
+  /**
+   * Upload a file to Supabase Storage and return the storage path.
+   * Used by replace/attach pipelines which handle DB insert separately.
+   */
+  private async uploadToStorage(file: File): Promise<string | null> {
+    const user = this.auth.user();
+    if (!user) return null;
+
+    const { data: profile } = await this.supabase.client
+      .from('profiles')
+      .select('organization_id')
+      .eq('id', user.id)
+      .single();
+
+    if (!profile) return null;
+
+    const uuid = crypto.randomUUID();
+    const ext = (file.name.split('.').pop() ?? 'jpg').toLowerCase();
+    const storagePath = `${profile.organization_id}/${user.id}/${uuid}.${ext}`;
+
+    const { error } = await this.supabase.client.storage
+      .from('images')
+      .upload(storagePath, file, { contentType: file.type, upsert: false });
+
+    if (error) return null;
+    return storagePath;
+  }
+
   // ── Title extraction ───────────────────────────────────────────────────────
 
   /**
@@ -874,7 +1536,14 @@ export class UploadManagerService {
   ]);
 
   private static readonly SUPPORTED_EXTENSIONS = new Set([
-    '.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif', '.tiff', '.tif',
+    '.jpg',
+    '.jpeg',
+    '.png',
+    '.webp',
+    '.heic',
+    '.heif',
+    '.tiff',
+    '.tif',
   ]);
 
   /**
@@ -919,9 +1588,7 @@ export class UploadManagerService {
   // ── Batch helpers ──────────────────────────────────────────────────────────
 
   private updateBatch(batchId: string, patch: Partial<UploadBatch>): void {
-    this._batches.update((prev) =>
-      prev.map((b) => (b.id === batchId ? { ...b, ...patch } : b)),
-    );
+    this._batches.update((prev) => prev.map((b) => (b.id === batchId ? { ...b, ...patch } : b)));
   }
 
   /** Recompute and emit batch progress based on current job states. */
@@ -970,8 +1637,8 @@ export class UploadManagerService {
     const total = batch.totalFiles || batchJobs.length;
     if (total === 0) return;
 
-    const allTerminal = batchJobs.length >= total &&
-      batchJobs.every((j) => TERMINAL_PHASES.has(j.phase));
+    const allTerminal =
+      batchJobs.length >= total && batchJobs.every((j) => TERMINAL_PHASES.has(j.phase));
     if (!allTerminal) return;
 
     const completed = batchJobs.filter((j) => j.phase === 'complete').length;
