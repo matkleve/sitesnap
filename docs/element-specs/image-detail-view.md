@@ -152,11 +152,15 @@ ImageDetailView                            ← fills Workspace Pane content area
 | Name             | Type                  | Default | Controls                                         |
 | ---------------- | --------------------- | ------- | ------------------------------------------------ |
 | `image`          | `ImageRecord \| null` | `null`  | The displayed image record                       |
-| `loading`        | `boolean`             | `false` | Whether data is loading from Supabase            |
+| `loading`        | `boolean`             | `false` | Whether record is loading from Supabase          |
 | `error`          | `string \| null`      | `null`  | Error message if load failed                     |
 | `paneWidth`      | `number`              | `0`     | Measured via ResizeObserver on host element (px)  |
 
 > See child specs for photo viewer, inline editing, metadata, and action state.
+
+### Loading Resolution for Photoless Items
+
+When the Supabase record loads and `storage_path IS NULL`, the view is **fully resolved** — `loading` becomes `false` immediately. The PhotoViewer shows its upload prompt as a final state, not as a loading intermediate. No signed URL requests are made, no progressive loading pipeline starts. The metadata panel, actions, and Quick Info Bar are all usable right away.
 
 ## File Map
 

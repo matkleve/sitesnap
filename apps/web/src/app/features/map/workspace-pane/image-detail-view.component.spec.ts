@@ -649,31 +649,6 @@ describe('ImageDetailViewComponent', () => {
     });
   });
 
-  // ── requestEditLocation ──────────────────────────────────────────────────
-
-  describe('requestEditLocation', () => {
-    it('emits editLocationRequested with imageId', () => {
-      const { component, ref } = setup();
-      ref.setInput('imageId', 'img-001');
-      let emittedId = '';
-      component.editLocationRequested.subscribe((id: string) => (emittedId = id));
-
-      component.requestEditLocation();
-
-      expect(emittedId).toBe('img-001');
-    });
-
-    it('does not emit when imageId is null', () => {
-      const { component } = setup();
-      let emitted = false;
-      component.editLocationRequested.subscribe(() => (emitted = true));
-
-      component.requestEditLocation();
-
-      expect(emitted).toBe(false);
-    });
-  });
-
   // ── Address search ─────────────────────────────────────────────────────
 
   describe('address search', () => {

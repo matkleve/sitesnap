@@ -343,6 +343,21 @@
   }
 }
 
+:host ::ng-deep .marker-pulse {
+  animation: marker-zoom-pulse 500ms ease-in-out 3;
+}
+
+@keyframes marker-zoom-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.3);
+  }
+}
+
 // ── GPS button — bottom-right of map zone ─────────────────────────────────────
 
 .map-gps-btn {

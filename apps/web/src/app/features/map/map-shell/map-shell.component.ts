@@ -288,11 +288,23 @@ export class MapShellComponent implements OnDestroy {
   }
 
   /**
-   * Handles the editLocationRequested output from ImageDetailViewComponent.
-   * Enters correction mode — placeholder for the correction flow spec.
+   * Handles the zoomToLocationRequested output from the detail view.
+   * Flies the map to the photo's coordinates at zoom 18 and pulses the marker.
    */
-  onEditLocationRequested(_imageId: string): void {
-    // Location correction mode will be implemented in the correction flow spec.
+  onZoomToLocation(event: { imageId: string; lat: number; lng: number }): void {
+    if (!this.map) return;
+    this.map.flyTo([event.lat, event.lng], 18);
+
+    // Pulse the marker after the fly animation completes
+    this.map.once('moveend', () => {
+      const markerKey = this.markersByImageId.get(event.imageId);
+      const state = markerKey ? this.uploadedPhotoMarkers.get(markerKey) : undefined;
+      const el = state?.marker?.getElement();
+      if (el) {
+        el.classList.add('marker-pulse');
+        setTimeout(() => el.classList.remove('marker-pulse'), 1500);
+      }
+    });
   }
 
   // ── Upload panel ──────────────────────────────────────────────────────────

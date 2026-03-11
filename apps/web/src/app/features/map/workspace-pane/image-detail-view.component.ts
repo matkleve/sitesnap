@@ -13,8 +13,14 @@ import {
 import { CapturedDateEditorComponent, DateSaveEvent } from './captured-date-editor.component';
 import { SupabaseService } from '../../../core/supabase.service';
 import { UploadService, ALLOWED_MIME_TYPES } from '../../../core/upload.service';
-import { AuthService } from '../../../core/auth.service';
+import {
+  UploadManagerService,
+  ImageReplacedEvent,
+  ImageAttachedEvent,
+} from '../../../core/upload-manager.service';
 import { WorkspaceViewService } from '../../../core/workspace-view.service';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { filter } from 'rxjs';
 import { ForwardGeocodeResult } from '../../../core/geocoding.service';
 import { ImageRecord, MetadataEntry, SelectOption } from './image-detail-view.types';
 import { PhotoLightboxComponent } from '../../../shared/photo-lightbox/photo-lightbox.component';
@@ -46,12 +52,12 @@ export type { ImageRecord, MetadataEntry } from './image-detail-view.types';
 export class ImageDetailViewComponent implements OnDestroy {
   private readonly supabaseService = inject(SupabaseService);
   private readonly uploadService = inject(UploadService);
-  private readonly authService = inject(AuthService);
+  private readonly uploadManager = inject(UploadManagerService);
   private readonly workspaceView = inject(WorkspaceViewService);
 
   readonly imageId = input<string | null>(null);
   readonly closed = output<void>();
-  readonly editLocationRequested = output<string>();
+  readonly zoomToLocationRequested = output<{ imageId: string; lat: number; lng: number }>();
 
   readonly image = signal<ImageRecord | null>(null);
   readonly metadata = signal<MetadataEntry[]>([]);
@@ -69,7 +75,18 @@ export class ImageDetailViewComponent implements OnDestroy {
   readonly thumbnailUrl = signal<string | null>(null);
   readonly showLightbox = signal(false);
   readonly allMetadataKeyNames = signal<string[]>([]);
-  readonly replacing = signal(false);
+  private readonly activeJobId = signal<string | null>(null);
+  private readonly pendingBlobUrl = signal<string | null>(null);
+  readonly heroSrc = signal<string | null>(null);
+  readonly hasPhoto = computed(() => !!this.image()?.storage_path || !!this.heroSrc());
+  readonly replacing = computed(() => {
+    const jobId = this.activeJobId();
+    if (!jobId) return false;
+    const jobs = this.uploadManager.jobs();
+    const job = jobs.find((j) => j.id === jobId);
+    if (!job) return false;
+    return job.phase !== 'complete' && job.phase !== 'error' && job.phase !== 'skipped';
+  });
   readonly replaceError = signal<string | null>(null);
   readonly fileInput = viewChild<ElementRef<HTMLInputElement>>('fileInput');
   readonly editDate = signal('');
@@ -81,10 +98,15 @@ export class ImageDetailViewComponent implements OnDestroy {
     return img.latitude !== img.exif_latitude || img.longitude !== img.exif_longitude;
   });
 
+  readonly hasCoordinates = computed(() => {
+    const img = this.image();
+    return img?.latitude != null && img?.longitude != null;
+  });
+
   readonly displayTitle = computed(() => {
     const img = this.image();
     if (!img) return '';
-    return img.address_label ?? img.storage_path.split('/').pop() ?? 'Photo';
+    return img.address_label ?? img.storage_path?.split('/').pop() ?? 'Photo';
   });
 
   readonly captureDate = computed(() => {
@@ -137,6 +159,7 @@ export class ImageDetailViewComponent implements OnDestroy {
   });
 
   readonly isImageLoading = computed(() => {
+    if (this.heroSrc()) return false;
     const hasThumbUrl = !!this.thumbnailUrl();
     if (this.imageErrored()) return false;
     if (!hasThumbUrl && !this.fullResUrl()) return true;
@@ -145,6 +168,7 @@ export class ImageDetailViewComponent implements OnDestroy {
   });
 
   readonly imageReady = computed(() => {
+    if (this.heroSrc()) return true;
     if (this.fullResLoaded()) return true;
     if (this.thumbnailLoaded()) return true;
     // Only treat as "no image" if the full-res also errored (not just thumbnail)
@@ -188,13 +212,31 @@ export class ImageDetailViewComponent implements OnDestroy {
         this.reset();
       }
     });
+
+    // React to imageReplaced$ — instant blob preview + re-sign URLs
+    this.uploadManager.imageReplaced$
+      .pipe(
+        takeUntilDestroyed(),
+        filter((e) => e.imageId === this.imageId()),
+      )
+      .subscribe((event) => this.handleImageReplaced(event));
+
+    // React to imageAttached$ — switch from upload prompt to photo display
+    this.uploadManager.imageAttached$
+      .pipe(
+        takeUntilDestroyed(),
+        filter((e) => e.imageId === this.imageId()),
+      )
+      .subscribe((event) => this.handleImageAttached(event));
   }
 
   ngOnDestroy(): void {
     this.abortController?.abort();
+    this.revokePendingBlobUrl();
   }
 
   private reset(): void {
+    this.revokePendingBlobUrl();
     this.image.set(null);
     this.metadata.set([]);
     this.fullResLoaded.set(false);
@@ -209,6 +251,9 @@ export class ImageDetailViewComponent implements OnDestroy {
     this.showDeleteConfirm.set(false);
     this.editingField.set(null);
     this.showLightbox.set(false);
+    this.heroSrc.set(null);
+    this.activeJobId.set(null);
+    this.replaceError.set(null);
   }
 
   private async loadImage(id: string): Promise<void> {
@@ -253,7 +298,9 @@ export class ImageDetailViewComponent implements OnDestroy {
     this.metadata.set(entries);
 
     // Load signed URLs and project list in parallel
-    this.loadSignedUrls(imgData, signal);
+    if (imgData.storage_path) {
+      this.loadSignedUrls(imgData, signal);
+    }
     if (imgData.organization_id) {
       this.loadProjects(imgData.organization_id);
       this.loadMetadataKeys(imgData.organization_id);
@@ -261,6 +308,8 @@ export class ImageDetailViewComponent implements OnDestroy {
   }
 
   private async loadSignedUrls(img: ImageRecord, abortSignal: AbortSignal): Promise<void> {
+    if (!img.storage_path) return;
+
     const thumbPromise = img.thumbnail_path
       ? this.supabaseService.client.storage.from('images').createSignedUrl(img.thumbnail_path, 3600)
       : Promise.resolve(null);
@@ -414,9 +463,10 @@ export class ImageDetailViewComponent implements OnDestroy {
     }
   }
 
-  requestEditLocation(): void {
-    const id = this.imageId();
-    if (id) this.editLocationRequested.emit(id);
+  zoomToLocation(): void {
+    const img = this.image();
+    if (!img || img.latitude == null || img.longitude == null) return;
+    this.zoomToLocationRequested.emit({ imageId: img.id, lat: img.latitude, lng: img.longitude });
   }
 
   confirmDelete(): void {
@@ -450,6 +500,9 @@ export class ImageDetailViewComponent implements OnDestroy {
 
   onFullResLoaded(): void {
     this.fullResLoaded.set(true);
+    // Revoke blob URL to prevent memory leaks (spec: revoke after Tier 3 loads)
+    this.revokePendingBlobUrl();
+    this.heroSrc.set(null);
   }
 
   onThumbnailLoaded(): void {
@@ -650,7 +703,7 @@ export class ImageDetailViewComponent implements OnDestroy {
     }
   }
 
-  async onFileSelected(event: Event): Promise<void> {
+  onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
@@ -658,93 +711,94 @@ export class ImageDetailViewComponent implements OnDestroy {
     const img = this.image();
     if (!img) return;
 
-    const user = this.authService.user();
-    if (!user) {
-      this.replaceError.set('Not authenticated.');
-      return;
-    }
-
-    // Validate
+    // Validate locally for instant feedback
     const validation = this.uploadService.validateFile(file);
     if (!validation.valid) {
       this.replaceError.set(validation.error!);
       return;
     }
 
-    if (!img.organization_id) {
-      this.replaceError.set('Image has no organization.');
-      return;
-    }
-
-    this.replacing.set(true);
     this.replaceError.set(null);
 
-    // Build new storage path
-    const uuid = crypto.randomUUID();
-    const ext = (file.name.split('.').pop() ?? 'jpg').toLowerCase();
-    const orgId = img.organization_id;
-    const newPath = `${orgId}/${user.id}/${uuid}.${ext}`;
-    const oldPath = img.storage_path;
-    const oldThumbPath = img.thumbnail_path;
+    // Delegate to UploadManagerService — survives component destruction
+    const jobId = img.storage_path
+      ? this.uploadManager.replaceFile(img.id, file)
+      : this.uploadManager.attachFile(img.id, file);
 
-    // Upload to storage
-    const { error: storageError } = await this.supabaseService.client.storage
-      .from('images')
-      .upload(newPath, file, { contentType: file.type, upsert: false });
+    this.activeJobId.set(jobId);
+  }
 
-    if (storageError) {
-      console.error('[ReplacePhoto] Storage upload failed:', storageError);
-      this.replacing.set(false);
-      this.replaceError.set('Upload failed. Please try again.');
-      return;
-    }
+  // ── Upload event handlers ──────────────────────────────────────────────────
 
-    // Update DB record: new storage path + clear stale thumbnail reference.
-    const { error: dbError } = await this.supabaseService.client
-      .from('images')
-      .update({ storage_path: newPath, thumbnail_path: null })
-      .eq('id', img.id);
+  private handleImageReplaced(event: ImageReplacedEvent): void {
+    this.revokePendingBlobUrl();
 
-    if (dbError) {
-      console.error('[ReplacePhoto] DB update failed:', dbError);
-      await this.supabaseService.client.storage.from('images').remove([newPath]);
-      this.replacing.set(false);
-      this.replaceError.set('Failed to update image record.');
-      return;
-    }
-
-    // Clean up old files (best-effort, only after confirmed DB update).
-    const pathsToRemove = [oldPath];
-    if (oldThumbPath) pathsToRemove.push(oldThumbPath);
-    this.supabaseService.client.storage.from('images').remove(pathsToRemove);
-
-    // Update local state and refresh
+    // Update local record with new storage path
     this.image.update((prev) =>
-      prev ? { ...prev, storage_path: newPath, thumbnail_path: null } : prev,
+      prev ? { ...prev, storage_path: event.newStoragePath, thumbnail_path: null } : prev,
     );
+
+    // Show blob instantly (Tier 0 — loads in ~0ms)
+    if (event.localObjectUrl) {
+      this.heroSrc.set(event.localObjectUrl);
+      this.pendingBlobUrl.set(event.localObjectUrl);
+    }
+
+    // Reset loading state for progressive reload restart
     this.fullResLoaded.set(false);
     this.thumbnailLoaded.set(false);
     this.imageErrored.set(false);
     this.fullResUrl.set(null);
     this.thumbnailUrl.set(null);
+    this.activeJobId.set(null);
 
-    // Load new signed URLs
-    const updatedImg = this.image();
-    if (updatedImg) {
-      await this.loadSignedUrls(
-        updatedImg,
-        this.abortController?.signal ?? new AbortController().signal,
-      );
+    // Re-sign URLs for new storage path (Tier 2 → Tier 3)
+    const img = this.image();
+    if (img?.storage_path) {
+      this.loadSignedUrls(img, this.abortController?.signal ?? new AbortController().signal);
     }
 
-    // Update the workspace grid cache AND re-sign the thumbnail so the grid
-    // immediately shows the new image instead of a broken placeholder.
+    this.updateGridCache(event.imageId, event.newStoragePath);
+  }
+
+  private handleImageAttached(event: ImageAttachedEvent): void {
+    this.revokePendingBlobUrl();
+
+    // Update local record — now has a photo (switches from upload prompt to photo display)
+    this.image.update((prev) =>
+      prev ? { ...prev, storage_path: event.newStoragePath, thumbnail_path: null } : prev,
+    );
+
+    // Show blob instantly
+    if (event.localObjectUrl) {
+      this.heroSrc.set(event.localObjectUrl);
+      this.pendingBlobUrl.set(event.localObjectUrl);
+    }
+
+    // Reset and start progressive loading
+    this.fullResLoaded.set(false);
+    this.thumbnailLoaded.set(false);
+    this.imageErrored.set(false);
+    this.fullResUrl.set(null);
+    this.thumbnailUrl.set(null);
+    this.activeJobId.set(null);
+
+    // Re-sign URLs for new storage path
+    const img = this.image();
+    if (img?.storage_path) {
+      this.loadSignedUrls(img, this.abortController?.signal ?? new AbortController().signal);
+    }
+
+    this.updateGridCache(event.imageId, event.newStoragePath);
+  }
+
+  private updateGridCache(imageId: string, newStoragePath: string): void {
     this.workspaceView.rawImages.update((all) =>
       all.map((wi) =>
-        wi.id === img.id
+        wi.id === imageId
           ? {
               ...wi,
-              storagePath: newPath,
+              storagePath: newStoragePath,
               thumbnailPath: null,
               signedThumbnailUrl: undefined,
               thumbnailUnavailable: false,
@@ -752,12 +806,17 @@ export class ImageDetailViewComponent implements OnDestroy {
           : wi,
       ),
     );
-    // Trigger thumbnail re-signing for the updated image
-    const updatedGridImages = this.workspaceView.rawImages().filter((wi) => wi.id === img.id);
-    if (updatedGridImages.length > 0) {
-      void this.workspaceView.batchSignThumbnails(updatedGridImages);
+    const updated = this.workspaceView.rawImages().filter((wi) => wi.id === imageId);
+    if (updated.length > 0) {
+      void this.workspaceView.batchSignThumbnails(updated);
     }
+  }
 
-    this.replacing.set(false);
+  private revokePendingBlobUrl(): void {
+    const url = this.pendingBlobUrl();
+    if (url) {
+      URL.revokeObjectURL(url);
+      this.pendingBlobUrl.set(null);
+    }
   }
 }

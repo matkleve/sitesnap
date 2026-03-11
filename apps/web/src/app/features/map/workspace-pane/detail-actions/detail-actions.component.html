@@ -1,8 +1,8 @@
 <div class="dd-section-label">Actions</div>
 
-<button class="dd-item" type="button" (click)="editLocation.emit()">
-  <span class="material-icons dd-item__icon" aria-hidden="true">edit_location</span>
-  <span class="dd-item__label">Edit location</span>
+<button class="dd-item" type="button" [disabled]="!hasCoordinates()" (click)="zoomToLocation.emit()">
+  <span class="material-icons dd-item__icon" aria-hidden="true">my_location</span>
+  <span class="dd-item__label">Zoom to location</span>
 </button>
 
 <button class="dd-item" type="button" (click)="addToProject.emit()">

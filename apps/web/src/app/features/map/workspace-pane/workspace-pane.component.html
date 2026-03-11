@@ -6,7 +6,7 @@
     <app-image-detail-view
       [imageId]="detailImageId()"
       (closed)="onDetailClose()"
-      (editLocationRequested)="onEditLocation($event)"
+      (zoomToLocationRequested)="onZoomToLocation($event)"
     />
   } @else {
     <app-workspace-toolbar />

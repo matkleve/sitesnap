@@ -100,66 +100,100 @@
 
   <!-- Scrollable content area -->
   <div class="detail-scroll">
-    <!-- FullResImage: progressive load — click opens lightbox -->
-    <div class="detail-image-container">
-      <button
-        class="detail-image-wrap"
-        type="button"
-        aria-label="View full-size photo"
-        (click)="showLightbox.set(true)"
-      >
-        <!-- Placeholder: pulsing gradient while loading -->
-        @if (!imageReady()) {
-          <div
-            class="detail-image-placeholder"
-            [class.detail-image-placeholder--loading]="isImageLoading()"
-            [class.detail-image-placeholder--no-photo]="!isImageLoading()"
+    <!-- Photo viewer: progressive load — click opens lightbox -->
+    @if (hasPhoto()) {
+      <div class="detail-image-container">
+        <button
+          class="detail-image-wrap"
+          type="button"
+          aria-label="View full-size photo"
+          (click)="showLightbox.set(true)"
+        >
+          <!-- Hero blob (instant preview after replace/attach — Tier 0) -->
+          @if (heroSrc() && !fullResLoaded()) {
+            <img
+              class="detail-image"
+              [src]="heroSrc()"
+              alt="Photo preview"
+            />
+          }
+          <!-- Placeholder: pulsing gradient while loading -->
+          @if (!imageReady()) {
+            <div
+              class="detail-image-placeholder"
+              [class.detail-image-placeholder--loading]="isImageLoading()"
+              [class.detail-image-placeholder--no-photo]="!isImageLoading()"
+            >
+              <span class="detail-image-placeholder__icon" aria-hidden="true"></span>
+            </div>
+          }
+          @if (thumbnailUrl() && !fullResLoaded()) {
+            <img
+              class="detail-image detail-image--thumb"
+              [src]="thumbnailUrl()"
+              alt="Photo preview"
+              aria-hidden="true"
+              (load)="onThumbnailLoaded()"
+              (error)="onThumbnailError()"
+            />
+          }
+          @if (fullResUrl()) {
+            <img
+              class="detail-image detail-image--full"
+              [class.detail-image--loaded]="fullResLoaded()"
+              [src]="fullResUrl()"
+              [alt]="displayTitle()"
+              (load)="onFullResLoaded()"
+              (error)="onImageError()"
+            />
+          }
+        </button>
+
+        <!-- Replace photo overlay button -->
+        <button
+          class="detail-image-edit-btn"
+          type="button"
+          aria-label="Replace photo"
+          title="Replace photo"
+          [disabled]="replacing()"
+          (click)="triggerFileInput()"
+        >
+          @if (replacing()) {
+            <span class="detail-image-edit-btn__spinner" aria-hidden="true"></span>
+          } @else {
+            <span class="material-icons" aria-hidden="true">edit</span>
+          }
+        </button>
+
+        @if (replaceError()) {
+          <div class="detail-replace-error" role="alert">{{ replaceError() }}</div>
+        }
+      </div>
+    } @else {
+      <!-- Upload prompt for photoless items (no-photo fast path) -->
+      <div class="detail-upload-prompt">
+        <div class="detail-upload-prompt__placeholder">
+          <span class="material-icons detail-upload-prompt__icon" aria-hidden="true"
+            >add_a_photo</span
           >
-            <span class="detail-image-placeholder__icon" aria-hidden="true"></span>
-          </div>
+          <span class="detail-upload-prompt__text">No photo attached</span>
+        </div>
+        <button
+          class="detail-upload-prompt__button"
+          type="button"
+          [disabled]="replacing()"
+          (click)="triggerFileInput()"
+        >
+          @if (replacing()) {
+            <span class="detail-upload-prompt__spinner" aria-hidden="true"></span>
+          }
+          Upload photo
+        </button>
+        @if (replaceError()) {
+          <div class="detail-replace-error" role="alert">{{ replaceError() }}</div>
         }
-        @if (thumbnailUrl() && !fullResLoaded()) {
-          <img
-            class="detail-image detail-image--thumb"
-            [src]="thumbnailUrl()"
-            alt="Photo preview"
-            aria-hidden="true"
-            (load)="onThumbnailLoaded()"
-            (error)="onThumbnailError()"
-          />
-        }
-        @if (fullResUrl()) {
-          <img
-            class="detail-image detail-image--full"
-            [class.detail-image--loaded]="fullResLoaded()"
-            [src]="fullResUrl()"
-            [alt]="displayTitle()"
-            (load)="onFullResLoaded()"
-            (error)="onImageError()"
-          />
-        }
-      </button>
-
-      <!-- Replace photo overlay button -->
-      <button
-        class="detail-image-edit-btn"
-        type="button"
-        aria-label="Replace photo"
-        title="Replace photo"
-        [disabled]="replacing()"
-        (click)="triggerFileInput()"
-      >
-        @if (replacing()) {
-          <span class="detail-image-edit-btn__spinner" aria-hidden="true"></span>
-        } @else {
-          <span class="material-icons" aria-hidden="true">edit</span>
-        }
-      </button>
-
-      @if (replaceError()) {
-        <div class="detail-replace-error" role="alert">{{ replaceError() }}</div>
-      }
-    </div>
+      </div>
+    }
 
     <!-- Metadata content area — capped width for readability -->
     <div class="detail-content">
@@ -380,7 +414,8 @@
 
       <!-- Actions Section -->
       <app-detail-actions
-        (editLocation)="requestEditLocation()"
+        [hasCoordinates]="hasCoordinates()"
+        (zoomToLocation)="zoomToLocation()"
         (addToProject)="openProjectPicker()"
         (copyCoordinates)="copyCoordinates()"
         (deleteImage)="confirmDelete()"
@@ -390,9 +425,9 @@
 }
 
 <!-- Photo lightbox overlay -->
-@if (showLightbox() && fullResUrl()) {
+@if (showLightbox() && (fullResUrl() || heroSrc())) {
   <app-photo-lightbox
-    [imageUrl]="fullResUrl()!"
+    [imageUrl]="(fullResUrl() ?? heroSrc())!"
     [alt]="displayTitle()"
     (closed)="showLightbox.set(false)"
   />

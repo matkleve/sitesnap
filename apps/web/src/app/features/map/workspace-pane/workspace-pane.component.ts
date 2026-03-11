@@ -23,7 +23,7 @@ export class WorkspacePaneComponent {
   readonly closed = output<void>();
   readonly detailClosed = output<void>();
   readonly detailRequested = output<string>();
-  readonly editLocationRequested = output<string>();
+  readonly zoomToLocationRequested = output<{ imageId: string; lat: number; lng: number }>();
 
   // ── Internal state ───────────────────────────────────────────────────────
   readonly activeTabId = signal<string>('selection');
@@ -45,7 +45,7 @@ export class WorkspacePaneComponent {
     this.detailClosed.emit();
   }
 
-  onEditLocation(imageId: string): void {
-    this.editLocationRequested.emit(imageId);
+  onZoomToLocation(event: { imageId: string; lat: number; lng: number }): void {
+    this.zoomToLocationRequested.emit(event);
   }
 }

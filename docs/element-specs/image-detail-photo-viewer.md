@@ -52,18 +52,20 @@ stateDiagram-v2
 
     state check <<choice>>
     CheckStoragePath --> check
-    check --> UploadPromptState : storage_path IS NULL
+    check --> NoPhotoReady : storage_path IS NULL
     check --> LoadingState : storage_path exists
 
-    state UploadPromptState {
-        [*] --> ShowPlaceholder
-        ShowPlaceholder : File picker button + placeholder UI
-        ShowPlaceholder --> Attaching : User selects file
+    state NoPhotoReady {
+        [*] --> UploadPrompt
+        UploadPrompt : File picker button + placeholder UI
+        UploadPrompt : No loading spinner, no network requests
+        UploadPrompt : View is fully resolved immediately
+        UploadPrompt --> Attaching : User selects file
         Attaching : Delegated to UploadManagerService
-        Attaching --> ShowPlaceholder : Attach fails
+        Attaching --> UploadPrompt : Attach fails
     }
 
-    UploadPromptState --> LoadingState : imageAttached$ fires
+    NoPhotoReady --> LoadingState : imageAttached$ fires
 
     state LoadingState {
         [*] --> CSSPlaceholder
@@ -85,21 +87,46 @@ stateDiagram-v2
     Replacing --> LoadingState : Replace fails (original photo stays)
 ```
 
+### No-Photo Fast Path
+
+When `storage_path IS NULL`, the PhotoViewer **immediately** enters the `NoPhotoReady` state:
+
+- No CSS loading placeholder is shown
+- No signed URL requests are made
+- No loading spinner or "Loading…" text appears
+- The upload prompt is the **final resolved state** — not a loading intermediate
+- The parent `ImageDetailView.loading` signal is `false` as soon as the record fetch completes
+
+This prevents photoless items from appearing stuck in a perpetual loading state.
+
 ## Progressive Image Loading
 
-Three-tier strategy to show content as fast as possible:
+Three-tier strategy to show content as fast as possible. **Only invoked when `storage_path` exists.** When `storage_path IS NULL`, the component skips this entire pipeline and shows the upload prompt immediately (see [No-Photo Fast Path](#no-photo-fast-path) above).
 
-1. **View opens** → CSS placeholder shown immediately (no network)
-2. **Tier 2** thumbnail signed URL fires (`256×256, cover, quality: 60`)
-3. Thumbnail `<img>` loads → replaces placeholder with slight blur filter
-4. **Tier 3** full-res signed URL fires (no transform, or max 2500px)
-5. Full-res `<img>` loads in hidden element → crossfade swaps it in
-6. If Tier 3 fails, Tier 2 remains visible (adequate quality for metadata editing)
-7. If both fail, broken `<img>` icon shown with `alt="Image unavailable"`
+1. **Check** → If `storage_path IS NULL`, skip to upload prompt (no loading state)
+2. **View opens with photo** → CSS placeholder shown immediately (no network)
+3. **Tier 2** thumbnail signed URL fires (`256×256, cover, quality: 60`)
+4. Thumbnail `<img>` loads → replaces placeholder with slight blur filter
+5. **Tier 3** full-res signed URL fires (no transform, or max 2500px)
+6. Full-res `<img>` loads in hidden element → crossfade swaps it in
+7. If Tier 3 fails, Tier 2 remains visible (adequate quality for metadata editing)
+8. If both fail, broken `<img>` icon shown with `alt="Image unavailable"`
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Placeholder : View opens
+    [*] --> CheckPhoto : View opens
+
+    state hasPhoto <<choice>>
+    CheckPhoto --> hasPhoto
+    hasPhoto --> UploadPrompt : storage_path IS NULL
+    hasPhoto --> Placeholder : storage_path exists
+
+    state UploadPrompt {
+        [*] --> NoPhotoReady
+        NoPhotoReady : File picker button + placeholder UI
+        NoPhotoReady : Fully resolved — no loading state
+    }
+
     state Placeholder {
         [*] --> CSSGradient
         CSSGradient : Gradient + camera icon + "Loading…"
@@ -133,6 +160,8 @@ stateDiagram-v2
         [*] --> ErrorPlaceholder
         ErrorPlaceholder : Broken img with alt="Image unavailable"
     }
+
+    UploadPrompt --> Placeholder : imageAttached$ fires (photo now exists)
 ```
 
 ### Signed URL Strategy
@@ -287,7 +316,9 @@ stateDiagram-v2
 
 ## Acceptance Criteria
 
-- [ ] CSS placeholder shown immediately when view opens (gradient + camera icon)
+- [ ] When `storage_path IS NULL`: upload prompt shown **immediately** — no loading spinner, no CSS placeholder, no signed URL requests
+- [ ] When `storage_path IS NULL`: parent view `loading` resolves to `false` as soon as record fetch completes
+- [ ] When `storage_path` exists: CSS placeholder shown immediately (gradient + camera icon)
 - [ ] Tier 2 thumbnail (256×256 transform) loads and replaces placeholder with slight blur
 - [ ] Full-res image loads on demand and crossfades over blurred thumbnail
 - [ ] If full-res fails, Tier 2 thumbnail stays visible

@@ -1,4 +1,4 @@
-import { Component, output } from '@angular/core';
+import { Component, input, output } from '@angular/core';
 
 @Component({
   selector: 'app-detail-actions',
@@ -7,7 +7,9 @@ import { Component, output } from '@angular/core';
   styleUrl: './detail-actions.component.scss',
 })
 export class DetailActionsComponent {
-  readonly editLocation = output<void>();
+  readonly hasCoordinates = input(false);
+
+  readonly zoomToLocation = output<void>();
   readonly addToProject = output<void>();
   readonly copyCoordinates = output<void>();
   readonly deleteImage = output<void>();
