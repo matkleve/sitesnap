@@ -230,6 +230,188 @@ sequenceDiagram
 
 ---
 
+## PL-7: Replace Photo — Loading State Reset
+
+**Context:** User replaces a photo through the Image Detail View. `UploadManagerService.replaceFile()` handles the pipeline and emits `imageReplaced$` with a `localObjectUrl` (blob from `URL.createObjectURL(file)`). All surfaces that display this image must reset their loading cycle and show the new photo.
+
+Because `localObjectUrl` is a local blob URL, `<img>` load completes in ~0ms — the pulsing placeholder phase is imperceptibly brief. The loading state machine still cycles through all states (ensuring animations fire correctly), but the user perceives an instant swap.
+
+### Marker (Tier 1) — Instant Rebuild
+
+```mermaid
+sequenceDiagram
+    participant Manager as UploadManagerService
+    participant Shell as MapShellComponent
+    participant Marker as L.Marker
+
+    Manager->>Shell: imageReplaced$ {imageId, localObjectUrl}
+    Shell->>Shell: PhotoMarkerState.thumbnailUrl = localObjectUrl
+    Shell->>Shell: Rebuild DivIcon HTML via buildPhotoMarkerHtml()
+    Shell->>Marker: marker.setIcon(newDivIcon)
+    Note over Marker: Old thumbnail → new thumbnail (instant, no placeholder)
+    Note over Shell: On next viewport query, signed URL replaces blob URL
+    Shell->>Shell: URL.revokeObjectURL(localObjectUrl)
+```
+
+The marker skips the placeholder entirely — `buildPhotoMarkerHtml()` receives a thumbnail URL on first render, so it emits `<img>` directly. Same pattern as PL-4 (Fresh Upload).
+
+### Thumbnail Card (Tier 2) — Loading Cycle Reset
+
+```mermaid
+stateDiagram-v2
+    Loaded --> Loading : imageReplaced$ — grid cache updated with localObjectUrl
+    Loading --> Loaded : blob <img> onload (~0ms)
+
+    state Loading {
+        [*] --> PulsingPlaceholder
+        PulsingPlaceholder : Gradient + camera icon, pulse
+        Note left of PulsingPlaceholder : Imperceptibly brief for blob URLs
+    }
+
+    state Loaded {
+        [*] --> FadeIn
+        FadeIn : img opacity 0→1 over 200ms
+    }
+```
+
+```mermaid
+sequenceDiagram
+    participant Manager as UploadManagerService
+    participant ViewService as WorkspaceViewService
+    participant Card as ThumbnailCard
+
+    Manager->>ViewService: imageReplaced$ {imageId, localObjectUrl}
+    ViewService->>ViewService: rawImages.update() — set signedThumbnailUrl = localObjectUrl, clear thumbnailUnavailable
+    Note over Card: Signal change → imgLoading resets to true
+    Card->>Card: <img src=localObjectUrl> starts loading
+    Card->>Card: onload fires (~0ms, blob is local)
+    Card->>Card: imgLoading = false → imageReady = true
+    Card->>Card: Fade-in transition (200ms opacity 0→1)
+    Note over ViewService: On next batchSignThumbnails(), signed URL replaces blob
+```
+
+### Detail View (Tier 3) — Progressive Reload
+
+```mermaid
+sequenceDiagram
+    participant Manager as UploadManagerService
+    participant Detail as ImageDetailView
+    participant Storage as Supabase Storage
+
+    Manager->>Detail: imageReplaced$ {imageId, newStoragePath, localObjectUrl}
+    Detail->>Detail: heroSrc = localObjectUrl (instant — replaces old photo)
+    Detail->>Detail: fullResLoaded = false
+    Note over Detail: User sees new photo immediately from blob
+    Detail->>Storage: createSignedUrl(newStoragePath, 3600, { transform: 256×256 })
+    Storage-->>Detail: tier2Url
+    Detail->>Storage: createSignedUrl(newStoragePath, 3600)
+    Storage-->>Detail: tier3Url (full-res)
+    Detail->>Detail: Preload full-res in hidden <img>
+    Detail->>Detail: On load → crossfade blob → full-res
+    Detail->>Detail: URL.revokeObjectURL(localObjectUrl)
+```
+
+**Expected state after:**
+
+- All three surfaces show the new photo within milliseconds of `imageReplaced$`
+- Marker and card use `localObjectUrl` as a bridge — signed URLs take over on next viewport query or batch sign
+- Detail view shows blob immediately, then crossfades to full-res signed URL
+- No visible placeholder flash (blob loads too fast for the pulse animation to be perceptible)
+- `localObjectUrl` is revoked after signed URLs take over to avoid memory leaks
+
+---
+
+## PL-8: Attach Photo to Photoless Row — Loading State Transition
+
+**Context:** User uploads a photo to a photoless datapoint (image row with `storage_path IS NULL`) via the Image Detail View. `UploadManagerService.attachFile()` handles the pipeline and emits `imageAttached$` with a `localObjectUrl`. All surfaces transition from the no-photo state to showing a real image.
+
+Unlike PL-7 (replace), these surfaces start in the **NoPhoto** state — the transition is more visually dramatic: a static "no image" placeholder transforms into a real photo.
+
+### Marker (Tier 1) — Placeholder to Photo
+
+```mermaid
+sequenceDiagram
+    participant Manager as UploadManagerService
+    participant Shell as MapShellComponent
+    participant Marker as L.Marker
+
+    Manager->>Shell: imageAttached$ {imageId, localObjectUrl, coords}
+    Shell->>Shell: PhotoMarkerState.thumbnailUrl = localObjectUrl
+    Shell->>Shell: Rebuild DivIcon HTML: placeholder class removed, <img> added
+    Shell->>Marker: marker.setIcon(newDivIcon)
+    Note over Marker: Placeholder → real photo (instant)
+```
+
+### Thumbnail Card (Tier 2) — NoPhoto to Loaded
+
+```mermaid
+stateDiagram-v2
+    NoPhoto_Unavailable --> Loading : imageAttached$ — grid cache updated with localObjectUrl
+    Loading --> Loaded : blob <img> onload (~0ms)
+
+    state NoPhoto_Unavailable {
+        [*] --> StaticNoPhoto
+        StaticNoPhoto : Crossed-out image icon, 0.55 opacity
+    }
+
+    state Loading {
+        [*] --> PulsingPlaceholder
+        PulsingPlaceholder : Gradient + camera icon, pulse
+        Note left of PulsingPlaceholder : Imperceptibly brief for blob URLs
+    }
+
+    state Loaded {
+        [*] --> FadeIn
+        FadeIn : img opacity 0→1 over 200ms
+    }
+```
+
+```mermaid
+sequenceDiagram
+    participant Manager as UploadManagerService
+    participant ViewService as WorkspaceViewService
+    participant Card as ThumbnailCard
+
+    Manager->>ViewService: imageAttached$ {imageId, localObjectUrl}
+    ViewService->>ViewService: rawImages.update() — set signedThumbnailUrl = localObjectUrl, clear thumbnailUnavailable
+    Note over Card: Was showing no-photo icon → signal change resets loading state
+    Card->>Card: thumbnailUnavailable = false, imgLoading = true
+    Card->>Card: <img src=localObjectUrl> starts loading
+    Card->>Card: onload fires (~0ms)
+    Card->>Card: No-photo icon → fade-in real photo (200ms)
+```
+
+### Detail View (Tier 3) — Upload Prompt to Photo
+
+```mermaid
+sequenceDiagram
+    participant Manager as UploadManagerService
+    participant Detail as ImageDetailView
+    participant Storage as Supabase Storage
+
+    Manager->>Detail: imageAttached$ {imageId, newStoragePath, localObjectUrl}
+    Detail->>Detail: storage_path is now set → switch from upload prompt to photo display
+    Detail->>Detail: heroSrc = localObjectUrl (instant)
+    Note over Detail: Upload placeholder → real photo
+    Detail->>Storage: createSignedUrl(newStoragePath, 3600, { transform: 256×256 })
+    Storage-->>Detail: tier2Url
+    Detail->>Storage: createSignedUrl(newStoragePath, 3600)
+    Storage-->>Detail: tier3Url (full-res)
+    Detail->>Detail: Preload full-res → crossfade blob → full-res
+    Detail->>Detail: URL.revokeObjectURL(localObjectUrl)
+```
+
+**Expected state after:**
+
+- All three surfaces transition from no-photo state to showing the real photo
+- Marker: CSS placeholder class removed, `<img>` added with blob URL
+- Card: no-photo icon replaced by real photo via the standard fade-in transition
+- Detail view: upload prompt disappears, hero photo shows blob then crossfades to full-res
+- EXIF metadata (GPS, direction, captured_at) written to the row by the attach pipeline
+- If the row previously had no coordinates, the marker position may update based on EXIF GPS
+
+---
+
 ## Placeholder Design
 
 When no real image file exists in Supabase Storage (seed data, deleted files, failed uploads), the placeholder must:

@@ -55,13 +55,13 @@ Single-image markers at near zoom (≥ 16) display a real photo thumbnail inside
 
 ### Loading States
 
-| State      | Visual                                                              | CSS Class                                     |
-| ---------- | ------------------------------------------------------------------- | --------------------------------------------- |
-| Not loaded | Count badge (clusters) or CSS placeholder (single, no thumbnailUrl) | `.map-photo-marker--count` or `--placeholder` |
-| Loading    | CSS placeholder with subtle pulse animation                         | `.map-photo-marker--placeholder.is-loading`   |
-| Loaded     | Real photo `<img>` with `object-fit: cover`                         | `.map-photo-marker--single`                   |
-| Error      | CSS placeholder (permanent, no retry)                               | `.map-photo-marker--placeholder`              |
-| Optimistic | Local `ObjectURL` from fresh upload (no signed URL needed)          | `.map-photo-marker--single`                   |
+| State      | Visual                                                              | CSS Class                                     | Trigger                                                |
+| ---------- | ------------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------ |
+| Not loaded | Count badge (clusters) or CSS placeholder (single, no thumbnailUrl) | `.map-photo-marker--count` or `--placeholder` | Initial render                                         |
+| Loading    | CSS placeholder with subtle pulse animation                         | `.map-photo-marker--placeholder.is-loading`   | `maybeLoadThumbnails()` fires                          |
+| Loaded     | Real photo `<img>` with `object-fit: cover`                         | `.map-photo-marker--single`                   | `createSignedUrl` succeeds + img loaded                |
+| Error      | CSS placeholder (permanent, no retry)                               | `.map-photo-marker--placeholder`              | `createSignedUrl` fails (no file)                      |
+| Optimistic | Local `ObjectURL` from fresh upload (no signed URL needed)          | `.map-photo-marker--single`                   | `imageUploaded$` / `imageReplaced$` / `imageAttached$` |
 
 ### Thumbnail Loading Flow
 
@@ -76,6 +76,9 @@ stateDiagram-v2
     Loaded --> [*] : marker shows real photo
     CountBadge --> Placeholder : zoom in to ≥ 16
     Placeholder --> CountBadge : zoom out to < 16
+    Loaded --> Loaded : imageReplaced$ — DivIcon rebuilt with new localObjectUrl
+    Placeholder --> Loaded : imageAttached$ — DivIcon rebuilt with localObjectUrl
+    Error --> Loaded : imageAttached$ — DivIcon rebuilt with localObjectUrl
 
     note right of Loading
         Signed URL params:
@@ -84,6 +87,8 @@ stateDiagram-v2
         TTL: 3600s
     end note
 ```
+
+> **Replace / Attach shortcut:** When `imageReplaced$` or `imageAttached$` fires, the Map Shell sets `PhotoMarkerState.thumbnailUrl` to the `localObjectUrl` from the event and rebuilds the DivIcon immediately. The marker skips the loading/placeholder cycle because the blob URL is available at build time — `buildPhotoMarkerHtml()` emits an `<img>` tag directly. This is the same optimistic pattern as PL-4 (Fresh Upload). On the next viewport query, the signed URL replaces the blob URL and the `ObjectURL` is revoked. See [PL-7 / PL-8](../use-cases/photo-loading.md#pl-7-replace-photo--loading-state-reset) for full interaction diagrams.
 
 ### Placeholder Design
 
@@ -198,51 +203,50 @@ Cluster click **never zooms**. Regardless of zoom level or cluster size, clickin
 
 The map does **not** zoom or re-center on cluster click. The map stays at its current view, preserving the user's spatial context.
 
-## Reactive Updates from Detail View
+## Reactive Updates from Upload Manager
 
-When the user edits image properties in the **Image Detail View**, the corresponding marker on the map must update immediately. The detail view emits events that bubble through the Workspace Pane to the Map Shell, which applies the changes to the specific Leaflet marker without a full viewport refresh.
+When the user replaces a photo or attaches a photo to a photoless row through the **Image Detail View**, the `UploadManagerService` handles the upload pipeline and emits events on success. The `MapShellComponent` subscribes to these events and applies marker changes without a full viewport refresh.
 
 ### Update Types
 
-| Event Source                       | Marker Action                                                                  |
-| ---------------------------------- | ------------------------------------------------------------------------------ |
-| `imagePropertyChanged` (coords)    | `marker.setLatLng([newLat, newLng])` — marker slides to new position           |
-| `imagePropertyChanged` (direction) | Rebuild DivIcon with new direction cone angle via `setIcon()`                  |
-| `imagePropertyChanged` (other)     | Update cached marker data — no DOM change unless it affects visual state       |
-| `imageThumbnailChanged`            | Rebuild DivIcon with new thumbnail (local ObjectURL) via `setIcon()`           |
-| Correction mode drag completed     | Marker already at new position from drag — update key mapping + corrected flag |
+| Event Source                  | Marker Action                                                                  |
+| ----------------------------- | ------------------------------------------------------------------------------ |
+| `imageReplaced$`              | Rebuild DivIcon with new thumbnail (local ObjectURL) via `setIcon()`           |
+| `imageAttached$`              | Rebuild DivIcon: placeholder → real thumbnail via `setIcon()`                  |
+| `imageUploaded$` (new upload) | Creates a new optimistic marker (existing behaviour)                           |
+| Correction mode drag          | Marker already at new position from drag — update key mapping + corrected flag |
 
-### Coordinate Change Flow
+### Replace Photo Flow
 
 ```mermaid
 sequenceDiagram
-  participant Detail as ImageDetailView
+  participant Manager as UploadManagerService
   participant Shell as MapShellComponent
   participant Marker as L.Marker (Leaflet)
 
-  Detail->>Shell: (imagePropertyChanged) {imageId, field: 'coordinates', coords: {lat, lng}}
+  Manager->>Shell: imageReplaced$ {imageId, newStoragePath, localObjectUrl}
   Shell->>Shell: Look up marker by imageId in markersByImageId map
-  Shell->>Marker: marker.setLatLng([lat, lng])
-  Shell->>Shell: Remove old markerKey entry, insert new markerKey
-  Shell->>Shell: Update PhotoMarkerState.corrected = true
-  Shell->>Marker: marker.setIcon(rebuildDivIcon with corrected dot)
-```
-
-### Thumbnail Change Flow
-
-```mermaid
-sequenceDiagram
-  participant Detail as ImageDetailView
-  participant Shell as MapShellComponent
-  participant Marker as L.Marker (Leaflet)
-
-  Detail->>Shell: (imageThumbnailChanged) {imageId, newStoragePath, localObjectUrl}
-  Shell->>Shell: Look up marker by imageId
   Shell->>Shell: Update PhotoMarkerState.thumbnailUrl = localObjectUrl
   Shell->>Shell: Rebuild DivIcon HTML via buildPhotoMarkerHtml()
   Shell->>Marker: marker.setIcon(newDivIcon)
   Note over Marker: Marker instantly shows the new photo
   Note over Shell: On next viewport query, signed URL replaces ObjectURL
+```
+
+### Attach Photo Flow (Photoless → Photo)
+
+```mermaid
+sequenceDiagram
+  participant Manager as UploadManagerService
+  participant Shell as MapShellComponent
+  participant Marker as L.Marker (Leaflet)
+
+  Manager->>Shell: imageAttached$ {imageId, newStoragePath, localObjectUrl, coords}
+  Shell->>Shell: Look up marker by imageId in markersByImageId map
+  Shell->>Shell: Update PhotoMarkerState.thumbnailUrl = localObjectUrl
+  Shell->>Shell: Rebuild DivIcon HTML: placeholder → real thumbnail
+  Shell->>Marker: marker.setIcon(newDivIcon)
+  Note over Marker: Marker switches from placeholder to photo thumbnail
 ```
 
 ### Key Mapping
@@ -286,8 +290,9 @@ These rules exist to prevent marker lag during map pan/zoom interactions.
 - The Map Shell includes the `direction` column in the initial-load and viewport queries so that bearing-based direction cones render for all markers, not only freshly uploaded ones.
 - Marker click handling opens the Workspace Pane for both single markers and cluster markers. Single marker click selects one image; cluster marker click fetches all image IDs for the cluster cell, populates Active Selection with those IDs, and signals the Workspace Pane to open. The map never zooms or re-centers on cluster click.
 - Hover direction cones are driven by CSS `:hover` on desktop. Touch long-press direction cones require a Leaflet pointer-event listener (~500 ms threshold) that toggles a `data-long-pressed` attribute or class.
-- The Map Shell subscribes to `imagePropertyChanged` and `imageThumbnailChanged` events from the Workspace Pane (output bubbling from `ImageDetailView`). On coordinate changes, it calls `marker.setLatLng()` and updates the key mapping. On thumbnail changes, it rebuilds the DivIcon and calls `marker.setIcon()`.
-- The Map Shell maintains a `markersByImageId` secondary index (`Map<string, L.Marker>`) for O(1) lookups when applying detail view edits. This index is populated during marker creation and cleaned up during marker removal.
+- The Map Shell subscribes to `UploadManagerService.imageReplaced$` to update marker thumbnails when a photo is replaced in the detail view. On event, it looks up the marker via `markersByImageId`, rebuilds the DivIcon with the `localObjectUrl`, and calls `marker.setIcon()`.
+- The Map Shell subscribes to `UploadManagerService.imageAttached$` to update markers when a photo is attached to a photoless row. Same lookup and rebuild flow as `imageReplaced$`.
+- The Map Shell maintains a `markersByImageId` secondary index (`Map<string, L.Marker>`) for O(1) lookups when applying upload manager events. This index is populated during marker creation and cleaned up during marker removal.
 
 ## Acceptance Criteria
 
@@ -351,6 +356,9 @@ These rules exist to prevent marker lag during map pan/zoom interactions.
 - [x] Freshly uploaded markers use local `ObjectURL` as thumbnail — no placeholder needed
 - [x] Signed URLs cached in `PhotoMarkerState.thumbnailUrl` survive zoom-out / zoom-in cycles
 - [x] URLs older than 50 minutes are proactively cleared and re-signed on next viewport query
+- [ ] On `imageReplaced$`: marker thumbnail swapped instantly via `localObjectUrl` — DivIcon rebuilt with `<img>`, no placeholder flash
+- [ ] On `imageAttached$`: marker transitions from CSS placeholder to real thumbnail via `localObjectUrl` — DivIcon rebuilt with `<img>`
+- [ ] `localObjectUrl` revoked after signed URL takes over on next viewport query
 
 ### State Affordances
 
@@ -361,12 +369,12 @@ These rules exist to prevent marker lag during map pan/zoom interactions.
 - [x] Direction cone rendered for database-loaded markers — `direction` column included in initial load query
 - [x] Direction cone rotates to reflect actual bearing — inline `transform:rotate(bearing-90deg)` set in `buildPhotoMarkerHtml()`
 
-### Reactive Updates from Detail View
+### Reactive Updates from Upload Manager
 
 - [ ] `markersByImageId` secondary index maintained for O(1) marker lookups by image UUID
-- [ ] Coordinate edit in detail view moves marker via `marker.setLatLng()` — no full viewport refresh needed
-- [ ] Coordinate change updates the `markerKey` mapping (remove old key, insert new key)
-- [ ] Thumbnail change (Replace Photo) rebuilds DivIcon with local ObjectURL via `marker.setIcon()` — instant, no signed-URL delay
-- [ ] Direction change updates direction cone angle via DivIcon rebuild
-- [ ] Correction mode drag updates `corrected` flag and shows the correction dot on the marker
-- [ ] Detail view edits do not trigger a viewport query — changes are applied locally and reconciled on the next natural `moveend`
+- [ ] `MapShellComponent` subscribes to `UploadManagerService.imageReplaced$` — rebuilds marker DivIcon with new thumbnail (local ObjectURL) on photo replace
+- [ ] `MapShellComponent` subscribes to `UploadManagerService.imageAttached$` — updates marker from placeholder to real thumbnail on photo attach
+- [ ] Marker thumbnail uses local `ObjectURL` for instant display (no signed-URL delay); replaced by signed URL on next viewport query
+- [ ] Correction mode drag updates `corrected` flag, shows correction dot, and updates `markerKey` mapping — handled by MapShell directly, not through Upload Manager
+- [ ] Coordinate change from correction mode updates the `markerKey` mapping (remove old key, insert new key)
+- [ ] Upload Manager events and correction mode edits do not trigger a viewport query — changes are applied locally and reconciled on the next natural `moveend`

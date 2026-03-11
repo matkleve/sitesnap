@@ -87,6 +87,9 @@ stateDiagram-v2
     Loading --> Loaded : signedUrl received + img onload
     Loading --> NoPhoto_Error : img onerror (file missing / 404)
     Placeholder --> NoPhoto_Unavailable : thumbnailUnavailable set by service
+    Loaded --> Loading : imageReplaced$ — new localObjectUrl
+    NoPhoto_Unavailable --> Loading : imageAttached$ — localObjectUrl
+    NoPhoto_Error --> Loading : imageAttached$ — localObjectUrl
     Loaded --> [*]
 
     state Loading {
@@ -110,15 +113,21 @@ stateDiagram-v2
     }
 ```
 
+> **Replace / Attach optimisation:** Both `imageReplaced$` and `imageAttached$` carry a `localObjectUrl` (blob from `URL.createObjectURL`). Because blob URLs load locally in ~0ms, the `PulsingPlaceholder` phase is imperceptibly brief — the user sees an almost-instant swap to the new photo via the standard 200ms fade-in. See [PL-7 / PL-8](../use-cases/photo-loading.md#pl-7-replace-photo--loading-state-reset) for full interaction diagrams.
+
 ### Visual States
 
-| State       | Placeholder visible | Pulse | Icon                     | `<img>` |
-| ----------- | ------------------- | ----- | ------------------------ | ------- |
-| Waiting     | Yes                 | Yes   | Camera (gradient + icon) | Hidden  |
-| Downloading | Yes                 | Yes   | Camera (gradient + icon) | Hidden  |
-| Loaded      | No                  | No    | —                        | Visible |
-| No photo    | Yes                 | No    | Crossed-out image, 0.55  | Hidden  |
-| Error (404) | Yes                 | No    | Crossed-out image, 0.55  | Hidden  |
+| State              | Placeholder visible | Pulse | Icon                     | `<img>`       | Trigger                              |
+| ------------------ | ------------------- | ----- | ------------------------ | ------------- | ------------------------------------ |
+| Waiting            | Yes                 | Yes   | Camera (gradient + icon) | Hidden        | Card renders, URL not yet signed     |
+| Downloading        | Yes                 | Yes   | Camera (gradient + icon) | Hidden        | Signed URL received, `<img>` loading |
+| Loaded             | No                  | No    | —                        | Visible       | `<img>` `onload`                     |
+| No photo           | Yes                 | No    | Crossed-out image, 0.55  | Hidden        | `thumbnailUnavailable` set           |
+| Error (404)        | Yes                 | No    | Crossed-out image, 0.55  | Hidden        | `<img>` `onerror`                    |
+| Replacing (brief)  | Yes                 | Yes   | Camera (gradient + icon) | Hidden        | `imageReplaced$` — grid cache reset  |
+| Replacing → Loaded | No                  | No    | —                        | Visible (new) | Blob `<img>` `onload` (~0ms)         |
+| Attaching (brief)  | Yes                 | Yes   | Camera (gradient + icon) | Hidden        | `imageAttached$` — grid cache reset  |
+| Attaching → Loaded | No                  | No    | —                        | Visible (new) | Blob `<img>` `onload` (~0ms)         |
 
 ### Placeholder Design
 
@@ -146,6 +155,9 @@ stateDiagram-v2
 - [ ] Static no-photo placeholder (gradient + crossed-out image icon, 0.55 opacity) shown when file is missing
 - [ ] `<img>` fades in over 200ms once signed URL loads
 - [ ] No broken `<img>` icon ever appears
+- [ ] On `imageReplaced$`: grid cache gets `localObjectUrl` → card resets `imgLoading = true` → blob loads (~0ms) → fade-in with new photo
+- [ ] On `imageAttached$`: card transitions from no-photo icon to loaded state via same loading cycle with blob URL
+- [ ] `localObjectUrl` replaced by signed URL on next `batchSignThumbnails()` call — no visible flash
 - [ ] Date overlay bottom-left, always visible (including on placeholder)
 
 - [ ] Correction dot top-right (when corrected)

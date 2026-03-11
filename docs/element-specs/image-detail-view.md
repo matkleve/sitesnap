@@ -495,6 +495,31 @@ stateDiagram-v2
 6. If Tier 3 fails, Tier 2 remains visible (adequate quality for metadata editing)
 7. If both fail, CSS placeholder stays with "Image unavailable" text
 
+### Replace Photo — Loading Restart
+
+When `imageReplaced$` fires with `localObjectUrl`:
+
+1. Detail view sets `heroSrc = localObjectUrl` → new photo shows instantly (blob loads in ~0ms)
+2. Reset `fullResLoaded = false`
+3. Re-sign Tier 2 (`newStoragePath`, 256×256 transform) → on load, blur replaces blob
+4. Re-sign Tier 3 (`newStoragePath`, full-res) → on load, crossfade to full resolution
+5. Revoke `localObjectUrl` after Tier 3 loads
+
+The user sees: **old photo → new photo (instant via blob) → crossfade to full-res**. No placeholder flash.
+
+### Attach Photo — Placeholder to Photo
+
+When `imageAttached$` fires with `localObjectUrl` (detail view was showing the upload prompt for a photoless row):
+
+1. Detail view detects `storage_path` is now set → switches from upload prompt to photo display
+2. Set `heroSrc = localObjectUrl` → new photo shows immediately
+3. Progressive loading restarts from Tier 2 → Tier 3 as above
+4. Revoke `localObjectUrl` after Tier 3 loads
+
+The user sees: **upload prompt → new photo (instant via blob) → crossfade to full-res**.
+
+> See [PL-7 / PL-8](../use-cases/photo-loading.md#pl-7-replace-photo--loading-state-reset) for detailed sequence diagrams showing the interaction across all surfaces.
+
 ### Signed URL Strategy
 
 - **Tier 2:** `createSignedUrl(thumbnail_path ?? storage_path, 3600, { transform: { width: 256, height: 256, resize: 'cover', quality: 60 } })`
@@ -622,40 +647,54 @@ sequenceDiagram
 - "Edit location" triggers correction mode in `MapShellComponent`
 - Injects `UploadService` for file validation (`validateFile()`) and MIME type constants
 - Injects `WorkspaceViewService` to update the grid cache after Replace Photo
-- Emits `(imagePropertyChanged)` output when any DB property save succeeds (address, coords, project, captured_at, etc.) — consumed by `MapShellComponent` to update the corresponding marker in real time
-- Emits `(imageThumbnailChanged)` output when Replace Photo completes — consumed by `MapShellComponent` to regenerate the marker's DivIcon with the new thumbnail URL
+- Injects `UploadManagerService` — calls `replaceFile()` to replace an existing photo or `attachFile()` to upload a photo to a photoless row. Does **not** manage the upload lifecycle directly. Subscribes to `imageReplaced$` / `imageAttached$` to refresh signed URLs after success.
 
 ### Replace Photo & Upload Manager
 
-The **Replace Photo** feature (edit icon overlay on the hero photo) currently performs a **direct storage upload + DB update**, bypassing the `UploadManagerService`. This is intentional for now because Replace Photo replaces an _existing_ image's file (same `images` row, new `storage_path`), while the upload manager's `submit()` creates _new_ image rows.
+The **Replace Photo** feature (edit icon overlay on the hero photo) and the **Upload Photo** button (shown on photoless datapoints) both delegate to the `UploadManagerService`. The detail view is a thin trigger — it does not manage the upload lifecycle, storage, or cleanup.
 
-When replacing a photo, the component must:
+#### Replace Photo (existing image with a file)
 
-1. Upload the new file to Supabase Storage at `{org_id}/{user_id}/{uuid}.{ext}`
-2. Update the DB: `storage_path = newPath` AND `thumbnail_path = null` (clear stale pre-generated thumbnail)
-3. Delete old original file AND old thumbnail from storage (best-effort, after confirmed DB update)
-4. Update local `image` signal with new `storage_path` and `thumbnail_path: null`
-5. Refresh signed URLs for the detail view
-6. Update `WorkspaceViewService.rawImages`: set `storagePath`, clear `thumbnailPath`, `signedThumbnailUrl`, and `thumbnailUnavailable` — so `batchSignThumbnails` generates a new thumbnail from the new file via on-the-fly transform
-7. Call `batchSignThumbnails` on the updated image to re-sign immediately
+When the user clicks the edit overlay on the hero photo:
 
-**Future**: When `UploadManagerService` gains a `replaceFile(imageId, file)` method, the detail view should delegate to it for lifecycle resilience, progress tracking, and dedup checking.
+1. File picker opens. User selects a new photo.
+2. Detail view calls `uploadManager.replaceFile(imageId, file)`.
+3. The job enters the manager's pipeline (`validating → hashing → dedup_check → uploading → replacing_record → complete`).
+4. Detail view shows a spinner/progress indicator by reading the job's `phase` and `progress` from `uploadManager.jobs()`.
+5. On success, `uploadManager.imageReplaced$` emits. The detail view subscribes and refreshes signed URLs to show the new photo.
+6. If the user navigates away during upload, the manager (root-provided) continues the job. The marker updates when `imageReplaced$` fires regardless.
+
+#### Upload Photo (photoless datapoint)
+
+When the detail view is showing an image row with `storage_path IS NULL`:
+
+1. Instead of the hero photo, the detail view shows an upload prompt/placeholder with a file picker button.
+2. User selects a photo file.
+3. Detail view calls `uploadManager.attachFile(imageId, file)`.
+4. The job enters the attach pipeline (`validating → parsing_exif → hashing → dedup_check → uploading → replacing_record → enrichment → complete`).
+5. On success, `uploadManager.imageAttached$` emits. The detail view subscribes and switches from the upload placeholder to the real photo display.
+
+#### Why through the Upload Manager?
+
+| Concern              | Direct upload              | Via Upload Manager                         |
+| -------------------- | -------------------------- | ------------------------------------------ |
+| Lifecycle resilience | Lost if component destroys | Survives navigation                        |
+| Progress tracking    | Manual                     | Built-in `UploadJob` signals               |
+| Dedup check          | Skipped                    | Content hash checked before upload         |
+| Marker sync          | Manual output events       | `imageReplaced$` / `imageAttached$` events |
+| Concurrency control  | None                       | Respects the 3-slot limit                  |
 
 ## Marker Sync — Live Updates
 
-When the user edits image properties in the detail view and the save succeeds, the corresponding **photo marker on the map must update immediately** without waiting for a viewport refresh or page reload. This ensures the map always reflects the latest state.
+When the user makes changes in the detail view, the corresponding **photo marker on the map must update** without a full viewport refresh. Different change types flow through different channels:
 
-### What Changes Propagate
-
-| Property Changed         | Marker Effect                                                                           |
-| ------------------------ | --------------------------------------------------------------------------------------- |
-| `address_label`          | Marker tooltip/hover text updates (if shown)                                            |
-| `latitude` / `longitude` | Marker **moves** to the new coordinates via `marker.setLatLng()`                        |
-| `project_id`             | No direct marker visual change (marker doesn't show project)                            |
-| `captured_at`            | No direct marker visual change                                                          |
-| `direction`              | Direction cone angle updates                                                            |
-| `storage_path` (Replace) | Marker thumbnail regenerates — new signed URL, DivIcon HTML rebuilt via `setIcon()`     |
-| Address fields (street…) | Marker grouping may change if workspace groups by address — viewport query handles this |
+| Change Type                | Channel                                                                 | Marker Effect                                        |
+| -------------------------- | ----------------------------------------------------------------------- | ---------------------------------------------------- |
+| Photo replaced             | `UploadManagerService.imageReplaced$`                                   | Marker DivIcon rebuilt with new thumbnail            |
+| Photo uploaded (photoless) | `UploadManagerService.imageAttached$`                                   | Marker DivIcon updated: placeholder → real thumbnail |
+| Coordinate correction      | Correction mode in MapShell (user drags marker directly)                | Marker already at new position from drag             |
+| Direction change           | DB update → next viewport query reconciles (no immediate marker change) | Direction cone updates on next viewport refresh      |
+| Address / metadata edits   | DB update only — no marker visual change                                | No marker update needed                              |
 
 ### Event Flow
 
@@ -663,71 +702,49 @@ When the user edits image properties in the detail view and the save succeeds, t
 sequenceDiagram
   actor User
   participant Detail as ImageDetailView
+  participant Manager as UploadManagerService
   participant Shell as MapShellComponent
   participant Map as Leaflet Map
-  participant DB as Supabase
 
-  User->>Detail: Edit address label inline
-  Detail->>DB: UPDATE images SET address_label = 'New Label'
-  DB-->>Detail: OK (optimistic already applied)
+  User->>Detail: Replace photo (edit overlay on hero image)
+  Detail->>Manager: replaceFile(imageId, newFile)
+  Note over Manager: Pipeline: validate → hash → upload → replacing_record
+  Manager->>Manager: Phase → complete
+  Manager->>Shell: imageReplaced$ {imageId, newStoragePath, localObjectUrl}
+  Shell->>Shell: Look up marker by imageId in markersByImageId
+  Shell->>Shell: Rebuild DivIcon HTML with localObjectUrl
+  Shell->>Map: marker.setIcon(newDivIcon)
+  Note over Map: Marker shows new photo instantly
+  Manager->>Detail: imageReplaced$ → refresh signed URLs
 
-  Detail->>Shell: (imagePropertyChanged) {imageId, field: 'address_label', value: 'New Label'}
-  Shell->>Shell: Find marker by imageId in uploadedPhotoMarkers
-  Shell->>Shell: Update marker's cached data (addressLabel)
-  Note over Shell: No visual change needed for address-only edit
+  User->>Detail: Upload photo to photoless row
+  Detail->>Manager: attachFile(imageId, photoFile)
+  Note over Manager: Pipeline: validate → EXIF → hash → upload → replacing_record → enrich
+  Manager->>Manager: Phase → complete
+  Manager->>Shell: imageAttached$ {imageId, newStoragePath, localObjectUrl, coords}
+  Shell->>Shell: Look up marker by imageId
+  Shell->>Shell: Rebuild DivIcon: placeholder → real thumbnail
+  Shell->>Map: marker.setIcon(newDivIcon)
+  Manager->>Detail: imageAttached$ → switch to photo display
 
-  User->>Detail: Click "Edit location" → drag marker
-  Detail->>DB: INSERT coordinate_corrections; UPDATE images SET latitude, longitude
-  DB-->>Detail: OK
-
-  Detail->>Shell: (imagePropertyChanged) {imageId, field: 'coordinates', value: {lat, lng}}
-  Shell->>Shell: Find marker by imageId
-  Shell->>Map: marker.setLatLng([newLat, newLng])
-  Shell->>Shell: Update markerKey mapping (old coords → new coords)
-  Note over Map: Marker slides to new position
-
-  User->>Detail: Replace photo file
-  Detail->>DB: UPDATE images SET storage_path, thumbnail_path = null
-  DB-->>Detail: OK
-
-  Detail->>Shell: (imageThumbnailChanged) {imageId, newStoragePath, localObjectUrl}
-  Shell->>Shell: Find marker by imageId
-  Shell->>Shell: Set marker thumbnail to localObjectUrl (instant)
-  Shell->>Map: marker.setIcon(rebuiltDivIcon)
-  Note over Map: Marker shows new photo immediately
+  User->>Detail: Click "Edit location" → drag marker on map
+  Detail->>Shell: (editLocationRequested) {imageId}
+  Shell->>Shell: Enable correction mode — marker becomes draggable
+  User->>Map: Drags marker to new position
+  Shell->>Shell: Write coordinate_corrections, update images row
+  Shell->>Shell: Update markerKey mapping
+  Note over Map: Marker already at new position from drag
 ```
 
-### Implementation Approach
+### Key Design Principle
 
-The detail view emits **two output events** that the parent (`MapShellComponent` via `WorkspacePaneComponent`) bubbles up:
+The detail view **does not emit output events for marker sync**. Instead:
 
-1. **`(imagePropertyChanged)`** — emitted on every successful property save:
+- **Photo changes** → delegate to `UploadManagerService` → manager emits `imageReplaced$` / `imageAttached$` → `MapShellComponent` subscribes directly
+- **Coordinate changes** → handled by correction mode in `MapShellComponent` (marker drag is a map-layer operation)
+- **Metadata edits** (address, project, captured_at) → saved to DB; no immediate marker visual change needed
 
-   ```typescript
-   interface ImagePropertyChangedEvent {
-     imageId: string;
-     field: string; // 'address_label' | 'latitude' | 'longitude' | 'captured_at' | 'direction' | 'project_id' | 'street' | 'city' | ...
-     value: unknown; // The new value
-     coords?: { lat: number; lng: number }; // Set when field is coordinates
-   }
-   ```
-
-2. **`(imageThumbnailChanged)`** — emitted when Replace Photo completes:
-   ```typescript
-   interface ImageThumbnailChangedEvent {
-     imageId: string;
-     newStoragePath: string;
-     /** Local ObjectURL for immediate marker display (avoids signed-URL round trip). */
-     localObjectUrl?: string;
-   }
-   ```
-
-`MapShellComponent` handles these events by:
-
-- Looking up the `L.Marker` instance in `uploadedPhotoMarkers` (keyed by imageId or markerKey)
-- For coordinate changes: calling `marker.setLatLng()` and updating the key mapping
-- For thumbnail changes: rebuilding the DivIcon HTML via `buildPhotoMarkerHtml()` with the new `localObjectUrl` and calling `marker.setIcon()`
-- For other property changes: updating the cached marker data (no DOM change unless the property affects rendering)
+This keeps the marker update path through the singleton service layer rather than through component output event bubbling.
 
 ### Correction Mode Integration
 
@@ -795,6 +812,9 @@ When the user starts "Edit location" from the detail view:
 - [ ] If full-res fails, Tier 2 thumbnail stays visible
 - [ ] If both tiers fail, CSS placeholder with "Image unavailable" text remains
 - [ ] No broken `<img>` icon ever shown
+- [ ] On `imageReplaced$`: `heroSrc` set to `localObjectUrl` instantly → progressive reload restarts (Tier 2 → Tier 3) with new storage path
+- [ ] On `imageAttached$`: detail view switches from upload prompt to photo display → `heroSrc = localObjectUrl` → progressive reload from Tier 2 → Tier 3
+- [ ] `localObjectUrl` revoked after full-res signed URL loads to prevent memory leaks
 
 ### Inline Editing
 
@@ -846,20 +866,26 @@ When the user starts "Edit location" from the detail view:
 
 - [x] Edit icon overlay on hero photo opens file picker
 - [x] File validated before upload (size + MIME type via `UploadService.validateFile()`)
-- [x] New file uploaded to Supabase Storage; DB `storage_path` updated
-- [x] DB `thumbnail_path` cleared to `null` (stale pre-generated thumbnail invalidated)
-- [x] Old original AND old thumbnail deleted from storage (best-effort)
-- [x] Detail view refreshes signed URLs → shows new photo immediately
-- [x] Grid cache (`rawImages`) updated: `thumbnailPath` cleared so `batchSignThumbnails` generates thumbnail from new file
-- [x] Spinner shown on button during upload; error shown inline below photo on failure
-- [ ] **Future**: Delegate to `UploadManagerService.replaceFile()` for lifecycle resilience and dedup
+- [ ] Delegates to `UploadManagerService.replaceFile(imageId, file)` — does not manage upload lifecycle directly
+- [ ] Spinner/progress shown by reading job state from `uploadManager.jobs()` signal
+- [ ] Subscribes to `imageReplaced$` to refresh signed URLs and show new photo immediately
+- [ ] Upload survives component destruction (user can navigate away mid-replace)
+- [ ] Dedup check prevents re-uploading the same file as a "replacement"
+- [ ] Error shown inline below photo on failure (reads job `error` field)
+
+### Upload Photo (Photoless Datapoint)
+
+- [ ] Shows upload prompt/placeholder when `storage_path IS NULL` (instead of hero photo)
+- [ ] File picker button triggers `uploadManager.attachFile(imageId, file)`
+- [ ] Spinner/progress shown by reading job state from `uploadManager.jobs()` signal
+- [ ] Subscribes to `imageAttached$` to switch from placeholder to real photo display
+- [ ] Upload survives component destruction
+- [ ] EXIF metadata (GPS, direction, captured_at) written to the image row
 
 ### Marker Sync — Live Updates
 
-- [ ] Emits `(imagePropertyChanged)` on every successful inline edit (address_label, captured_at, project_id, street, city, district, country)
-- [ ] Emits `(imageThumbnailChanged)` when Replace Photo completes with new `storagePath` + `localObjectUrl`
-- [ ] Coordinate edit (via "Edit location" correction mode) moves the marker on the map in real time via `marker.setLatLng()`
-- [ ] Replace Photo updates the marker thumbnail immediately using the local `ObjectURL` (no signed-URL delay)
-- [ ] Direction change (if editable in future) updates the direction cone angle on the marker
-- [ ] Events bubble through `WorkspacePaneComponent` to `MapShellComponent`
-- [ ] Map marker state stays in sync with detail view — no stale data after edits
+- [ ] Replace Photo triggers marker thumbnail update via `UploadManagerService.imageReplaced$` (not direct output events)
+- [ ] Photo upload to photoless row triggers marker update via `UploadManagerService.imageAttached$`
+- [ ] Coordinate edit (via "Edit location" correction mode) handled by MapShell directly — marker already at new position from drag
+- [ ] No `(imagePropertyChanged)` or `(imageThumbnailChanged)` output events — marker sync flows through the Upload Manager service layer
+- [ ] Metadata edits (address, project, captured_at) saved to DB only — no immediate marker visual change needed

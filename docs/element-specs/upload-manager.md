@@ -137,6 +137,32 @@ export class UploadManagerService {
    */
   resolveConflict(jobId: string, resolution: ConflictResolution): void;
 
+  /**
+   * Replace the photo file for an existing image row.
+   * Validates, optionally dedup-checks, uploads the new file to storage,
+   * updates the existing `images` row (storage_path, clears thumbnail_path),
+   * cleans up the old file, and emits `imageReplaced$` on success.
+   *
+   * The job progresses through a dedicated replace pipeline:
+   * validating → hashing → dedup_check → uploading → replacing_record → complete.
+   *
+   * @param imageId  The existing image UUID whose file is being replaced.
+   * @param file     The new photo file.
+   * @returns        The job ID for tracking progress.
+   */
+  replaceFile(imageId: string, file: File): string;
+
+  /**
+   * Upload a photo to an existing image row that has no file (photoless datapoint).
+   * Same pipeline as `replaceFile()` except: there is no old file to clean up,
+   * EXIF metadata is written to the row, and emits `imageAttached$` on success.
+   *
+   * @param imageId  The existing photoless image UUID.
+   * @param file     The photo file to attach.
+   * @returns        The job ID for tracking progress.
+   */
+  attachFile(imageId: string, file: File): string;
+
   // ── Batch progress signals ──
 
   /** All active and recent batches. */
@@ -168,12 +194,18 @@ type UploadPhase =
   | "conflict_check" // Checking for existing photoless rows at same location
   | "awaiting_conflict_resolution" // Matching row found — waiting for user decision
   | "uploading" // Sending bytes to Supabase Storage
-  | "saving_record" // Inserting OR updating the images row
+  | "saving_record" // Inserting the images row (new upload)
+  | "replacing_record" // Updating the existing images row (replace / attach)
   | "resolving_address" // Reverse geocoding: GPS → address (non-blocking)
   | "resolving_coordinates" // Forward geocoding: address → GPS (non-blocking)
   | "missing_data" // No GPS + no address → handed to MissingDataManager
   | "complete" // All phases done
   | "error"; // A critical phase failed
+
+type UploadJobMode =
+  | "new" // Standard upload — creates a new images row
+  | "replace" // Replace file on an existing row (initiated by replaceFile())
+  | "attach"; // Attach file to a photoless row (initiated by attachFile())
 
 interface UploadJob {
   /** Stable unique ID for tracking. */
@@ -198,7 +230,7 @@ interface UploadJob {
   titleAddress?: string;
   /** Camera direction from EXIF (degrees). */
   direction?: number;
-  /** UUID of the inserted images row (set after 'saving_record'). */
+  /** UUID of the inserted/updated images row (set after 'saving_record' or 'replacing_record'). */
   imageId?: string;
   /** Supabase storage path (set after 'uploading'). */
   storagePath?: string;
@@ -214,6 +246,17 @@ interface UploadJob {
   conflictResolution?: ConflictResolution;
   /** If phase === 'skipped', the existing image ID that matched. */
   existingImageId?: string;
+
+  // ── Replace / Attach mode fields ──
+
+  /** Pipeline mode. Determines the pipeline path the job follows. */
+  mode: UploadJobMode;
+  /** For 'replace' and 'attach' modes: the existing image row ID to update. */
+  targetImageId?: string;
+  /** For 'replace' mode: the old storage_path to delete after DB update succeeds. */
+  oldStoragePath?: string;
+  /** For 'replace' mode: the old thumbnail_path to delete after DB update succeeds. */
+  oldThumbnailPath?: string;
 }
 
 /** Tracks aggregate progress for a multi-file submission. */
@@ -269,29 +312,68 @@ type ConflictResolution = "attach_replace" | "attach_keep" | "create_new";
 
 Drag-and-drop or file picker → calls `submit(files)` or `submitFolder(dirHandle)`. The panel is a thin UI layer that reads from `jobs()` and bridges manager events to component outputs.
 
-### ImageDetailView — Replace Photo (partially integrated)
+### ImageDetailView — Replace / Attach Photo
 
-The image detail view has a **Replace Photo** button (edit icon overlay on the hero photo). This flow replaces the _existing_ image's file — same `images` row, new `storage_path`.
+The image detail view delegates all photo file operations to the Upload Manager. Two methods cover the two cases:
 
-**Current implementation**: Direct storage upload + DB update, bypassing the upload manager. This was necessary because `submit()` creates _new_ image rows, while Replace Photo updates an _existing_ row.
+#### `replaceFile(imageId, file)` — Existing Image with a Photo
 
-**What it does today:**
+Called when the user clicks the edit overlay on the hero photo to swap in a new file.
 
-1. Validates the file via `UploadService.validateFile()`
-2. Uploads to Supabase Storage at `{org_id}/{user_id}/{uuid}.{ext}`
-3. Updates DB: `storage_path = newPath`, `thumbnail_path = null`
-4. Deletes old original + old thumbnail from storage (best-effort)
-5. Updates `WorkspaceViewService.rawImages` grid cache — clears `thumbnailPath` and `signedThumbnailUrl` so `batchSignThumbnails` generates a fresh thumbnail from the new file
-6. Calls `batchSignThumbnails` to immediately re-sign
+1. Manager creates an `UploadJob` with `mode: 'replace'` and `targetImageId: imageId`.
+2. The job reads the existing row to capture `oldStoragePath` and `oldThumbnailPath`.
+3. Pipeline: `validating → hashing → dedup_check → uploading → replacing_record → complete`.
+4. `replacing_record` phase:
+   - UPDATE the existing row: `storage_path = newPath`, `thumbnail_path = null`, plus EXIF fields (`exif_latitude`, `exif_longitude`, `captured_at`, `direction`) if present in the new file.
+   - On success, delete old original + old thumbnail from storage (best-effort).
+   - Update `WorkspaceViewService.rawImages` grid cache: set `storagePath`, clear `thumbnailPath`, `signedThumbnailUrl`, and `thumbnailUnavailable`.
+5. On `complete`, emits `imageReplaced$` with the new storage path and a local `ObjectURL` for instant marker thumbnail update.
 
-**Future**: Add `replaceFile(imageId: string, file: File): string` to `UploadManagerService` that:
+#### `attachFile(imageId, file)` — Existing Image without a Photo (Photoless Datapoint)
 
-- Validates, optionally dedup-checks, uploads to storage
-- Updates the existing `images` row (not insert)
-- Clears `thumbnail_path` in DB
-- Cleans up old files
-- Emits `imageReplaced$` event for map marker thumbnail refresh
-- Tracks progress as an `UploadJob` with a `'replacing'` phase label
+Called when the detail view is showing a photoless datapoint and the user uploads a photo for it.
+
+1. Manager creates an `UploadJob` with `mode: 'attach'` and `targetImageId: imageId`.
+2. No old file to clean up (the row has `storage_path IS NULL`).
+3. Pipeline: `validating → parsing_exif → hashing → dedup_check → uploading → replacing_record → resolving_address/resolving_coordinates → complete`.
+4. `replacing_record` phase:
+   - UPDATE the existing row: `storage_path`, `exif_latitude`, `exif_longitude`, `captured_at`, `direction`.
+   - If the row already has `latitude`/`longitude` (from manual address entry), those are preserved and the EXIF coordinates are stored only in `exif_*` fields. If the row has NO coords, the EXIF coords are written to both `latitude`/`longitude` and `exif_*` fields.
+5. Enrichment phase runs if applicable (reverse-geocode for Path A, forward-geocode for Path B).
+6. On `complete`, emits `imageAttached$` with the storage path, coords, and local `ObjectURL`.
+
+#### Replace / Attach Pipeline
+
+```mermaid
+stateDiagram-v2
+  [*] --> queued : replaceFile() / attachFile()
+
+  queued --> validating : concurrency slot available
+  validating --> parsing_exif : mode = attach (read EXIF for metadata)
+  validating --> hashing : mode = replace (skip EXIF — existing row has metadata)
+
+  parsing_exif --> hashing : EXIF parsed
+
+  hashing --> dedup_check : content hash computed
+  dedup_check --> skipped : hash exists (same file already uploaded)
+  dedup_check --> uploading : hash is new
+
+  uploading --> replacing_record : storage success
+  uploading --> error : storage failure
+
+  replacing_record --> resolving_address : mode = attach + has GPS + needs address
+  replacing_record --> resolving_coordinates : mode = attach + has address + needs GPS
+  replacing_record --> complete : mode = replace (no enrichment needed)
+  replacing_record --> complete : mode = attach + no enrichment needed
+  replacing_record --> error : DB failure → orphan cleanup
+
+  resolving_address --> complete : enrichment done
+  resolving_coordinates --> complete : enrichment done
+
+  skipped --> [*] : duplicate — file already matches this row or another
+  error --> queued : retryJob()
+  complete --> [*]
+```
 
 ### FolderImportAdapter (not yet implemented)
 
@@ -359,22 +441,23 @@ stateDiagram-v2
 
 ### Phase Detail
 
-| #   | Phase                          | Critical? | Blocks UI? | Failure Behaviour                                                        |
-| --- | ------------------------------ | --------- | ---------- | ------------------------------------------------------------------------ |
-| 1   | `queued`                       | —         | No         | Waits for a concurrency slot (max 3 parallel)                            |
-| 2   | `validating`                   | Yes       | Instant    | Rejects immediately with reason (size, MIME type)                        |
-| 3   | `parsing_exif`                 | Yes       | Brief      | No GPS → continue to hashing; parse error → treat as no-EXIF             |
-| 3a  | `hashing`                      | Yes       | Brief      | Computes content hash from file bytes + EXIF GPS + title + direction     |
-| 3b  | `dedup_check`                  | Yes       | Brief      | Queries server for existing hash; match → `skipped`; no match → continue |
-| 3c  | `skipped`                      | —         | No         | Duplicate detected — file is not uploaded. Job is terminal.              |
-| 4   | `extracting_title`             | Yes       | Brief      | Address found → continue; no address → `missing_data`                    |
-| 4a  | `conflict_check`               | Yes       | Brief      | Queries photoless rows near the upload's location or matching address    |
-| 4b  | `awaiting_conflict_resolution` | —         | **Yes**    | Paused — waiting for user to pick Attach (replace/keep) or Create New    |
-| 5   | `uploading`                    | Yes       | Yes        | Hard stop, error shown, job can be retried                               |
-| 6   | `saving_record`                | Yes       | Yes        | Hard stop, attempt to delete orphaned storage file                       |
-| 7a  | `resolving_address`            | No        | No         | Path A: reverse geocode. Silent — address stays null                     |
-| 7b  | `resolving_coordinates`        | No        | No         | Path B: forward geocode. Silent — coords stay null                       |
-| —   | `missing_data`                 | No        | No         | Parked. Handed to MissingDataManager (not yet implemented)               |
+| #   | Phase                          | Critical? | Blocks UI? | Failure Behaviour                                                          |
+| --- | ------------------------------ | --------- | ---------- | -------------------------------------------------------------------------- |
+| 1   | `queued`                       | —         | No         | Waits for a concurrency slot (max 3 parallel)                              |
+| 2   | `validating`                   | Yes       | Instant    | Rejects immediately with reason (size, MIME type)                          |
+| 3   | `parsing_exif`                 | Yes       | Brief      | No GPS → continue to hashing; parse error → treat as no-EXIF               |
+| 3a  | `hashing`                      | Yes       | Brief      | Computes content hash from file bytes + EXIF GPS + title + direction       |
+| 3b  | `dedup_check`                  | Yes       | Brief      | Queries server for existing hash; match → `skipped`; no match → continue   |
+| 3c  | `skipped`                      | —         | No         | Duplicate detected — file is not uploaded. Job is terminal.                |
+| 4   | `extracting_title`             | Yes       | Brief      | Address found → continue; no address → `missing_data`                      |
+| 4a  | `conflict_check`               | Yes       | Brief      | Queries photoless rows near the upload's location or matching address      |
+| 4b  | `awaiting_conflict_resolution` | —         | **Yes**    | Paused — waiting for user to pick Attach (replace/keep) or Create New      |
+| 5   | `uploading`                    | Yes       | Yes        | Hard stop, error shown, job can be retried                                 |
+| 6   | `saving_record`                | Yes       | Yes        | Hard stop, attempt to delete orphaned storage file (mode = new)            |
+| 6b  | `replacing_record`             | Yes       | Yes        | Hard stop, attempt to delete orphaned storage file (mode = replace/attach) |
+| 7a  | `resolving_address`            | No        | No         | Path A: reverse geocode. Silent — address stays null                       |
+| 7b  | `resolving_coordinates`        | No        | No         | Path B: forward geocode. Silent — coords stay null                         |
+| —   | `missing_data`                 | No        | No         | Parked. Handed to MissingDataManager (not yet implemented)                 |
 
 ## Concurrency Model
 
@@ -404,18 +487,19 @@ sequenceDiagram
   participant Storage as Supabase Storage
   participant DB as Supabase DB
 
-  User->>DetailView: Click "Upload new photo"
-  DetailView->>Manager: submit([file])
-  Note over Manager: Job starts: parsing_exif → uploading
+  User->>DetailView: Click "Replace photo" or "Upload photo"
+  DetailView->>Manager: replaceFile(imageId, file) or attachFile(imageId, file)
+  Note over Manager: Job starts: validating → uploading
   User->>DetailView: Click Back button
   Note over DetailView: Component destroyed
   Note over Manager: ⚡ Service is root-provided — still alive
   Manager->>Storage: Upload continues
   Storage-->>Manager: Upload complete
-  Manager->>DB: Insert images row
-  DB-->>Manager: Row inserted
-  Manager->>Manager: resolveAddress() fire-and-forget
+  Manager->>DB: Insert or update images row
+  DB-->>Manager: Row saved
+  Manager->>Manager: Enrich or complete (fire-and-forget)
   Note over Manager: Job phase → complete
+  Note over Manager: Emits imageReplaced$ or imageAttached$
   Note over Manager: Any subscribed UI sees the update
 ```
 
@@ -453,6 +537,12 @@ readonly uploadSkipped$: Observable<UploadSkippedEvent>;
 
 /** Emitted when a job enters 'awaiting_conflict_resolution' (photoless row at same location). */
 readonly locationConflict$: Observable<LocationConflictEvent>;
+
+/** Emitted when a replaceFile() job completes — photo replaced on an existing row. */
+readonly imageReplaced$: Observable<ImageReplacedEvent>;
+
+/** Emitted when an attachFile() job completes — photo uploaded to a photoless row. */
+readonly imageAttached$: Observable<ImageAttachedEvent>;
 
 /** Emitted whenever a job's phase changes (any transition). */
 readonly jobPhaseChanged$: Observable<JobPhaseChangedEvent>;
@@ -513,6 +603,47 @@ interface LocationConflictEvent {
   uploadCoords?: ExifCoords;
   /** The upload's address extracted from filename (if any). */
   uploadAddress?: string;
+}
+
+interface ImageReplacedEvent {
+  jobId: string;
+  /** The existing image row that was updated. */
+  imageId: string;
+  /** New storage path in Supabase Storage. */
+  newStoragePath: string;
+  /**
+   * Local ObjectURL for instant thumbnail update across all surfaces.
+   * Blob URLs load in ~0ms, bypassing the placeholder/pulse cycle.
+   * Consumers set this as the image src immediately, then replace with
+   * a signed URL on the next batch sign or viewport query.
+   * Must be revoked via URL.revokeObjectURL() after the signed URL takes over.
+   */
+  localObjectUrl?: string;
+  /** EXIF coords from the new file (if present). */
+  coords?: ExifCoords;
+  /** Camera direction from the new file (if present). */
+  direction?: number;
+}
+
+interface ImageAttachedEvent {
+  jobId: string;
+  /** The existing photoless image row that now has a photo. */
+  imageId: string;
+  /** New storage path in Supabase Storage. */
+  newStoragePath: string;
+  /**
+   * Local ObjectURL for instant thumbnail update across all surfaces.
+   * Transitions containers from no-photo state to loaded state.
+   * Blob URLs load in ~0ms, so the loading/pulse cycle is imperceptibly brief.
+   * Must be revoked via URL.revokeObjectURL() after the signed URL takes over.
+   */
+  localObjectUrl?: string;
+  /** Resolved coordinates (EXIF or from existing row). */
+  coords?: ExifCoords;
+  /** Camera direction from EXIF (if present). */
+  direction?: number;
+  /** Whether the row already had coordinates (true) or got them from EXIF (false). */
+  hadExistingCoords: boolean;
 }
 
 interface JobPhaseChangedEvent {
@@ -594,22 +725,64 @@ sequenceDiagram
   Manager->>Panel: batchComplete$ {totalFiles: 500, completed: 480, skipped: 18, failed: 2}
 ```
 
+#### Replace / Attach Event Flow
+
+```mermaid
+sequenceDiagram
+  actor User
+  participant Detail as ImageDetailView
+  participant Manager as UploadManagerService
+  participant Shell as MapShellComponent
+  participant Card as ThumbnailCard
+
+  User->>Detail: Click "Replace Photo" on hero image
+  Detail->>Manager: replaceFile(imageId, file)
+  Manager->>Manager: Create job (mode: 'replace', targetImageId)
+
+  Manager->>Detail: jobPhaseChanged$ {currentPhase: 'validating'}
+  Manager->>Detail: jobPhaseChanged$ {currentPhase: 'uploading'}
+  Manager->>Detail: jobPhaseChanged$ {currentPhase: 'replacing_record'}
+  Manager->>Detail: jobPhaseChanged$ {currentPhase: 'complete'}
+  Manager->>Shell: imageReplaced$ {imageId, newStoragePath, localObjectUrl}
+  Shell->>Shell: Find marker by imageId → rebuild DivIcon with new thumbnail
+  Manager->>Card: imageReplaced$ → card refreshes thumbnail
+  Manager->>Detail: imageReplaced$ → detail refreshes signed URLs
+
+  Note over Manager: Photoless datapoint scenario
+
+  User->>Detail: Click "Upload Photo" on photoless row
+  Detail->>Manager: attachFile(imageId, file)
+  Manager->>Manager: Create job (mode: 'attach', targetImageId)
+
+  Manager->>Detail: jobPhaseChanged$ {currentPhase: 'uploading'}
+  Manager->>Detail: jobPhaseChanged$ {currentPhase: 'replacing_record'}
+  Manager->>Shell: imageAttached$ {imageId, newStoragePath, localObjectUrl, coords}
+  Shell->>Shell: Find marker by imageId → add thumbnail to formerly photoless marker
+  Manager->>Card: imageAttached$ → card shows photo thumbnail
+```
+
 ### Event Consumers
 
-| Event               | Consumer               | Reaction                                                                        |
-| ------------------- | ---------------------- | ------------------------------------------------------------------------------- |
-| `imageUploaded$`    | `MapShellComponent`    | Adds optimistic marker to the map                                               |
-| `imageUploaded$`    | `ThumbnailGrid`        | Refreshes grid if the uploaded image belongs to the active group                |
-| `uploadFailed$`     | `MapShellComponent`    | Shows toast notification                                                        |
-| `uploadSkipped$`    | `UploadPanelComponent` | Shows "Already uploaded" label on the file item                                 |
-| `locationConflict$` | `UploadPanelComponent` | Shows conflict resolution popup (attach replace / attach keep / create new)     |
-| `jobPhaseChanged$`  | `UploadPanelComponent` | Updates per-file status label and icon                                          |
-| `jobPhaseChanged$`  | `PhotoMarker`          | Shows/hides PendingRing on markers for files currently in `uploading` phase     |
-| `jobPhaseChanged$`  | `ThumbnailCard`        | Shows/hides uploading overlay on cards for files currently in `uploading` phase |
-| `batchProgress$`    | `UploadPanelComponent` | Updates the batch progress bar (0–100%)                                         |
-| `batchProgress$`    | `UploadButtonZone`     | Shows progress ring/badge on the upload button                                  |
-| `batchComplete$`    | `UploadPanelComponent` | Shows batch summary (completed, skipped, failed)                                |
-| `missingData$`      | `MissingDataManager`   | Queues file for manual placement (future)                                       |
+| Event               | Consumer               | Reaction                                                                                                       |
+| ------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `imageUploaded$`    | `MapShellComponent`    | Adds optimistic marker to the map                                                                              |
+| `imageUploaded$`    | `ThumbnailGrid`        | Refreshes grid if the uploaded image belongs to the active group                                               |
+| `imageReplaced$`    | `MapShellComponent`    | Rebuilds marker DivIcon with `localObjectUrl` — instant swap, no placeholder (same as PL-4 optimistic)         |
+| `imageReplaced$`    | `ThumbnailCard`        | Resets loading cycle: `signedThumbnailUrl = localObjectUrl` → `imgLoading` → blob loads (~0ms) → 200ms fade-in |
+| `imageReplaced$`    | `ImageDetailView`      | Sets `heroSrc = localObjectUrl` instant → re-signs Tier 2/3 → crossfade to full-res                            |
+| `imageAttached$`    | `MapShellComponent`    | Rebuilds marker DivIcon: CSS placeholder → `<img>` with `localObjectUrl` — instant transition                  |
+| `imageAttached$`    | `ThumbnailCard`        | Resets loading cycle: no-photo icon → `localObjectUrl` → blob loads (~0ms) → 200ms fade-in                     |
+| `imageAttached$`    | `ImageDetailView`      | Switches from upload prompt to photo display → `heroSrc = localObjectUrl` → progressive Tier 2/3 reload        |
+| `uploadFailed$`     | `MapShellComponent`    | Shows toast notification                                                                                       |
+| `uploadSkipped$`    | `UploadPanelComponent` | Shows "Already uploaded" label on the file item                                                                |
+| `locationConflict$` | `UploadPanelComponent` | Shows conflict resolution popup (attach replace / attach keep / create new)                                    |
+| `jobPhaseChanged$`  | `UploadPanelComponent` | Updates per-file status label and icon                                                                         |
+| `jobPhaseChanged$`  | `PhotoMarker`          | Shows/hides PendingRing on markers for files currently in `uploading` phase                                    |
+| `jobPhaseChanged$`  | `ThumbnailCard`        | Shows/hides uploading overlay on cards for files currently in `uploading` phase                                |
+| `batchProgress$`    | `UploadPanelComponent` | Updates the batch progress bar (0–100%)                                                                        |
+| `batchProgress$`    | `UploadButtonZone`     | Shows progress ring/badge on the upload button                                                                 |
+| `batchComplete$`    | `UploadPanelComponent` | Shows batch summary (completed, skipped, failed)                                                               |
+| `missingData$`      | `MissingDataManager`   | Queues file for manual placement (future)                                                                      |
 
 ## Folder Upload (Multi-File / Directory Selection)
 
@@ -942,9 +1115,9 @@ graph LR
   end
 
   subgraph After["Proposed (service-decoupled)"]
-    D["UploadPanelComponent"] -->|"thin UI layer"| E["UploadManagerService"]
-    F["ImageDetailView"] --> E
-    G["FolderImport"] --> E
+    D["UploadPanelComponent"] -->|"submit()"| E["UploadManagerService"]
+    F["ImageDetailView"] -->|"replaceFile() / attachFile()"| E
+    G["FolderImport"] -->|"submitFolder()"| E
     E -->|"delegates per-file work"| H["UploadService"]
     H --> I["Supabase"]
   end
@@ -953,9 +1126,10 @@ graph LR
   style After fill:#1a1917,stroke:#16A34A,color:#EDEBE7
 ```
 
-- **`UploadService`** keeps its current responsibilities (validation, EXIF, storage, DB insert, geocode). No changes needed.
-- **`UploadManagerService`** is a new service wrapping `UploadService` with queue management, concurrency, and state signals.
+- **`UploadService`** keeps its current responsibilities (validation, EXIF, storage, DB insert/update, geocode). Gains an `updateImageFile()` method for the replace/attach pipeline (UPDATE instead of INSERT).
+- **`UploadManagerService`** wraps `UploadService` with queue management, concurrency, state signals, and three entry points: `submit()`, `replaceFile()`, `attachFile()`.
 - **`UploadPanelComponent`** becomes a thin UI that calls `uploadManager.submit()` and reads `uploadManager.jobs()` — it no longer manages its own queue.
+- **`ImageDetailView`** calls `uploadManager.replaceFile()` or `uploadManager.attachFile()` instead of doing direct storage + DB operations.
 
 ## Data
 
@@ -997,8 +1171,12 @@ graph LR
 
 - `UploadManagerService` is `providedIn: 'root'` — no module import needed
 - Inject into `UploadPanelComponent` (replace internal queue logic)
-- Inject into `ImageDetailView` (or any future upload entry point)
-- Subscribe to `imageUploaded$` in `MapShellComponent` to add markers
+- Inject into `ImageDetailView` for `replaceFile()` and `attachFile()`
+- Subscribe to `imageUploaded$` in `MapShellComponent` to add new markers
+- Subscribe to `imageReplaced$` in `MapShellComponent` to rebuild marker DivIcon with new thumbnail
+- Subscribe to `imageAttached$` in `MapShellComponent` to update marker (add thumbnail to photoless marker)
+- Subscribe to `imageReplaced$` and `imageAttached$` in `ImageDetailView` to refresh signed URLs
+- Subscribe to `imageReplaced$` and `imageAttached$` in `ThumbnailCard` to refresh card thumbnail
 - Subscribe to `uploadFailed$` for toast notifications
 - Subscribe to `batchProgress$` in `UploadButtonZone` to show progress badge on the upload button
 - Subscribe to `jobPhaseChanged$` in `PhotoMarker` (via MapShell) to show/hide PendingRing
@@ -1059,14 +1237,32 @@ graph LR
 - [x] `batchComplete$` emits when a batch finishes with summary counts
 - [ ] UI consumers (`UploadPanel`, `UploadButtonZone`, `PhotoMarker`, `ThumbnailCard`) can subscribe to relevant events
 
-### ImageDetailView — Replace Photo
+### Replace Photo (`replaceFile`)
 
-- [x] Replace Photo validates file via `UploadService.validateFile()` before uploading
-- [x] DB `thumbnail_path` cleared to `null` when photo is replaced (invalidates stale pre-generated thumbnail)
-- [x] Old original AND old thumbnail deleted from storage after confirmed DB update
-- [x] `WorkspaceViewService.rawImages` grid cache updated: `thumbnailPath` cleared so `batchSignThumbnails` generates a fresh thumbnail via on-the-fly transform
-- [x] Detail view refreshes signed URLs and shows the new photo immediately
-- [ ] **Future**: `replaceFile(imageId, file)` method on `UploadManagerService` for lifecycle resilience, progress tracking, and dedup
+- [ ] `replaceFile(imageId, file)` creates an `UploadJob` with `mode: 'replace'` and `targetImageId`
+- [ ] Replace pipeline: `validating → hashing → dedup_check → uploading → replacing_record → complete`
+- [ ] `replacing_record` phase UPDATEs the existing row: `storage_path`, `thumbnail_path = null`, plus EXIF fields if present
+- [ ] Old original AND old thumbnail deleted from storage after confirmed DB update (best-effort)
+- [ ] `WorkspaceViewService.rawImages` grid cache updated: `storagePath` set, `thumbnailPath`/`signedThumbnailUrl`/`thumbnailUnavailable` cleared
+- [ ] `imageReplaced$` emits with `imageId`, `newStoragePath`, and `localObjectUrl` on success
+- [ ] `MapShellComponent` subscribes to `imageReplaced$` and rebuilds the marker's DivIcon with the new thumbnail
+- [ ] Detail view subscribes to `imageReplaced$` and refreshes signed URLs to show the new photo immediately
+- [ ] Dedup check prevents re-uploading the same file as a "replacement"
+- [ ] Replace job tracks progress as a normal `UploadJob` — UI can show spinner/progress
+- [ ] Replace jobs survive component destruction (detail view navigated away mid-upload)
+
+### Attach Photo (`attachFile`)
+
+- [ ] `attachFile(imageId, file)` creates an `UploadJob` with `mode: 'attach'` and `targetImageId`
+- [ ] Attach pipeline: `validating → parsing_exif → hashing → dedup_check → uploading → replacing_record → enrichment → complete`
+- [ ] `replacing_record` phase UPDATEs the existing row: `storage_path`, `exif_latitude`, `exif_longitude`, `captured_at`, `direction`
+- [ ] If row already has `latitude`/`longitude`, those are preserved (EXIF written to `exif_*` fields only)
+- [ ] If row has NO coordinates, EXIF coords written to both `latitude`/`longitude` and `exif_*` fields
+- [ ] Enrichment runs after attach: reverse-geocode if only GPS, forward-geocode if only address
+- [ ] `imageAttached$` emits with `imageId`, `newStoragePath`, `localObjectUrl`, and `coords` on success
+- [ ] `MapShellComponent` subscribes to `imageAttached$` and updates the marker's DivIcon (adds thumbnail to formerly photoless marker)
+- [ ] No old file cleanup needed (row had `storage_path IS NULL`)
+- [ ] Attach jobs survive component destruction
 
 ### Location Conflict Detection
 
