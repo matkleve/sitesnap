@@ -264,6 +264,14 @@ export class MapShellComponent implements OnDestroy {
     // Location correction mode will be implemented in the correction flow spec.
   }
 
+  /**
+   * Handles the zoomToLocationRequested output from ImageDetailViewComponent.
+   * Flies the map to the photo's coordinates at zoom 18.
+   */
+  onZoomToLocationRequested(coords: { lat: number; lng: number }): void {
+    this.map?.flyTo([coords.lat, coords.lng], 18);
+  }
+
   // ── Upload panel ──────────────────────────────────────────────────────────
 
   toggleUploadPanel(): void {

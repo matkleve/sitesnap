@@ -77,6 +77,9 @@ export class ImageDetailViewComponent implements OnDestroy {
   /** Emitted when "Edit location" is clicked. Payload is the imageId. */
   readonly editLocationRequested = output<string>();
 
+  /** Emitted when "Zoom to location" is clicked. Payload is { lat, lng }. */
+  readonly zoomToLocationRequested = output<{ lat: number; lng: number }>();
+
   // ── State signals ──────────────────────────────────────────────────────────
 
   /** The full image record fetched from `images`. */
@@ -281,6 +284,13 @@ export class ImageDetailViewComponent implements OnDestroy {
   requestEditLocation(): void {
     const id = this.imageId();
     if (id) this.editLocationRequested.emit(id);
+  }
+
+  /** Action #9 — flies the map to the photo's coordinates. */
+  zoomToLocation(): void {
+    const img = this.image();
+    if (!img || img.latitude == null || img.longitude == null) return;
+    this.zoomToLocationRequested.emit({ lat: img.latitude, lng: img.longitude });
   }
 
   /** Action #6 — "Add to project" (placeholder — project picker integration pending). */
