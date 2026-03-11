@@ -1,5 +1,5 @@
-/**
- * ImageDetailViewComponent — inline editing tests.
+﻿/**
+ * ImageDetailViewComponent â€” inline editing tests.
  *
  * Strategy:
  *  - SupabaseService is faked with a chainable client mock.
@@ -17,11 +17,8 @@ import {
 } from './image-detail-view.component';
 import { SupabaseService } from '../../../core/supabase.service';
 import { GeocodingService } from '../../../core/geocoding.service';
-import { AuthService } from '../../../core/auth.service';
-import { UploadService } from '../../../core/upload.service';
-import { WorkspaceViewService } from '../../../core/workspace-view.service';
 
-// ── Test fixtures ─────────────────────────────────────────────────────────────
+// â”€â”€ Test fixtures â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const MOCK_IMAGE: ImageRecord = {
   id: 'img-001',
@@ -57,7 +54,7 @@ const MOCK_METADATA: MetadataEntry[] = [
   { metadataKeyId: 'mk-002', key: 'Floor', value: '3rd' },
 ];
 
-// ── Fake Supabase client ──────────────────────────────────────────────────────
+// â”€â”€ Fake Supabase client â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * Builds a chainable fake Supabase client.
@@ -148,7 +145,7 @@ function buildFakeClient() {
           }),
         };
       }
-      // Fallback — generic no-op builder
+      // Fallback â€” generic no-op builder
       return {
         select: vi.fn().mockReturnValue({
           eq: vi.fn().mockResolvedValue({ data: null, error: null }),
@@ -182,7 +179,7 @@ function buildFakeClient() {
   };
 }
 
-// ── Setup helper ──────────────────────────────────────────────────────────────
+// â”€â”€ Setup helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function setup() {
   const fake = buildFakeClient();
@@ -209,10 +206,10 @@ function setup() {
   return { component, fixture, ref, fake, fakeGeocoding };
 }
 
-// ── Tests ─────────────────────────────────────────────────────────────────────
+// â”€â”€ Tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 describe('ImageDetailViewComponent', () => {
-  // ── Initial state ────────────────────────────────────────────────────────
+  // â”€â”€ Initial state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   describe('initial state', () => {
     it('starts with null image and empty metadata', () => {
@@ -234,7 +231,7 @@ describe('ImageDetailViewComponent', () => {
     });
   });
 
-  // ── Computed signals ─────────────────────────────────────────────────────
+  // â”€â”€ Computed signals â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   describe('computed signals', () => {
     it('displayTitle returns address_label when available', () => {
@@ -317,7 +314,7 @@ describe('ImageDetailViewComponent', () => {
     });
   });
 
-  // ── saveImageField (IE-1, IE-2, IE-3, IE-7) ────────────────────────────
+  // â”€â”€ saveImageField (IE-1, IE-2, IE-3, IE-7) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   describe('saveImageField', () => {
     it('updates address_label optimistically', async () => {
@@ -385,7 +382,7 @@ describe('ImageDetailViewComponent', () => {
     });
   });
 
-  // ── saveMetadata (IE-4) ─────────────────────────────────────────────────
+  // â”€â”€ saveMetadata (IE-4) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   describe('saveMetadata', () => {
     it('updates metadata value optimistically', async () => {
@@ -453,7 +450,7 @@ describe('ImageDetailViewComponent', () => {
     });
   });
 
-  // ── removeMetadata (IE-6) ───────────────────────────────────────────────
+  // â”€â”€ removeMetadata (IE-6) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   describe('removeMetadata', () => {
     it('removes entry optimistically', async () => {
@@ -489,7 +486,7 @@ describe('ImageDetailViewComponent', () => {
     });
   });
 
-  // ── addMetadata (IE-5) ──────────────────────────────────────────────────
+  // â”€â”€ addMetadata (IE-5) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   describe('addMetadata', () => {
     it('does nothing with empty key', async () => {
@@ -535,7 +532,7 @@ describe('ImageDetailViewComponent', () => {
     });
   });
 
-  // ── editing field / escape to cancel (IE-8) ─────────────────────────────
+  // â”€â”€ editing field / escape to cancel (IE-8) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   describe('editingField', () => {
     it('can be set to a field name', () => {
@@ -552,7 +549,7 @@ describe('ImageDetailViewComponent', () => {
     });
   });
 
-  // ── Delete flow ──────────────────────────────────────────────────────────
+  // â”€â”€ Delete flow â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   describe('delete flow', () => {
     it('confirmDelete shows dialog and hides context menu', () => {
@@ -598,7 +595,7 @@ describe('ImageDetailViewComponent', () => {
     });
   });
 
-  // ── Context menu ─────────────────────────────────────────────────────────
+  // â”€â”€ Context menu â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   describe('context menu', () => {
     it('toggleContextMenu toggles visibility', () => {
@@ -621,7 +618,7 @@ describe('ImageDetailViewComponent', () => {
     });
   });
 
-  // ── formatCoord ──────────────────────────────────────────────────────────
+  // â”€â”€ formatCoord â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   describe('formatCoord', () => {
     it('formats a number to 6 decimal places', () => {
@@ -635,7 +632,7 @@ describe('ImageDetailViewComponent', () => {
     });
   });
 
-  // ── close ────────────────────────────────────────────────────────────────
+  // â”€â”€ close â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   describe('close', () => {
     it('emits closed event', () => {
@@ -649,7 +646,7 @@ describe('ImageDetailViewComponent', () => {
     });
   });
 
-  // ── requestEditLocation ──────────────────────────────────────────────────
+  // â”€â”€ requestEditLocation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   describe('requestEditLocation', () => {
     it('emits editLocationRequested with imageId', () => {
@@ -674,7 +671,7 @@ describe('ImageDetailViewComponent', () => {
     });
   });
 
-  // ── Address search ─────────────────────────────────────────────────────
+  // â”€â”€ Address search â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   describe('address search', () => {
     it('openAddressSearch sets editingField to address_search', () => {
@@ -732,7 +729,7 @@ describe('ImageDetailViewComponent', () => {
     });
   });
 
-  // ── Captured date editor (DateSaveEvent + has_time) ────────────────────
+  // â”€â”€ Captured date editor (DateSaveEvent + has_time) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   describe('captured date editor', () => {
     it('openCapturedAtEditor parses date and time when has_time=true', () => {
@@ -894,417 +891,5 @@ describe('ImageDetailViewComponent', () => {
       component.image.set({ ...MOCK_IMAGE, captured_at: null });
       expect(component.captureDate()).toBeNull();
     });
-  });
-
-  // ── onFullResLoaded ──────────────────────────────────────────────────────
-
-  describe('onFullResLoaded', () => {
-    it('sets fullResLoaded to true', () => {
-      const { component } = setup();
-      expect(component.fullResLoaded()).toBe(false);
-
-      component.onFullResLoaded();
-
-      expect(component.fullResLoaded()).toBe(true);
-    });
-  });
-});
-
-// ── IE-10 Replace Photo — dedicated setup ──────────────────────────────────
-
-/**
- * Builds mocks specifically for the replace photo flow (IE-10).
- * Needs tighter control over storage.upload, storage.remove,
- * DB .update().eq() chain, and AuthService/WorkspaceViewService.
- */
-function setupReplace() {
-  // ── Storage mock ──
-  const storageUploadFn = vi.fn().mockResolvedValue({ data: { path: 'uploaded' }, error: null });
-  const storageRemoveFn = vi.fn().mockResolvedValue({ data: null, error: null });
-  const createSignedUrlFn = vi.fn().mockResolvedValue({
-    data: { signedUrl: 'https://example.com/signed-new' },
-    error: null,
-  });
-
-  // ── DB update chain: .update().eq() ──
-  const updateEqFn = vi.fn().mockResolvedValue({ data: null, error: null });
-  const updateFn = vi.fn().mockReturnValue({ eq: updateEqFn });
-
-  // ── DB select chain: .select('*').eq().single() (used by loadImage effect) ──
-  const imageSingleFn = vi.fn().mockResolvedValue({ data: MOCK_IMAGE, error: null });
-
-  // For image_metadata.select(...).eq('image_id', ...)
-  const metaSelectEqFn = vi.fn().mockResolvedValue({ data: [], error: null });
-
-  // For projects / metadata_keys (called on init when image loads)
-  const projectOrderFn = vi.fn().mockResolvedValue({
-    data: [{ id: 'proj-001', name: 'Project Alpha' }],
-    error: null,
-  });
-  const metaKeysOrderFn = vi.fn().mockResolvedValue({
-    data: [{ key_name: 'Building type' }],
-    error: null,
-  });
-
-  const deleteFn = vi.fn().mockReturnValue({
-    eq: vi.fn().mockReturnValue({
-      eq: vi.fn().mockResolvedValue({ data: null, error: null }),
-    }),
-  });
-
-  const client = {
-    from: vi.fn().mockImplementation((table: string) => {
-      if (table === 'images') {
-        return {
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({ single: imageSingleFn }),
-          }),
-          update: updateFn,
-          delete: deleteFn,
-        };
-      }
-      if (table === 'image_metadata') {
-        return {
-          select: vi.fn().mockReturnValue({ eq: metaSelectEqFn }),
-        };
-      }
-      if (table === 'projects') {
-        return {
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({ order: projectOrderFn }),
-          }),
-        };
-      }
-      if (table === 'metadata_keys') {
-        return {
-          select: vi.fn().mockImplementation((cols: string) => {
-            if (cols === 'key_name') {
-              return { eq: vi.fn().mockReturnValue({ order: metaKeysOrderFn }) };
-            }
-            return {
-              eq: vi.fn().mockReturnValue({
-                eq: vi.fn().mockReturnValue({
-                  maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-                }),
-              }),
-            };
-          }),
-        };
-      }
-      return {
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockResolvedValue({ data: null, error: null }),
-        }),
-      };
-    }),
-    storage: {
-      from: vi.fn().mockReturnValue({
-        createSignedUrl: createSignedUrlFn,
-        upload: storageUploadFn,
-        remove: storageRemoveFn,
-      }),
-    },
-  };
-
-  // ── Service mocks ──
-  const fakeAuth = {
-    user: signal({ id: 'user-001' } as any),
-    session: signal(null),
-    initializing: signal(false),
-  };
-  const fakeUpload = {
-    validateFile: vi.fn().mockReturnValue({ valid: true }),
-    parseExif: vi.fn().mockResolvedValue({}),
-    getSignedUrl: vi.fn().mockResolvedValue('https://example.com/signed'),
-  };
-  const fakeWorkspaceView = {
-    rawImages: signal([
-      {
-        id: MOCK_IMAGE.id,
-        storagePath: MOCK_IMAGE.storage_path,
-        thumbnailPath: MOCK_IMAGE.thumbnail_path,
-        signedThumbnailUrl: 'https://example.com/old-thumb',
-        thumbnailUnavailable: false,
-        latitude: MOCK_IMAGE.latitude,
-        longitude: MOCK_IMAGE.longitude,
-        capturedAt: MOCK_IMAGE.captured_at,
-        createdAt: MOCK_IMAGE.created_at,
-        projectId: MOCK_IMAGE.project_id,
-        projectName: 'Project Alpha',
-        direction: MOCK_IMAGE.direction,
-        exifLatitude: MOCK_IMAGE.exif_latitude,
-        exifLongitude: MOCK_IMAGE.exif_longitude,
-        addressLabel: MOCK_IMAGE.address_label,
-        city: MOCK_IMAGE.city,
-        district: MOCK_IMAGE.district,
-        street: MOCK_IMAGE.street,
-        country: MOCK_IMAGE.country,
-        userName: null,
-      },
-    ]),
-    batchSignThumbnails: vi.fn().mockResolvedValue(undefined),
-    // Stubs for properties the service might access during init
-    activeSorts: signal([]),
-    activeGroupings: signal([]),
-    collapsedGroups: signal(new Set()),
-    isLoading: signal(false),
-    selectionActive: signal(false),
-  };
-  const fakeGeocoding = {
-    forward: vi.fn().mockResolvedValue(null),
-    reverse: vi.fn().mockResolvedValue(null),
-  };
-
-  TestBed.configureTestingModule({
-    imports: [ImageDetailViewComponent],
-    providers: [
-      { provide: SupabaseService, useValue: { client } },
-      { provide: GeocodingService, useValue: fakeGeocoding },
-      { provide: AuthService, useValue: fakeAuth },
-      { provide: UploadService, useValue: fakeUpload },
-      { provide: WorkspaceViewService, useValue: fakeWorkspaceView },
-    ],
-  });
-
-  const fixture = TestBed.createComponent(ImageDetailViewComponent);
-  const component = fixture.componentInstance;
-  const ref = fixture.componentRef as ComponentRef<ImageDetailViewComponent>;
-  fixture.detectChanges();
-
-  return {
-    component,
-    fixture,
-    ref,
-    client,
-    fakeAuth,
-    fakeUpload,
-    fakeWorkspaceView,
-    storageUploadFn,
-    storageRemoveFn,
-    createSignedUrlFn,
-    updateFn,
-    updateEqFn,
-  };
-}
-
-/** Creates a minimal File object for testing. */
-function createTestFile(name = 'replacement.jpg', type = 'image/jpeg', size = 1024): File {
-  const blob = new Blob(['x'.repeat(size)], { type });
-  return new File([blob], name, { type });
-}
-
-/** Builds a fake input change Event carrying a File. */
-function createFileEvent(file: File): Event {
-  // jsdom doesn't support DataTransfer, so we use Object.defineProperty
-  const input = document.createElement('input');
-  input.type = 'file';
-  Object.defineProperty(input, 'files', { value: [file], writable: false });
-  return { target: input } as unknown as Event;
-}
-
-describe('ImageDetailViewComponent — IE-10 Replace Photo', () => {
-  // ── Happy path ────────────────────────────────────────────────────────────
-
-  it('successful replace: uploads file, updates DB, refreshes grid', async () => {
-    const ctx = setupReplace();
-    ctx.component.image.set({ ...MOCK_IMAGE });
-
-    const file = createTestFile();
-    await ctx.component.onFileSelected(createFileEvent(file));
-
-    // 1) Storage upload was called with the correct bucket
-    expect(ctx.client.storage.from).toHaveBeenCalledWith('images');
-    expect(ctx.storageUploadFn).toHaveBeenCalledWith(
-      expect.stringMatching(/^org-001\/user-001\/.+\.jpg$/),
-      file,
-      expect.objectContaining({ contentType: 'image/jpeg', upsert: false }),
-    );
-
-    // 2) DB update was called with new storage_path
-    expect(ctx.updateFn).toHaveBeenCalledWith(
-      expect.objectContaining({ storage_path: expect.stringMatching(/^org-001\//) }),
-    );
-
-    // 3) Old file was removed from storage (best-effort cleanup)
-    expect(ctx.storageRemoveFn).toHaveBeenCalledWith([MOCK_IMAGE.storage_path]);
-
-    // 4) Workspace grid cache was updated with new storagePath
-    const gridImage = ctx.fakeWorkspaceView.rawImages().find((wi) => wi.id === MOCK_IMAGE.id);
-    expect(gridImage?.storagePath).toMatch(/^org-001\/user-001\//);
-    expect(gridImage?.storagePath).not.toBe(MOCK_IMAGE.storage_path);
-    expect(gridImage?.signedThumbnailUrl).toBeUndefined();
-    expect(gridImage?.thumbnailUnavailable).toBe(false);
-
-    // 5) batchSignThumbnails called to re-sign the updated image
-    expect(ctx.fakeWorkspaceView.batchSignThumbnails).toHaveBeenCalled();
-
-    // 6) Component state is clean
-    expect(ctx.component.replacing()).toBe(false);
-    expect(ctx.component.replaceError()).toBeNull();
-  });
-
-  it('updates local image signal with new storage_path', async () => {
-    const ctx = setupReplace();
-    ctx.component.image.set({ ...MOCK_IMAGE });
-
-    await ctx.component.onFileSelected(createFileEvent(createTestFile()));
-
-    const img = ctx.component.image();
-    expect(img?.storage_path).toMatch(/^org-001\/user-001\//);
-    expect(img?.storage_path).not.toBe(MOCK_IMAGE.storage_path);
-  });
-
-  // ── Validation failures ──────────────────────────────────────────────────
-
-  it('shows error when file validation fails', async () => {
-    const ctx = setupReplace();
-    ctx.component.image.set({ ...MOCK_IMAGE });
-    ctx.fakeUpload.validateFile.mockReturnValueOnce({
-      valid: false,
-      error: 'File too large (30 MB)',
-    });
-
-    await ctx.component.onFileSelected(createFileEvent(createTestFile()));
-
-    expect(ctx.component.replaceError()).toBe('File too large (30 MB)');
-    expect(ctx.component.replacing()).toBe(false);
-    // No upload attempt
-    expect(ctx.storageUploadFn).not.toHaveBeenCalled();
-  });
-
-  it('shows error when user is not authenticated', async () => {
-    const ctx = setupReplace();
-    ctx.component.image.set({ ...MOCK_IMAGE });
-    ctx.fakeAuth.user.set(null);
-
-    await ctx.component.onFileSelected(createFileEvent(createTestFile()));
-
-    expect(ctx.component.replaceError()).toBe('Not authenticated.');
-    expect(ctx.storageUploadFn).not.toHaveBeenCalled();
-  });
-
-  it('shows error when image has no organization_id', async () => {
-    const ctx = setupReplace();
-    ctx.component.image.set({ ...MOCK_IMAGE, organization_id: null });
-
-    await ctx.component.onFileSelected(createFileEvent(createTestFile()));
-
-    expect(ctx.component.replaceError()).toBe('Image has no organization.');
-    expect(ctx.storageUploadFn).not.toHaveBeenCalled();
-  });
-
-  // ── Storage upload failure ───────────────────────────────────────────────
-
-  it('shows error and keeps old image when storage upload fails', async () => {
-    const ctx = setupReplace();
-    ctx.component.image.set({ ...MOCK_IMAGE });
-    ctx.storageUploadFn.mockResolvedValueOnce({
-      data: null,
-      error: { message: 'Storage quota exceeded' },
-    });
-
-    await ctx.component.onFileSelected(createFileEvent(createTestFile()));
-
-    expect(ctx.component.replaceError()).toBe('Upload failed. Please try again.');
-    expect(ctx.component.replacing()).toBe(false);
-    // DB was NOT called
-    expect(ctx.updateFn).not.toHaveBeenCalled();
-    // Image unchanged
-    expect(ctx.component.image()?.storage_path).toBe(MOCK_IMAGE.storage_path);
-  });
-
-  // ── DB update failure ─────────────────────────────────────────────────────
-
-  it('cleans up uploaded file when DB update returns an error', async () => {
-    const ctx = setupReplace();
-    ctx.component.image.set({ ...MOCK_IMAGE });
-    ctx.updateEqFn.mockResolvedValueOnce({
-      data: null,
-      error: { message: 'permission denied' },
-    });
-
-    await ctx.component.onFileSelected(createFileEvent(createTestFile()));
-
-    expect(ctx.component.replaceError()).toBe('Failed to update image record.');
-    expect(ctx.component.replacing()).toBe(false);
-    // Orphan file cleaned up
-    expect(ctx.storageRemoveFn).toHaveBeenCalled();
-    // Grid NOT touched
-    expect(ctx.fakeWorkspaceView.batchSignThumbnails).not.toHaveBeenCalled();
-  });
-
-  // ── Edge cases ───────────────────────────────────────────────────────────
-
-  it('does nothing when no file is selected (cancel)', async () => {
-    const ctx = setupReplace();
-    ctx.component.image.set({ ...MOCK_IMAGE });
-
-    // Simulate cancel — empty files list
-    const input = document.createElement('input');
-    input.type = 'file';
-    await ctx.component.onFileSelected({ target: input } as unknown as Event);
-
-    expect(ctx.storageUploadFn).not.toHaveBeenCalled();
-    expect(ctx.component.replacing()).toBe(false);
-  });
-
-  it('does nothing when image is null', async () => {
-    const ctx = setupReplace();
-    ctx.component.image.set(null);
-
-    await ctx.component.onFileSelected(createFileEvent(createTestFile()));
-
-    expect(ctx.storageUploadFn).not.toHaveBeenCalled();
-  });
-
-  it('uses correct file extension from the selected file', async () => {
-    const ctx = setupReplace();
-    ctx.component.image.set({ ...MOCK_IMAGE });
-
-    const pngFile = createTestFile('photo.png', 'image/png');
-    await ctx.component.onFileSelected(createFileEvent(pngFile));
-
-    expect(ctx.storageUploadFn).toHaveBeenCalledWith(
-      expect.stringMatching(/\.png$/),
-      pngFile,
-      expect.any(Object),
-    );
-  });
-
-  it('sets replacing=true during the operation', async () => {
-    const ctx = setupReplace();
-    ctx.component.image.set({ ...MOCK_IMAGE });
-
-    // Before
-    expect(ctx.component.replacing()).toBe(false);
-
-    // Slow down the upload to observe replacing=true
-    let resolveUpload!: (v: any) => void;
-    ctx.storageUploadFn.mockReturnValueOnce(
-      new Promise((resolve) => {
-        resolveUpload = resolve;
-      }),
-    );
-
-    const promise = ctx.component.onFileSelected(createFileEvent(createTestFile()));
-
-    // During upload
-    expect(ctx.component.replacing()).toBe(true);
-
-    resolveUpload({ data: { path: 'ok' }, error: null });
-    await promise;
-
-    // After
-    expect(ctx.component.replacing()).toBe(false);
-  });
-
-  it('clears previous replaceError on new attempt', async () => {
-    const ctx = setupReplace();
-    ctx.component.image.set({ ...MOCK_IMAGE });
-    ctx.component.replaceError.set('Previous error');
-
-    await ctx.component.onFileSelected(createFileEvent(createTestFile()));
-
-    expect(ctx.component.replaceError()).toBeNull();
   });
 });

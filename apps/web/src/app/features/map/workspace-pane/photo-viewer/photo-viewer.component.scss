@@ -1,0 +1,301 @@
+// PhotoViewerComponent styles — progressive image loading, lightbox trigger, replace/attach.
+
+:host {
+  display: block;
+}
+
+// ── Photo container (relative wrapper for overlay button) ──
+
+.photo-container {
+  position: relative;
+  width: fit-content;
+  max-width: calc(100% - var(--spacing-4) * 2);
+  margin: var(--spacing-3) auto 0;
+
+  &:hover .photo-edit-btn {
+    opacity: 1;
+  }
+}
+
+// ── Photo wrap (button that opens lightbox) ──
+
+.photo-wrap {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: fit-content;
+  max-width: 100%;
+  background: #111;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+  transition: box-shadow 120ms ease-out;
+
+  > * {
+    grid-area: 1 / 1;
+  }
+
+  &:hover {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 30%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
+
+// ── Placeholder (gradient + camera icon) ──
+
+.photo-placeholder {
+  min-height: 8rem;
+  aspect-ratio: 4 / 3;
+  max-height: 33vh;
+  width: 100%;
+  background: linear-gradient(
+    135deg,
+    var(--color-bg-subtle, var(--color-bg-surface)) 0%,
+    var(--color-bg-muted, var(--color-bg-base)) 100%
+  );
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-2);
+
+  &--loading {
+    animation: photo-placeholder-pulse 1400ms ease-in-out infinite;
+  }
+
+  &__icon {
+    width: 2rem;
+    height: 2rem;
+    background: var(--color-text-disabled);
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 15.2l-3.6-4.8H8l-4 5.2V6c0-1.1.9-2 2-2h12c1.1 0 2 .9 2 2v7.6l-4-4.8-4 6.4zM2 4v16h20V4H2zm7-1a2 2 0 1 0 0 4 2 2 0 0 0 0-4z'/%3E%3C/svg%3E");
+    mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+  }
+
+  &__text {
+    font-size: 0.75rem;
+    color: var(--color-text-disabled);
+  }
+
+  &__broken {
+    width: 3rem;
+    height: 3rem;
+  }
+}
+
+// ── Photo image (thumbnail + full-res) ──
+
+.photo-image {
+  display: block;
+  max-height: 33vh;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+
+  &--hero {
+    // Blob URL — shows instantly after replace/attach
+  }
+
+  &--thumb {
+    filter: blur(2px);
+    transform: scale(1.02);
+  }
+
+  &--full {
+    opacity: 0;
+    transition: opacity 200ms ease-in;
+
+    &.photo-image--loaded {
+      opacity: 1;
+    }
+  }
+}
+
+// ── Replace photo overlay button ──
+
+.photo-edit-btn {
+  position: absolute;
+  top: var(--spacing-2);
+  right: var(--spacing-2);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: var(--radius-md);
+  background: rgba(0, 0, 0, 0.5);
+  color: var(--color-bg-surface);
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity 120ms ease-out,
+    background 80ms ease-out;
+
+  .material-icons {
+    font-size: 1rem;
+  }
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.7);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    opacity: 1;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.4);
+  }
+
+  &__spinner {
+    width: 0.875rem;
+    height: 0.875rem;
+    border-radius: var(--radius-full);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: #fff;
+    animation: photo-spin 700ms linear infinite;
+  }
+
+  // Always visible on touch devices (no hover)
+  @media (hover: none) {
+    opacity: 1;
+  }
+}
+
+// ── Replace error ──
+
+.photo-replace-error {
+  margin-top: var(--spacing-1);
+  padding: var(--spacing-1) var(--spacing-2);
+  font-size: 0.75rem;
+  color: var(--color-danger);
+  text-align: center;
+}
+
+// ── Upload prompt (for photoless datapoints) ──
+
+.upload-prompt {
+  max-width: calc(100% - var(--spacing-4) * 2);
+  margin: var(--spacing-3) auto 0;
+
+  &__placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-3);
+    min-height: 8rem;
+    aspect-ratio: 4 / 3;
+    max-height: 33vh;
+    background: linear-gradient(
+      135deg,
+      var(--color-bg-subtle, var(--color-bg-surface)) 0%,
+      var(--color-bg-muted, var(--color-bg-base)) 100%
+    );
+    border-radius: var(--radius-lg);
+    border: 2px dashed var(--color-border);
+  }
+
+  &__icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    background: var(--color-text-disabled);
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 15.2l-3.6-4.8H8l-4 5.2V6c0-1.1.9-2 2-2h12c1.1 0 2 .9 2 2v7.6l-4-4.8-4 6.4zM2 4v16h20V4H2zm7-1a2 2 0 1 0 0 4 2 2 0 0 0 0-4z'/%3E%3C/svg%3E");
+    mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+  }
+
+  &__text {
+    font-size: 0.8125rem;
+    color: var(--color-text-secondary);
+  }
+
+  &__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-1);
+    padding: var(--spacing-2) var(--spacing-3);
+    border: none;
+    border-radius: var(--radius-md);
+    background: var(--color-clay);
+    color: #fff;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 80ms ease-out;
+
+    .material-icons {
+      font-size: 1.125rem;
+    }
+
+    &:hover {
+      background: color-mix(in srgb, var(--color-clay) 85%, #000);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 2px;
+    }
+
+    &:disabled {
+      cursor: not-allowed;
+      opacity: 0.7;
+    }
+  }
+
+  &__spinner {
+    display: inline-block;
+    width: 0.875rem;
+    height: 0.875rem;
+    border-radius: var(--radius-full);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: #fff;
+    animation: photo-spin 700ms linear infinite;
+  }
+}
+
+// ── Visually hidden (file input) ──
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+// ── Keyframes ──
+
+@keyframes photo-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes photo-placeholder-pulse {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}

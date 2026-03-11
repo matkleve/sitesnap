@@ -1,0 +1,127 @@
+<!-- PhotoViewerComponent — progressive image loading, lightbox, replace/attach -->
+
+<!-- Hidden file input for photo replacement / attachment -->
+<input
+  #fileInput
+  type="file"
+  [accept]="acceptTypes"
+  class="visually-hidden"
+  aria-hidden="true"
+  (change)="onFileSelected($event)"
+/>
+
+@if (hasPhoto() || heroSrc()) {
+  <!-- Photo display mode -->
+  <div class="photo-container">
+    <button
+      class="photo-wrap"
+      type="button"
+      aria-label="View full-size photo"
+      (click)="openLightbox()"
+    >
+      <!-- Placeholder: gradient + camera icon while loading -->
+      @if (!imageReady()) {
+        <div
+          class="photo-placeholder"
+          [class.photo-placeholder--loading]="isLoading()"
+          [class.photo-placeholder--error]="imageErrored()"
+        >
+          @if (imageErrored()) {
+            <img class="photo-placeholder__broken" alt="Image unavailable" src="" />
+          } @else {
+            <span class="photo-placeholder__icon" aria-hidden="true"></span>
+            <span class="photo-placeholder__text">Loading…</span>
+          }
+        </div>
+      }
+
+      <!-- Hero src (blob URL from replace/attach — instant display) -->
+      @if (heroSrc()) {
+        <img
+          class="photo-image photo-image--hero"
+          [src]="heroSrc()"
+          [alt]="displayTitle()"
+        />
+      }
+
+      <!-- Tier 2: blurred thumbnail -->
+      @if (thumbnailUrl() && !fullResLoaded()) {
+        <img
+          class="photo-image photo-image--thumb"
+          [src]="thumbnailUrl()"
+          alt="Photo preview"
+          aria-hidden="true"
+          (load)="onThumbnailLoaded()"
+          (error)="onThumbnailError()"
+        />
+      }
+
+      <!-- Tier 3: full resolution (crossfades over thumbnail) -->
+      @if (fullResUrl()) {
+        <img
+          class="photo-image photo-image--full"
+          [class.photo-image--loaded]="fullResLoaded()"
+          [src]="fullResUrl()"
+          [alt]="displayTitle()"
+          (load)="onFullResLoaded()"
+          (error)="onImageError()"
+        />
+      }
+    </button>
+
+    <!-- Replace photo overlay button -->
+    <button
+      class="photo-edit-btn"
+      type="button"
+      aria-label="Replace photo"
+      title="Replace photo"
+      [disabled]="replacing()"
+      (click)="triggerFileInput()"
+    >
+      @if (replacing()) {
+        <span class="photo-edit-btn__spinner" aria-hidden="true"></span>
+      } @else {
+        <span class="material-icons" aria-hidden="true">edit</span>
+      }
+    </button>
+
+    @if (replaceError()) {
+      <div class="photo-replace-error" role="alert">{{ replaceError() }}</div>
+    }
+  </div>
+} @else {
+  <!-- Upload prompt for photoless datapoints -->
+  <div class="upload-prompt">
+    <div class="upload-prompt__placeholder">
+      <span class="upload-prompt__icon" aria-hidden="true"></span>
+      <span class="upload-prompt__text">No photo attached</span>
+      <button
+        class="upload-prompt__btn"
+        type="button"
+        [disabled]="replacing()"
+        (click)="triggerFileInput()"
+      >
+        @if (replacing()) {
+          <span class="upload-prompt__spinner" aria-hidden="true"></span>
+          Uploading…
+        } @else {
+          <span class="material-icons" aria-hidden="true">add_a_photo</span>
+          Add photo
+        }
+      </button>
+    </div>
+
+    @if (replaceError()) {
+      <div class="photo-replace-error" role="alert">{{ replaceError() }}</div>
+    }
+  </div>
+}
+
+<!-- Photo lightbox overlay -->
+@if (lightboxOpen() && (fullResUrl() || heroSrc())) {
+  <app-photo-lightbox
+    [imageUrl]="(fullResUrl() ?? heroSrc())!"
+    [alt]="displayTitle()"
+    (closed)="closeLightbox()"
+  />
+}

@@ -1,18 +1,13 @@
 <div class="dd-section-label">Actions</div>
 
-<button class="dd-item" type="button" (click)="editLocation.emit()">
-  <span class="material-icons dd-item__icon" aria-hidden="true">edit_location</span>
-  <span class="dd-item__label">Edit location</span>
-</button>
-
-<button class="dd-item" type="button" (click)="addToProject.emit()">
-  <span class="material-icons dd-item__icon" aria-hidden="true">folder_open</span>
-  <span class="dd-item__label">Add to project</span>
-</button>
-
-<button class="dd-item" type="button" (click)="copyCoordinates.emit()">
+<button class="dd-item" type="button" (click)="copyCoordinates()">
   <span class="material-icons dd-item__icon" aria-hidden="true">content_copy</span>
   <span class="dd-item__label">Copy coordinates</span>
+</button>
+
+<button class="dd-item" type="button" (click)="copyLink()">
+  <span class="material-icons dd-item__icon" aria-hidden="true">link</span>
+  <span class="dd-item__label">Copy link</span>
 </button>
 
 <div class="dd-divider"></div>

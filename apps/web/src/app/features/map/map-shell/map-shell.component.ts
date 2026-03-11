@@ -36,6 +36,7 @@ import {
   UploadManagerService,
   ImageReplacedEvent,
   ImageAttachedEvent,
+  ImageDeletedEvent,
 } from '../../../core/upload-manager.service';
 import { WorkspaceViewService } from '../../../core/workspace-view.service';
 import { SearchBarComponent } from '../search-bar/search-bar.component';
@@ -524,6 +525,9 @@ export class MapShellComponent implements OnDestroy {
       this.uploadManagerService.imageAttached$.subscribe((event: ImageAttachedEvent) => {
         this.handleImageAttached(event);
       }),
+      this.uploadManagerService.imageDeleted$.subscribe((event: ImageDeletedEvent) => {
+        this.handleImageDeleted(event);
+      }),
     );
   }
 
@@ -568,6 +572,24 @@ export class MapShellComponent implements OnDestroy {
     state.direction = event.direction ?? state.direction;
     state.thumbnailSourcePath = event.newStoragePath;
     this.refreshPhotoMarker(markerKey);
+  }
+
+  /**
+   * Handles imageDeleted$ — removes the marker from the map immediately
+   * so the user doesn't have to pan/zoom to see it disappear.
+   */
+  private handleImageDeleted(event: ImageDeletedEvent): void {
+    const markerKey = this.markersByImageId.get(event.imageId);
+    if (markerKey) {
+      const state = this.uploadedPhotoMarkers.get(markerKey);
+      if (state) {
+        this.photoMarkerLayer!.removeLayer(state.marker);
+        this.uploadedPhotoMarkers.delete(markerKey);
+      }
+      this.markersByImageId.delete(event.imageId);
+    }
+
+    this.workspaceViewService.removeImage(event.imageId);
   }
 
   private upsertUploadedPhotoMarker(event: ImageUploadedEvent): void {

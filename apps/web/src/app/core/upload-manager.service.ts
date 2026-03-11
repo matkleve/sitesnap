@@ -200,6 +200,10 @@ export interface ImageAttachedEvent {
   hadExistingCoords: boolean;
 }
 
+export interface ImageDeletedEvent {
+  imageId: string;
+}
+
 /** An existing images row (no photo) that conflicts with an incoming upload's location. */
 export interface ConflictCandidate {
   imageId: string;
@@ -341,6 +345,7 @@ export class UploadManagerService {
   private readonly _locationConflict$ = new Subject<LocationConflictEvent>();
   private readonly _imageReplaced$ = new Subject<ImageReplacedEvent>();
   private readonly _imageAttached$ = new Subject<ImageAttachedEvent>();
+  private readonly _imageDeleted$ = new Subject<ImageDeletedEvent>();
 
   readonly imageUploaded$: Observable<ImageUploadedEvent> = this._imageUploaded$.asObservable();
   readonly uploadFailed$: Observable<UploadFailedEvent> = this._uploadFailed$.asObservable();
@@ -354,6 +359,12 @@ export class UploadManagerService {
     this._locationConflict$.asObservable();
   readonly imageReplaced$: Observable<ImageReplacedEvent> = this._imageReplaced$.asObservable();
   readonly imageAttached$: Observable<ImageAttachedEvent> = this._imageAttached$.asObservable();
+  readonly imageDeleted$: Observable<ImageDeletedEvent> = this._imageDeleted$.asObservable();
+
+  /** Notify all consumers that an image was deleted from the detail view. */
+  notifyImageDeleted(imageId: string): void {
+    this._imageDeleted$.next({ imageId });
+  }
 
   // ── Concurrency tracking ───────────────────────────────────────────────────
 

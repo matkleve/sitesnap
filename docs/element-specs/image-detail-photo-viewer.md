@@ -57,6 +57,8 @@ stateDiagram-v2
 
     state UploadPromptState {
         [*] --> ShowPlaceholder
+        ShowPlaceholder : urlsResolved = true (immediately)
+        ShowPlaceholder : No loading spinner
         ShowPlaceholder : File picker button + placeholder UI
         ShowPlaceholder --> Attaching : User selects file
         Attaching : Delegated to UploadManagerService
@@ -68,12 +70,17 @@ stateDiagram-v2
     state LoadingState {
         [*] --> CSSPlaceholder
         CSSPlaceholder : Gradient + camera icon
-        CSSPlaceholder --> ThumbnailLoaded : Tier 2 loads
+        CSSPlaceholder : urlsResolved = false
+        CSSPlaceholder --> URLsResolved : Signed URL promises settle
+        state urlCheck <<choice>>
+        URLsResolved --> urlCheck
+        urlCheck --> ThumbnailLoaded : At least thumbnail URL OK
+        urlCheck --> BrokenImageIcon : Both URLs failed
         ThumbnailLoaded : Blurred 256×256
-        ThumbnailLoaded --> FullResLoaded : Tier 3 loads
+        ThumbnailLoaded --> FullResLoaded : Tier 3 img loads
         FullResLoaded : Sharp full-res image
-        CSSPlaceholder --> BrokenImageIcon : Both tiers fail
-        ThumbnailLoaded --> ThumbnailFallback : Tier 3 fails
+        BrokenImageIcon : imageErrored = true
+        ThumbnailLoaded --> ThumbnailFallback : Tier 3 img fails
     }
 
     LoadingState --> Replacing : User clicks Replace Photo
@@ -90,30 +97,51 @@ stateDiagram-v2
 Three-tier strategy to show content as fast as possible:
 
 1. **View opens** → CSS placeholder shown immediately (no network)
-2. **Tier 2** thumbnail signed URL fires (`256×256, cover, quality: 60`)
-3. Thumbnail `<img>` loads → replaces placeholder with slight blur filter
-4. **Tier 3** full-res signed URL fires (no transform, or max 2500px)
-5. Full-res `<img>` loads in hidden element → crossfade swaps it in
+2. Signed URL requests fire (`urlsResolved = false`)
+3. Both promises settle → `urlsResolved = true` (loading spinner stops regardless of success/failure)
+4. **Tier 2** thumbnail signed URL loads → replaces placeholder with slight blur filter
+5. **Tier 3** full-res signed URL loads → crossfade swaps it in
 6. If Tier 3 fails, Tier 2 remains visible (adequate quality for metadata editing)
-7. If both fail, broken `<img>` icon shown with `alt="Image unavailable"`
+7. If both fail → `imageErrored = true`, broken `<img>` icon shown with `alt="Image unavailable"`
+8. If `storage_path IS NULL` → `hasPhoto = false`, no URL requests, no loading spinner
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Placeholder : View opens
+    [*] --> CheckStoragePath : View opens
+
+    state check <<choice>>
+    CheckStoragePath --> check
+    check --> NoPhoto : storage_path IS NULL
+    check --> Placeholder : storage_path exists
+
+    state NoPhoto {
+        [*] --> UploadPrompt
+        UploadPrompt : urlsResolved = true (immediately)
+        UploadPrompt : No loading spinner shown
+    }
+
     state Placeholder {
         [*] --> CSSGradient
         CSSGradient : Gradient + camera icon + "Loading…"
-        CSSGradient : No network request
+        CSSGradient : urlsResolved = false
     }
 
-    Placeholder --> Tier2 : Thumbnail signed URL loads
+    Placeholder --> URLsResolved : Both URL promises settle
+
+    state URLsResolved {
+        [*] --> CheckURLs
+    }
+
+    URLsResolved --> Tier2 : At least thumbnail URL succeeded
+    URLsResolved --> Unavailable : Both URLs failed
+
     state Tier2 {
         [*] --> BlurredThumb
         BlurredThumb : 256×256 signed URL
         BlurredThumb : CSS blur filter applied
     }
 
-    Tier2 --> Tier3 : Full-res signed URL loads
+    Tier2 --> Tier3 : Full-res img element loads
     state Tier3 {
         [*] --> Crossfade
         Crossfade : Full resolution (no transform)
@@ -121,16 +149,16 @@ stateDiagram-v2
         FullRes : Sharp image displayed
     }
 
-    Tier2 --> Tier2Fallback : Tier 3 fails
+    Tier2 --> Tier2Fallback : Tier 3 img fails
     state Tier2Fallback {
         [*] --> ThumbStays
         ThumbStays : Blurred thumbnail remains
         ThumbStays : Adequate for metadata editing
     }
 
-    Placeholder --> Unavailable : Both tiers fail
     state Unavailable {
         [*] --> ErrorPlaceholder
+        ErrorPlaceholder : imageErrored = true
         ErrorPlaceholder : Broken img with alt="Image unavailable"
     }
 ```
@@ -269,14 +297,15 @@ stateDiagram-v2
 
 ## State
 
-| Name            | Type             | Default | Controls                                            |
-| --------------- | ---------------- | ------- | --------------------------------------------------- |
-| `fullResLoaded` | `boolean`        | `false` | Whether full-res image has loaded                   |
-| `thumbLoaded`   | `boolean`        | `false` | Whether Tier 2 thumbnail has loaded                 |
-| `lightboxOpen`  | `boolean`        | `false` | Whether lightbox overlay is visible                 |
-| `replacing`     | `boolean`        | `false` | Whether a replace operation is in progress          |
-| `replaceError`  | `string \| null` | `null`  | Error message if replace failed                     |
-| `heroSrc`       | `string \| null` | `null`  | Current src for the hero image (blob or signed URL) |
+| Name            | Type             | Default | Controls                                                       |
+| --------------- | ---------------- | ------- | -------------------------------------------------------------- |
+| `fullResLoaded` | `boolean`        | `false` | Whether full-res image has loaded                              |
+| `thumbLoaded`   | `boolean`        | `false` | Whether Tier 2 thumbnail has loaded                            |
+| `urlsResolved`  | `boolean`        | `false` | Whether signed URL fetching has completed (success or failure) |
+| `lightboxOpen`  | `boolean`        | `false` | Whether lightbox overlay is visible                            |
+| `replacing`     | `boolean`        | `false` | Whether a replace operation is in progress                     |
+| `replaceError`  | `string \| null` | `null`  | Error message if replace failed                                |
+| `heroSrc`       | `string \| null` | `null`  | Current src for the hero image (blob or signed URL)            |
 
 ## Wiring
 
@@ -287,20 +316,23 @@ stateDiagram-v2
 
 ## Acceptance Criteria
 
-- [ ] CSS placeholder shown immediately when view opens (gradient + camera icon)
-- [ ] Tier 2 thumbnail (256×256 transform) loads and replaces placeholder with slight blur
-- [ ] Full-res image loads on demand and crossfades over blurred thumbnail
-- [ ] If full-res fails, Tier 2 thumbnail stays visible
-- [ ] If both tiers fail, broken `<img>` icon shown with `alt="Image unavailable"`
-- [ ] Edit icon overlay on hero photo opens file picker
-- [ ] File validated before upload (size + MIME type via `UploadService.validateFile()`)
-- [ ] Delegates to `UploadManagerService.replaceFile(imageId, file)` — does not manage upload lifecycle directly
-- [ ] Spinner/progress shown by reading job state from `uploadManager.jobs()` signal
-- [ ] Subscribes to `imageReplaced$` to refresh signed URLs and show new photo immediately
-- [ ] On `imageReplaced$`: `heroSrc` set to `localObjectUrl` instantly → progressive reload restarts
-- [ ] `localObjectUrl` revoked after full-res signed URL loads to prevent memory leaks
-- [ ] Upload survives component destruction (user can navigate away mid-replace)
-- [ ] Shows upload prompt/placeholder when `storage_path IS NULL` (instead of hero photo)
-- [ ] Subscribes to `imageAttached$` to switch from placeholder to real photo display
-- [ ] Lightbox opens on photo click with dark backdrop
-- [ ] Lightbox closes on X, backdrop click, or Escape
+- [x] CSS placeholder shown immediately when view opens (gradient + camera icon)
+- [x] Tier 2 thumbnail (256×256 transform) loads and replaces placeholder with slight blur
+- [x] Full-res image loads on demand and crossfades over blurred thumbnail
+- [x] If full-res fails, Tier 2 thumbnail stays visible
+- [x] If both tiers fail, broken `<img>` icon shown with `alt="Image unavailable"`
+- [x] Edit icon overlay on hero photo opens file picker
+- [x] File validated before upload (size + MIME type via `UploadService.validateFile()`)
+- [x] Delegates to `UploadManagerService.replaceFile(imageId, file)` — does not manage upload lifecycle directly
+- [x] Spinner/progress shown by reading job state from `uploadManager.jobs()` signal
+- [x] Subscribes to `imageReplaced$` to refresh signed URLs and show new photo immediately
+- [x] On `imageReplaced$`: `heroSrc` set to `localObjectUrl` instantly → progressive reload restarts
+- [x] `localObjectUrl` revoked after full-res signed URL loads to prevent memory leaks
+- [x] Upload survives component destruction (user can navigate away mid-replace)
+- [x] Shows upload prompt/placeholder when `storage_path IS NULL` (instead of hero photo)
+- [x] Subscribes to `imageAttached$` to switch from placeholder to real photo display
+- [x] Lightbox opens on photo click with dark backdrop
+- [x] Lightbox closes on X, backdrop click, or Escape
+- [x] `isLoading` is `false` immediately when `storage_path IS NULL` (no spinner for photoless datapoints)
+- [x] `urlsResolved` set to `true` once signed URL fetch completes — loading spinner stops even if both URLs fail
+- [x] Both URLs failing sets `imageErrored = true` — shows broken image placeholder, not infinite spinner

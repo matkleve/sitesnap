@@ -196,6 +196,11 @@ export class WorkspaceViewService {
     this.collapsedGroups.set(new Set());
   }
 
+  /** Remove a single image from the workspace grid immediately (e.g. after deletion). */
+  removeImage(imageId: string): void {
+    this.rawImages.update((images) => images.filter((img) => img.id !== imageId));
+  }
+
   /** Clear active selection AND reset all toolbar settings to defaults. */
   clearActiveSelectionAndSettings(): void {
     this.rawImages.set([]);
