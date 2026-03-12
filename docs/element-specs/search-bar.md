@@ -17,26 +17,130 @@ Floating search surface pinned top-center over the map. Use the shared `.ui-cont
 - **Appears when**: Always visible when map page is active
 - **Dropdown appears when**: Input is focused or has query text
 
+---
+
+## Use Cases
+
+> **Full use cases:** [use-cases/search-bar.md](../use-cases/search-bar.md) — 18 scenarios (UC-1 through UC-18) with 50+ edge cases.
+
+The use cases are the source of truth. The state machine, actions table, and technical sections below all derive from them. Key scenarios:
+
+| UC | Scenario | Key edge cases |
+|----|----------|----------------|
+| UC-1 | Quick address lookup (happy path) | Cancel in-flight, slow connection, no DB match |
+| UC-2 | Repeat searches across sessions | Project switch re-ranks, LRU eviction |
+| UC-3 | Named place / POI search | Building name + address, verbose label formatting |
+| UC-4 | Search with typos | pg_trgm fuzzy, suffix normalization (`str.` ↔ `straße`) |
+| UC-5 | Paste coordinates or map link | Google Maps URL, DMS format, reverse-geocode failure |
+| UC-6 | Project or group search | Dual-section results, active project boost |
+| UC-7 | Geocoder slow or failing | 429 retry, Edge Function down, Supabase down |
+| UC-8 | Tab autocomplete from history | No match, priority tiers, cross-project ghost |
+| UC-9 | Active project filter context | Project boost, country bias from project data |
+| UC-10 | Address not in the system yet | Geocoder-only results, unknown country |
+| UC-11 | Mobile on-site search | Small viewport, virtual keyboard, offline |
+| UC-12 | Clear and start over | Backspace on empty, edit committed text |
+| UC-13 | Keyboard-only navigation | Arrow wrap, Tab vs ArrowDown priority |
+| UC-14 | Similar addresses in different cities | Proximity decay, dedup, multi-country restriction |
+| UC-15 | Cold start after login | Background geo-context, fresh org |
+| UC-16 | "Did you mean?" suggestion | Ambiguous correction, geocoder correction |
+| UC-17 | Concurrent search and filter | Filter persistence, distance reference point |
+| UC-18 | Long session cache management | LRU eviction, trie rebuild |
+
+---
+
+## State Machine
+
+Derived from the use cases above. Each state corresponds to a user scenario:
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle : Page loads (UC-15)
+
+    Idle --> FocusedEmpty : Click / Tab / Cmd+K (UC-1.1, UC-2.1)
+    FocusedEmpty --> Idle : Blur without typing
+    FocusedEmpty --> Typing : User types character (UC-1.3)
+
+    Typing --> Typing : More characters / debounce resets (UC-1a)
+    Typing --> Typing : Tab accepts ghost (UC-8) → new query
+    Typing --> FocusedEmpty : Backspace to empty (UC-12b)
+    Typing --> CoordinateDetected : Paste coordinates (UC-5)
+    Typing --> ResultsPartial : DB source returns (UC-1.5, UC-7)
+
+    CoordinateDetected --> Committed : Map centers + reverse-geocode (UC-5.3)
+
+    ResultsPartial --> ResultsComplete : Geocoder returns or times out (UC-1.6, UC-7)
+    ResultsPartial --> Typing : User modifies query (UC-1a)
+    ResultsPartial --> Committed : User selects a DB result early (UC-7.5)
+
+    ResultsComplete --> Committed : Enter / Click / recent-selected (UC-1.7, UC-6.3)
+    ResultsComplete --> Typing : User modifies query (UC-1a)
+    ResultsComplete --> Idle : Escape → Escape (UC-13.5-6)
+
+    Committed --> Typing : User edits query text (UC-12b)
+    Committed --> Idle : Clear button / Backspace on empty (UC-12)
+```
+
+### Source Loading Phases
+
+Each search query triggers 3 independent data sources. They load progressively — no source waits for another:
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Component
+    participant DB as DB (Supabase)
+    participant Cache as Local Cache
+    participant Geo as Geocoder (Edge Fn)
+
+    User->>Component: Types "schl" (UC-1.3)
+    Component->>Component: Debounce 300ms
+    
+    par Phase 2 — Instant (~100ms)
+        Component->>Cache: Ghost completion lookup (UC-8)
+        Cache-->>Component: "eiergasse 18, 1100 Wien"
+        Component->>DB: DB address query
+        Component->>DB: DB content query
+    and Phase 3 — Slow (~1-2s)
+        Component->>Geo: GeocodingService.search()
+    end
+
+    DB-->>Component: DB results (UC-1.5)
+    Component->>Component: Render Addresses + Content sections
+    
+    Note over Component,Geo: Geocoder skeleton pulses
+    
+    Geo-->>Component: Geocoder results (UC-1.6)
+    Component->>Component: Dedup, proximity decay, render Places
+    
+    Note over Component: UC-7: If Geo fails/times out,<br/>skeleton hides silently
+```
+
+---
+
 ## Actions
 
-| #   | User Action                                | System Response                                                           | Triggers                                                  |
-| --- | ------------------------------------------ | ------------------------------------------------------------------------- | --------------------------------------------------------- |
-| 1   | Focuses input (click or tab)               | Opens dropdown with recent searches                                       | State → `focused-empty`                                   |
-| 2   | Presses `Cmd/Ctrl+K`                       | Focuses input, opens dropdown                                             | State → `focused-empty`                                   |
-| 3   | Types characters                           | Debounces 300ms, queries DB + geocoder in parallel                        | State → `typing` → `results-partial` → `results-complete` |
-| 4   | Presses ArrowDown                          | Moves highlight to next selectable item (skips headers/dividers)          | `activeIndex` increments                                  |
-| 5   | Presses ArrowUp                            | Moves highlight to previous selectable item                               | `activeIndex` decrements                                  |
-| 6   | Presses Enter                              | Commits highlighted item (or top item if none highlighted)                | Fires `SearchCommitAction`                                |
-| 7   | Clicks a DB address result                 | Map centers on that location, adds Search Location Marker                 | `commit` type `map-center`                                |
-| 8   | Clicks a DB content result (project/group) | Navigates to that content's context                                       | `commit` type `open-content`                              |
-| 9   | Clicks a geocoder result                   | Map centers on location                                                   | `commit` type `map-center`                                |
-| 10  | Clicks a recent search item                | Re-executes that query                                                    | `commit` type `recent-selected`                           |
-| 11  | Presses Escape                             | Closes dropdown; second Escape blurs input                                | State → `idle`                                            |
-| 12  | Clicks outside search                      | Closes dropdown                                                           | State → `idle` or `committed`                             |
-| 13  | Clicks `×` clear button                    | Clears query + committed state, removes Search Location Marker            | State → `idle`                                            |
-| 14  | Backspace on empty committed input         | Clears committed context                                                  | State → `focused-empty`                                   |
-| 15  | Query returns no results                   | Shows empty state with "No address found" + suggested actions             | —                                                         |
-| 16  | Geocoder slow/fails                        | DB results render immediately, geocoder section shows skeleton then hides | Graceful degradation                                      |
+Derived from the use cases. Each row maps to specific UC scenarios.
+
+| #   | User Action                                | System Response                                                           | Use Cases | Triggers                                                  |
+| --- | ------------------------------------------ | ------------------------------------------------------------------------- | --------- | --------------------------------------------------------- |
+| 1   | Focuses input (click or tab)               | Opens dropdown with recent searches                                       | UC-1, UC-2 | State → `focused-empty`                                  |
+| 2   | Presses `Cmd/Ctrl+K`                       | Focuses input, opens dropdown                                             | UC-13     | State → `focused-empty`                                   |
+| 3   | Types characters                           | Debounces 300ms, queries DB + geocoder in parallel                        | UC-1, UC-4 | State → `typing` → `results-partial` → `results-complete` |
+| 4   | Presses ArrowDown / ArrowUp               | Moves highlight to next/prev selectable item (skips headers/dividers)     | UC-13     | `activeIndex` changes                                     |
+| 5   | Presses Enter                              | Commits highlighted item (or top item if none highlighted)                | UC-1, UC-6, UC-13 | Fires `SearchCommitAction`                          |
+| 6   | Presses Tab (with ghost text)              | Accepts inline ghost completion into input text, triggers new search      | UC-8, UC-11 | Query updated                                           |
+| 7   | Clicks a DB address result                 | Map centers on that location, adds Search Location Marker                 | UC-1, UC-10 | `commit` type `map-center`                              |
+| 8   | Clicks a DB content result (project/group) | Navigates to that content's context                                       | UC-6      | `commit` type `open-content`                              |
+| 9   | Clicks a geocoder result                   | Map centers on location                                                   | UC-10, UC-3 | `commit` type `map-center`                              |
+| 10  | Clicks a recent search item                | Re-executes that query                                                    | UC-2      | `commit` type `recent-selected`                           |
+| 11  | Presses Escape                             | Closes dropdown; second Escape blurs input                                | UC-13     | State → `idle`                                            |
+| 12  | Clicks outside search                      | Closes dropdown                                                           | —         | State → `idle` or `committed`                             |
+| 13  | Clicks `×` clear button                    | Clears query + committed state, removes Search Location Marker            | UC-12     | State → `idle`                                            |
+| 14  | Backspace on empty committed input         | Clears committed context                                                  | UC-12     | State → `focused-empty`                                   |
+| 15  | Query returns no results                   | Shows empty state with "No address found" + suggested actions             | UC-10     | —                                                         |
+| 16  | Geocoder slow/fails                        | DB results render immediately, geocoder section shows skeleton then hides | UC-7      | Graceful degradation                                      |
+| 17  | Pastes coordinates or Google Maps URL      | Detects coordinate format, centers map, reverse-geocodes label            | UC-5      | `commit` type `map-center`                                |
+| 18  | "Did you mean?" suggestion clicked         | Replaces query with corrected text, reruns search                         | UC-16     | Query updated, new search triggered                       |
 
 ## Component Hierarchy
 
@@ -53,6 +157,7 @@ SearchBar                                  ← positioned top-center in Map Zone
     ├── [focused-empty] RecentSection
     │   ├── SectionLabel "Recent searches"
     │   └── DropdownItem × N               ← `.ui-item` row, clock icon + label, role="option"
+    │                                         Active-project recents ranked first, then others by recency
     │
     ├── [has results] AddressSection
     │   ├── SectionLabel "Addresses"
@@ -87,6 +192,79 @@ Highlighted state via `activeIndex`. Icons by family:
 - `recent` → clock
 - `command` → terminal
 
+### Address Display Formatting
+
+Nominatim returns verbose labels like `"Kuratorium für Verkehrssicherheit, 18, Schleiergasse, Schleierbaracken, KG Favoriten, Favoriten, Vienna, 1100, Austria"`. These are unusable as display text. All address labels — from both DB and geocoder — must be formatted as:
+
+**Primary format:** `Street Housenumber, Postcode City`
+
+Examples:
+- `Schleiergasse 18, 1100 Wien` ← from Nominatim `address.road`, `address.house_number`, `address.postcode`, `address.city`
+- `Burgstraße 7, 8001 Zürich` ← clean, scannable
+- `Denisgasse 46, 1200 Wien`
+
+**Fallback cascade** (when fields are missing):
+
+| Available fields | Display format |
+|---|---|
+| street + number + postcode + city | `Schleiergasse 18, 1100 Wien` |
+| street + postcode + city (no number) | `Schleiergasse, 1100 Wien` |
+| street + city (no postcode) | `Schleiergasse, Wien` |
+| city only | `Wien` |
+| none of the above | `result.display_name` (raw Nominatim, truncated to 60 chars) |
+
+**POI / named place handling:** When the query matches a named entity (building, business, landmark), show the name above the address:
+- Primary line: **Kuratorium für Verkehrssicherheit** (bold)
+- Secondary line: `Schleiergasse 18, 1100 Wien` (normal weight, muted color)
+
+This applies when Nominatim returns a result where `address.road` exists AND the `name` field differs from the road name. The query `"Kuratorium Schleiergasse"` would match because `name: "Kuratorium für Verkehrssicherheit"` and `road: "Schleiergasse"` are both present.
+
+**Formatting function:** `formatAddressLabel(nominatimResult)` lives in `SearchBarService`, not in the component. It operates on Nominatim's `address` object fields: `road`, `house_number`, `postcode`, `city` (with fallbacks to `town`, `village`, `municipality`), `country`. The `display_name` is only used as a last resort.
+
+**DB addresses** use the same format. When storing `address_label` on images, the label should already be in `Street Number, Postcode City` format. Legacy labels that don't match this format are displayed as-is but flagged for background re-formatting.
+
+### Tab Autocomplete (Inline Ghost Completion)
+
+When the user types a partial query, the search bar shows a **ghost completion** — faded text appended after the cursor that completes the most probable query. Pressing `Tab` accepts the ghost text into the input and triggers a new search.
+
+**How it works:**
+
+```
+┌──────────────────────────────────────────┐
+│ 🔍 schl│eiergasse 18, 1100 Wien         │  ← ghost text in --color-text-muted
+└──────────────────────────────────────────┘
+```
+
+The user typed `schl`. The ghost shows `eiergasse 18, 1100 Wien` in muted color. Pressing `Tab` fills the input to `schleiergasse 18, 1100 Wien` and re-runs the search.
+
+**Ghost completion source ranking** (first match wins from highest-priority source):
+
+| Priority | Source | Example | Why |
+|---|---|---|---|
+| 1 | Recent searches (active project) | User searched `Schleiergasse 18` yesterday on this project | Most likely intent — user's own history on this project |
+| 2 | Recent searches (any project) | User searched `Schleiergasse 18` last week on another project | Still highly relevant — user's own behavior |
+| 3 | DB addresses (by image count) | `Schleiergasse 18` has 47 photos | Organization's confirmed locations |
+| 4 | DB content (projects/groups) | Project named `Schleiergasse Renovation` | Less common but still internal data |
+| 5 | Previous geocoder commits | User committed `Schleiergasse 18, 1100 Wien` from geocoder last session | Geocoder result the user already validated |
+
+The ghost completion is computed **locally and instantly** — it never waits for the geocoder. It operates on:
+- The in-memory recent searches list (already loaded)
+- A prefix trie or simple prefix-match on cached DB address labels (loaded on session start)
+
+**Algorithm:** Longest-prefix-match with tie-breaking by the priority table above. Given input `schl`:
+1. Scan recent searches for labels starting with `schl` (case-insensitive, normalized)
+2. Scan cached DB address labels for prefix match
+3. Return the highest-priority match's full label as the ghost suffix
+4. If no prefix match exists, show no ghost text
+
+**Interaction rules:**
+- `Tab` → accept ghost text, update query signal, trigger new search
+- Any other character → ghost dismissed, recalculated on next keystroke
+- `Tab` with no ghost text → default browser behavior (move focus to next element)
+- Ghost text is visually distinct: `--color-text-muted` at `0.4` opacity, same font
+- Ghost text is not part of the DOM input value until `Tab` is pressed
+- Screen readers ignore ghost text (`aria-hidden="true"`)
+
 ## Data
 
 | Field                 | Source                                            | Type                          |
@@ -94,10 +272,72 @@ Highlighted state via `activeIndex`. Icons by family:
 | DB address candidates | `SearchOrchestratorService` → `dbAddressResolver` | `SearchAddressCandidate[]`    |
 | DB content candidates | `SearchOrchestratorService` → `dbContentResolver` | `SearchContentCandidate[]`    |
 | Geocoder candidates   | `SearchOrchestratorService` → `geocoderResolver`  | `SearchAddressCandidate[]`    |
-| Recent searches       | `localStorage` key `sitesnap-recent-searches`     | `SearchRecentCandidate[]`     |
+| Recent searches       | `SearchBarService` → `localStorage`               | `SearchRecentCandidate[]`     |
 | Search result set     | `SearchOrchestratorService.searchInput()`         | `Observable<SearchResultSet>` |
 
 The `SearchOrchestratorService` already exists at `core/search/search-orchestrator.service.ts`. It handles debouncing, caching, deduplication, and ranking. The component drives it with a query observable + context observable.
+
+### SearchQueryContext
+
+The `SearchQueryContext` passed to the orchestrator must include the active project so resolvers and ranking can use it:
+
+```typescript
+export interface SearchQueryContext {
+  organizationId?: string;
+  activeProjectId?: string;       // ← from ProjectsDropdown selection
+  viewportBounds?: { north: number; east: number; south: number; west: number };
+  dataCentroid?: { lat: number; lng: number };   // ← org image centroid, cached per session
+  countryCodes?: string[];                        // ← derived from org image data (e.g. ['at'])
+  activeFilterCount?: number;
+  commandMode?: boolean;
+  selectedGroupId?: string;
+}
+```
+
+The component must emit context changes whenever the active project changes (via `ProjectsDropdownService` or equivalent). Resolvers receive this context and use `activeProjectId` to boost ranking of matching results.
+
+On session start, the component (or a shared service) queries the organization's data centroid and country codes, caches them for the session, and includes them in every `SearchQueryContext` emission.
+
+### Geocoder Resolution — Proxy Only
+
+**All geocoder requests must go through `GeocodingService`** which routes them via the Supabase Edge Function proxy (`/functions/v1/geocode`). The component must never call Nominatim directly via `fetch()`. This is required because:
+- Direct browser→Nominatim calls fail with CORS errors on HTTP 429.
+- The Edge Function adds the required `User-Agent` header.
+- Server-side rate limiting is enforced there.
+
+`GeocodingService` needs a `search(query, options)` method that returns multiple results (the existing `forward()` returns only 1 result with `limit=1`). The search bar needs `limit=5`.
+
+### Rate Limiting & Perceived Speed
+
+Nominatim's usage policy requires max 1 request/second. The Edge Function enforces a 1.1s minimum interval. This is acceptable because:
+
+1. **Geocoder results are the slowest source by design.** The 3-phase progressive loading ensures DB results + recents render instantly (~50–200ms) while the geocoder skeleton pulses.
+2. **Most queries are answered by DB alone.** If the user's data already covers the address, the geocoder section is supplementary.
+3. **Cache eliminates repeated waits.** A 5-minute TTL means re-typing the same prefix is instant.
+4. **Fallback queries are conditional.** Only fire if primary returns 0 results, not unconditionally.
+
+The perceived speed comes from parallel, independent sources — not from making Nominatim faster.
+
+### Independent Source Loading (3-Phase Progressive)
+
+All result sources must load and render independently. No source blocks another:
+
+| Phase | Timing | What renders | Geocoder state |
+|---|---|---|---|
+| **1 — Typing** | Immediate (0ms) | Skeleton UI, input feedback | `loading` |
+| **2 — Partial** | ~50–200ms | DB addresses + DB content (projects/groups) + recents | `loading` (skeleton rows) |
+| **3 — Complete** | ~1–2s | Geocoder results appended below | `loaded` or `error` (hidden) |
+
+The `SearchOrchestratorService` already implements this via `concat(typing$, partial$, complete$)` using `combineLatest` for phases 2 and 3 separately. Each source observable uses `shareReplay` to prevent duplicate requests across phases.
+
+If the geocoder fails or times out (5s timeout), phase 3 simply hides the geocoder section — it must never block or delay the DB results from phase 2.
+
+### Fallback Query Strategy
+
+The `buildFallbackQueries()` method generates up to 3 query variants (corrected street+house, street-only, corrected street-only). To avoid 2–3× slower sequential geocoder calls:
+- Fire the primary query first through `GeocodingService.search()`.
+- Only fire fallback variants if the primary returns 0 results.
+- Never fire all variants unconditionally.
 
 ## State
 
@@ -108,7 +348,7 @@ The `SearchOrchestratorService` already exists at `core/search/search-orchestrat
 | `dropdownOpen`       | `boolean`                                                                         | `false`        | Whether dropdown is visible                             |
 | `activeIndex`        | `number`                                                                          | `-1`           | Currently highlighted item for keyboard nav (-1 = none) |
 | `sections`           | `{ dbAddress: SearchSection, dbContent: SearchSection, geocoder: SearchSection }` | empty sections | Parsed from `SearchResultSet`                           |
-| `recentSearches`     | `SearchRecentCandidate[]`                                                         | `[]`           | Loaded from localStorage on init                        |
+| `recentSearches`     | `SearchRecentCandidate[]`                                                         | `[]`           | Loaded from `SearchBarService` on init                  |
 | `committedCandidate` | `SearchCandidate \| null`                                                         | `null`         | The last committed result                               |
 | `allEmpty`           | `boolean`                                                                         | `true`         | Derived: all sections have 0 items                      |
 
@@ -116,13 +356,15 @@ Types are defined in `core/search/search.models.ts` (already exists).
 
 ## File Map
 
-| File                                                        | Purpose                                                      |
-| ----------------------------------------------------------- | ------------------------------------------------------------ |
-| `features/map/search-bar/search-bar.component.ts`           | Main search bar component (standalone)                       |
-| `features/map/search-bar/search-bar.component.html`         | Template matching hierarchy above                            |
-| `features/map/search-bar/search-bar.component.scss`         | Scoped styles (shared panel surface, reveal panel, skeleton) |
-| `features/map/search-bar/search-dropdown-item.component.ts` | Single result row (standalone, inline template)              |
-| `features/map/search-bar/search-bar.component.spec.ts`      | Unit tests covering Actions table                            |
+| File                                                        | Purpose                                                                      |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `features/map/search-bar/search-bar.component.ts`           | Main search bar component (standalone) — UI + keyboard only                  |
+| `features/map/search-bar/search-bar.component.html`         | Template matching hierarchy above                                            |
+| `features/map/search-bar/search-bar.component.scss`         | Scoped styles (shared panel surface, reveal panel, skeleton)                 |
+| `features/map/search-bar/search-dropdown-item.component.ts` | Single result row (standalone, inline template)                              |
+| `features/map/search-bar/search-bar.component.spec.ts`      | Unit tests covering Actions table                                            |
+| `core/search/search-bar.service.ts`                         | Recent searches persistence, geocoder resolution, fallback query logic       |
+| `core/search/search-bar.service.spec.ts`                    | Unit tests for SearchBarService                                              |
 
 ## Wiring
 
@@ -132,21 +374,30 @@ Types are defined in `core/search/search.models.ts` (already exists).
 - Click-outside detection via a `(document:click)` check or CDK overlay backdrop
 - On commit type `map-center`: call `MapAdapter` to center map + place Search Location Marker
 - On commit type `open-content`: use Angular Router to navigate
+- `SearchBarService` injected by the component — owns recent searches, geocoder resolution, and fallback logic
+- `SearchBarService` injects `GeocodingService` for all external geocoding (never calls Nominatim directly)
+- Component emits `SearchQueryContext` changes when active project changes (listens to project selection service)
 
 ## Acceptance Criteria
 
+### Layout & Visuals
+
 - [x] Search bar is visible top-center over the map on both desktop and mobile
-- [x] Clicking input opens dropdown with recent searches
-- [x] `Cmd/Ctrl+K` focuses input from anywhere on the map page
-- [x] Typing shows debounced results grouped by section (Addresses, Projects & Groups, Places)
 - [x] Search surface uses `.ui-container` with the same panel radius as the Sidebar in all states
 - [x] Search surface uses the same shared panel padding and gap tokens as the Sidebar
 - [x] Leading search icon uses a fixed square media slot aligned to shared media-size tokens
 - [x] Leading search icon and trailing clear button use wrappers that preserve the fixed media slot alignment within the taller search row
-- [x] DB results appear before geocoder results
-- [ ] Geocoder results that are <30m from a DB result are hidden (dedup)
-- [x] Section divider only shows when both DB and geocoder sections have items
+- [x] Results panel is revealed inside the same surface and does not behave like a detached floating dropdown
 - [x] Dropdown rows use `.ui-item` with a fixed leading media column
+- [x] Section divider only shows when both DB and geocoder sections have items
+- [ ] Results panel expansion animates outer panel height without animating row height, row padding, media width, or panel radius
+- [ ] Opening and closing the dropdown does not change outer corner radius, item padding, or media-column width
+
+### Interaction
+
+- [x] Clicking input opens dropdown with recent searches
+- [x] `Cmd/Ctrl+K` focuses input from anywhere on the map page
+- [x] Typing shows debounced results grouped by section (Addresses, Projects & Groups, Places)
 - [x] ArrowUp/ArrowDown navigates results, skipping headers and dividers
 - [x] Enter commits the highlighted item (or top item if none highlighted)
 - [x] Clicking a result commits it
@@ -157,39 +408,59 @@ Types are defined in `core/search/search.models.ts` (already exists).
 - [x] `×` clear button appears after commit; clicking it resets everything
 - [x] `×` clear button uses square control geometry aligned to shared control/media sizing tokens
 - [x] Empty state shows "No address found" with "Drop pin" recovery action
-- [ ] Geocoder failure is non-blocking — DB results still render
+- [ ] Tab accepts inline ghost completion into input text
+- [ ] Pasting coordinates or Google Maps URL auto-detects and centers map
+
+### Data & Resolution
+
+- [x] DB results appear before geocoder results
+- [ ] Geocoder results that are <30m from a DB result are hidden (dedup via `SearchOrchestratorService`)
+- [ ] All geocoder requests go through `GeocodingService` → Edge Function proxy (no direct Nominatim calls)
+- [ ] Fallback queries only fire when primary query returns 0 results (not unconditionally)
+- [ ] Geocoder failure is non-blocking — DB results still render; geocoder section shows skeleton then hides
+- [ ] In-flight geocoder requests are cancelled when the user types a new query (`AbortController` or RxJS `switchMap`)
+- [ ] All result sources load and render independently (3-phase progressive: typing → DB partial → geocoder complete)
+- [ ] Geocoder results use formatted address labels (`Street Number, Postcode City`), not raw Nominatim `display_name`
+- [ ] Named places (POIs, buildings) show name on primary line + formatted address on secondary line
+- [ ] Ghost completion is computed locally from recents + cached DB labels (never waits for geocoder)
+
+### Recent Searches
+
+- [ ] Recent searches persist across sessions in `localStorage`
+- [ ] Recent searches store `projectId` of the active project at time of search
+- [ ] When a project is active, recent searches for that project are ranked first
+- [ ] Within each tier (active-project / other), recents are ordered by `lastUsedAt` descending
+- [ ] Recent searches are capped at 20 entries with LRU eviction
+
+### Project-Scoped Ranking
+
+- [ ] `SearchQueryContext` includes `activeProjectId` from the current project selection
+- [ ] DB address results matching the active project are boosted in rank
+- [ ] DB content results (projects, groups) matching the active project appear first in their section
+
+### Geo-Relevance
+
+- [ ] Geocoder queries include `countrycodes` derived from organization's image data
+- [ ] Geocoder queries include `viewbox` from current map bounds (viewport bias)
+- [ ] Geocoder results are re-ranked by proximity to organization data centroid (proximity decay)
+- [ ] Organization country codes and data centroid are cached per session
+- [ ] Edge Function accepts `viewbox`, `bounded`, `countrycodes`, and `limit` parameters
+
+### Accessibility
+
 - [x] Dropdown uses `role="listbox"`, items use `role="option"`
-- [x] Results panel is revealed inside the same surface and does not behave like a detached floating dropdown
-- [ ] Results panel expansion animates outer panel height without animating row height, row padding, media width, or panel radius
-- [ ] Opening and closing the dropdown does not change outer corner radius, item padding, or media-column width
 - [ ] Screen reader announces result count on query completion
 
-## Search State Machine
+### Architecture
 
-```mermaid
-stateDiagram-v2
-    [*] --> Idle
-
-    Idle --> FocusedEmpty : User focuses input
-    FocusedEmpty --> Idle : Blur without typing
-    FocusedEmpty --> Typing : User types character
-
-    Typing --> ResultsPartial : First source returns
-    Typing --> Typing : More characters (debounce resets)
-    Typing --> FocusedEmpty : Backspace to empty
-
-    ResultsPartial --> ResultsComplete : All sources returned or timed out
-    ResultsPartial --> Typing : User modifies query
-
-    ResultsComplete --> Committed : User selects a result
-    ResultsComplete --> Typing : User modifies query
-    ResultsComplete --> Idle : Escape → Escape (two presses)
-
-    Committed --> Typing : User modifies query text
-    Committed --> Idle : Clear button or Backspace on empty
-```
+- [ ] `SearchBarService` owns recent-search persistence, geocoder resolution, fallback logic, and address formatting
+- [ ] Component contains only UI + keyboard logic; no direct `fetch()` calls or `localStorage` access
+- [ ] `formatAddressLabel()` in `SearchBarService` produces `Street Number, Postcode City` from Nominatim address fields
+- [ ] DB address labels stored in `Street Number, Postcode City` format on write
 
 ## Search + Filter Integration Rules
+
+Derived from UC-17 (concurrent search and filter):
 
 1. Search commits can set the **distance reference point** used by distance filters.
 2. Applied filter chips remain visible while search is active.
@@ -197,9 +468,71 @@ stateDiagram-v2
 4. Search context persists through image-detail navigation and tab changes.
 5. If user pans far from committed target, provide a "Return to selected" affordance in search area.
 
+## Geo-Relevance Ranking
+
+Supports UC-9, UC-14, UC-15. Without bias, Nominatim ranks by global `importance` — a famous "Burgstrasse" in Berlin outranks "Burgstraße" in Vienna even though all user data is in Vienna. The search bar must apply geographic bias so results near the user's data are ranked first.
+
+### Bias Layers (applied in order)
+
+| Layer | Mechanism | When applied | Effect |
+|---|---|---|---|
+| **Country restriction** | Send `countrycodes` param to Nominatim (via Edge Function) | Always | Eliminates results from irrelevant countries entirely |
+| **Viewport bias** | Send `viewbox` param to Nominatim (via Edge Function) with the current map bounds | When map is visible | Nominatim prefers results inside the viewport but still returns worldwide results |
+| **Data gravity re-ranking** | After Nominatim returns results, re-score each by proximity to the organization's data centroid | Always (post-processing) | Results near existing images rank higher, even if Nominatim scored them lower |
+| **Proximity decay** | `adjustedScore = nominatimImportance × (1 / (1 + km / 50))` where `km` = distance to data centroid | Post-processing | Results >50km from data are sharply suppressed; results >200km are near-zero |
+
+### Country Detection
+
+Derive the organization's primary country(s) from existing image data:
+
+1. Query `SELECT DISTINCT country FROM images WHERE organization_id = :org_id AND country IS NOT NULL` on session start.
+2. Cache the result for the session. Most orgs operate in 1–2 countries.
+3. Pass as `countrycodes=at` (or `countrycodes=at,de` for multi-country orgs) to Nominatim.
+4. If no country data exists yet (fresh org), fall back to browser geolocation or no restriction.
+
+### Data Centroid
+
+Compute the geographic center of the organization's image data:
+
+```sql
+SELECT ST_X(ST_Centroid(ST_Collect(geog::geometry))) AS lng,
+       ST_Y(ST_Centroid(ST_Collect(geog::geometry))) AS lat
+FROM images
+WHERE organization_id = :org_id
+  AND latitude IS NOT NULL;
+```
+
+Cache per session. Used for proximity decay scoring on geocoder results.
+
+### Viewport Bias Wiring
+
+1. `SearchBarComponent` reads current map bounds from `MapAdapter` and passes them as `SearchQueryContext.viewportBounds`.
+2. `SearchBarService` forwards bounds to `GeocodingService.search()`.
+3. `GeocodingService.search()` sends `viewbox` param to the Edge Function.
+4. The Edge Function appends `&viewbox={west},{north},{east},{south}` to the Nominatim URL.
+
+### Progressive Disclosure (future)
+
+When geocoder results span multiple regions, group them:
+- **"Near your data"** — results within 50km of the data centroid (shown by default)
+- **"Other locations"** — results beyond 50km (collapsed behind "Show more worldwide results")
+
+This prevents information overload while still allowing the user to find locations far from their data when needed.
+
+### Edge Function Changes Required
+
+The `geocode` Edge Function must accept and forward these optional Nominatim parameters:
+
+| Parameter | Type | Description |
+|---|---|---|
+| `viewbox` | `string` | `west,north,east,south` — current map viewport |
+| `bounded` | `0 \| 1` | If 1, restrict results to viewbox (default: 0, prefer but don't restrict) |
+| `countrycodes` | `string` | Comma-separated ISO 3166-1 codes (e.g. `at,de`) |
+| `limit` | `number` | Max results (default: 5 for search bar) |
+
 ## Forgiving Address Matching
 
-For MVP, apply **query normalization + two-pass fallback**:
+Supports UC-4, UC-16. For MVP, apply **query normalization + two-pass fallback**:
 
 1. **Always normalize input** — lowercase, trim, collapse spaces, transliterate diacritics (`straße` ↔ `strasse`), expand/compress street suffixes (`g.` ↔ `gasse`, `str.` ↔ `straße`), punctuation-insensitive.
 2. **Trigger fallback** when strict pass returns zero or below-confidence results:
@@ -209,3 +542,114 @@ For MVP, apply **query normalization + two-pass fallback**:
 3. Show a **suggestion row** when fallback produced the best candidate: _"Did you mean Denisgasse 46?"_ — selecting replaces query and reruns search. Do not show if strict matches exist.
 4. Confidence tiers: exact > normalized > corrected > street-only.
 5. Fallback/corrected matches must be visually labeled (e.g. `Approximate match`).
+
+## SearchBarService
+
+Supports UC-1 through UC-18. Extract all non-UI search logic from the component into `core/search/search-bar.service.ts`. The component should contain only template binding and keyboard/focus handling.
+
+### Responsibilities
+
+| Concern                   | Owner                                                                            |
+| ------------------------- | -------------------------------------------------------------------------------- |
+| Recent search persistence | `SearchBarService` → `localStorage`                                              |
+| Recent search ranking     | `SearchBarService` (project-aware, recency-ordered)                              |
+| Geocoder resolution       | `SearchBarService` → `GeocodingService.search()` (never raw `fetch()`)           |
+| Fallback query logic      | `SearchBarService` (normalize, build variants, fire primary-first)               |
+| DB address queries        | `SearchBarService` → Supabase (via service abstraction)                          |
+| DB content queries        | `SearchBarService` → Supabase (via service abstraction)                          |
+| Orchestration & dedup     | `SearchOrchestratorService` (invoked by `SearchBarService`, not the component)   |
+
+### Interface Contract
+
+```typescript
+@Injectable({ providedIn: 'root' })
+export class SearchBarService {
+  /**
+   * Returns geocoder candidates for a query, using GeocodingService proxy.
+   * Applies viewport bias, country restriction, and proximity decay.
+   * Fires fallback queries only when primary returns 0 results.
+   */
+  resolveGeocoderCandidates(query: string, context: SearchQueryContext): Observable<SearchAddressCandidate[]>;
+
+  /** Returns DB address candidates via Supabase. */
+  resolveDbAddressCandidates(query: string, context: SearchQueryContext): Observable<SearchAddressCandidate[]>;
+
+  /** Returns DB content candidates (projects, groups) via Supabase. */
+  resolveDbContentCandidates(query: string, context: SearchQueryContext): Observable<SearchContentCandidate[]>;
+
+  /** Load recent searches, ranked for the given project context. */
+  getRecentSearches(activeProjectId?: string): SearchRecentCandidate[];
+
+  /** Record a search. Stores with project context for future ranking. */
+  addRecentSearch(label: string, activeProjectId?: string): void;
+
+  /** Clear all recent searches. */
+  clearRecentSearches(): void;
+}
+```
+
+### Recent Search Persistence & Ranking
+
+Recent searches are stored in `localStorage` key `sitesnap-recent-searches` as a JSON array:
+
+```typescript
+interface StoredRecentSearch {
+  label: string;
+  lastUsedAt: string;    // ISO 8601 timestamp
+  projectId?: string;    // Active project at time of search (undefined = no project)
+  usageCount: number;    // Incremented on re-use, used for ranking tiebreaker
+}
+```
+
+**Storage rules:**
+- Maximum 20 entries. When full, evict the entry with the oldest `lastUsedAt` that is not in the active project.
+- If the same label is searched again, update `lastUsedAt` and increment `usageCount` (don't create a duplicate).
+- Store `projectId` from the current `SearchQueryContext.activeProjectId` at commit time.
+
+**Ranking (when displaying):**
+
+| Priority | Tier                                   | Sort within tier                        |
+| -------- | -------------------------------------- | --------------------------------------- |
+| 1        | Matches active project (`projectId`)   | `lastUsedAt` DESC, then `usageCount` DESC |
+| 2        | No project / different project         | `lastUsedAt` DESC, then `usageCount` DESC |
+
+This means: if a user works on "Burgstraße renovation" for weeks, those searches always appear first when that project is selected. Searches from other projects still appear, just ranked below.
+
+### DB Address Queries — Future: pg_trgm
+
+Current implementation uses `ilike('%query%')` for DB address matching. The `address-resolver.md` spec §4 specifies `pg_trgm` trigram similarity for fuzzy matching with typo tolerance. Migration to `pg_trgm` is tracked as a follow-up:
+
+1. Enable the `pg_trgm` extension in Supabase.
+2. Create a GIN index on `images.address_label` using `gin_trgm_ops`.
+3. Replace `ilike` with `similarity(address_label, query) > 0.3` ordered by score.
+
+Until then, `ilike` is acceptable for MVP but does not support typo correction.
+
+## Planned Enhancements
+
+Features beyond MVP, ordered by priority. Each becomes its own acceptance criteria group when picked up.
+
+### Tier 1 — High impact, low effort
+
+| # | Feature | Description |
+|---|---|---|
+| E1 | **Coordinate paste detection** | Detect pasted coordinates (`47.3769, 8.5417`) or Google Maps URLs in the search input. Skip text search, immediately center map + reverse-geocode the label. Common workflow when sharing locations via chat. |
+| E2 | **"Search this area" on map pan** | After the user pans significantly from a committed search location, show a subtle chip above the search bar: "Search this area". Clicking it re-queries DB addresses within the new viewport bounds. |
+| E3 | **Progressive geo-disclosure** | Group geocoder results into "Near your data" (within 50km of data centroid) shown by default, and "Other locations" collapsed behind "Show more worldwide results". |
+
+### Tier 2 — High impact, medium effort
+
+| # | Feature | Description |
+|---|---|---|
+| E4 | **Smart suggestions on empty focus** | Replace the bare "Recent searches" list with context-aware suggestions when the input is focused but empty: "Photos uploaded today (12)", "3 unresolved addresses", "Nearest project site". Reduces typing for the most common actions. |
+| E5 | **Offline search cache** | Cache the top 50 most-visited addresses + coordinates in IndexedDB. When offline (common on construction sites), the search bar still returns results for known locations. Show an "Offline results only" badge. |
+| E6 | **Saved searches / bookmarks** | Let users explicitly pin a search result (star icon on a result row). Pinned searches appear in a dedicated section above recents and persist indefinitely, independent of the 20-entry recent cap. |
+
+### Tier 3 — Differentiators
+
+| # | Feature | Description |
+|---|---|---|
+| E7 | **Command palette mode** | Type `/` to switch to command mode: `/upload`, `/export`, `/settings`, `/go project-name`. Makes the search bar the single entry point for all app navigation. |
+| E8 | **Search radius visualization** | After committing a location, draw a subtle radius circle on the map showing the area being filtered. Let the user drag the circle edge to expand/shrink the search radius. |
+| E9 | **Inline map preview on hover** | When a geocoder result is highlighted via keyboard nav, show a tiny map thumbnail to the right of the row previewing that location. Helps verify the correct "Burgstraße" before committing. |
+| E10 | **Region learning** | Track which geocoder results users actually commit → build a "hot regions" model per org → bias future queries toward those regions. Self-improving geo-relevance over time. |
