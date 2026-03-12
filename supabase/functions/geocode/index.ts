@@ -83,7 +83,16 @@ Deno.serve(async (req: Request) => {
   }
 
   // Parse request body
-  let body: { action?: string; lat?: number; lng?: number; q?: string };
+  let body: {
+    action?: string;
+    lat?: number;
+    lng?: number;
+    q?: string;
+    limit?: number;
+    countrycodes?: string;
+    viewbox?: string;
+    bounded?: number;
+  };
   try {
     body = await req.json();
   } catch {
@@ -143,7 +152,7 @@ Deno.serve(async (req: Request) => {
         },
       );
     }
-    nominatimUrl = `${NOMINATIM_SEARCH_URL}?q=${encodeURIComponent(q.trim())}&format=json&limit=5&addressdetails=1`;
+    nominatimUrl = `${NOMINATIM_SEARCH_URL}?q=${encodeURIComponent(q.trim())}&format=json&limit=${encodeURIComponent(String(body.limit ?? 5))}&addressdetails=1${body.countrycodes ? `&countrycodes=${encodeURIComponent(body.countrycodes)}` : ""}${body.viewbox ? `&viewbox=${encodeURIComponent(body.viewbox)}` : ""}${body.bounded != null ? `&bounded=${encodeURIComponent(String(body.bounded))}` : ""}`;
   }
 
   // Rate-limit then fetch from Nominatim

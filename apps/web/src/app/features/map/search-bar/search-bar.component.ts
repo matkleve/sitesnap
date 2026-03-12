@@ -12,68 +12,20 @@ import {
   viewChild,
 } from '@angular/core';
 import { Router } from '@angular/router';
-import {
-  BehaviorSubject,
-  Observable,
-  Subject,
-  Subscription,
-  catchError,
-  from,
-  map,
-  of,
-} from 'rxjs';
+import { BehaviorSubject, Subscription } from 'rxjs';
 import { SearchDropdownItemComponent } from './search-dropdown-item.component';
 import { SearchOrchestratorService } from '../../../core/search/search-orchestrator.service';
+import { SearchBarService } from '../../../core/search/search-bar.service';
 import {
-  SearchAddressCandidate,
   SearchCandidate,
-  SearchContentCandidate,
   SearchQueryContext,
   SearchRecentCandidate,
   SearchResultSet,
   SearchSection,
   SearchState,
 } from '../../../core/search/search.models';
-import { SupabaseService } from '../../../core/supabase.service';
 
-const RECENT_SEARCHES_STORAGE_KEY = 'sitesnap-recent-searches';
-const MAX_DB_ADDRESS_ROWS = 24;
-const MAX_DB_ADDRESS_RESULTS = 5;
-const MAX_DB_CONTENT_RESULTS = 6;
 const MAX_RECENT_SEARCHES = 8;
-
-interface DbAddressRow {
-  id: string;
-  address_label: string | null;
-  latitude: number | string | null;
-  longitude: number | string | null;
-}
-
-interface DbContentRow {
-  id: string;
-  name: string | null;
-}
-
-interface NominatimAddress {
-  house_number?: string;
-  road?: string;
-  postcode?: string;
-  city?: string;
-  town?: string;
-  village?: string;
-  municipality?: string;
-  hamlet?: string;
-  county?: string;
-  country?: string;
-}
-
-interface NominatimResult {
-  lat: string;
-  lon: string;
-  display_name: string;
-  importance?: number;
-  address?: NominatimAddress;
-}
 
 type SearchSectionsState = {
   dbAddress: SearchSection;
@@ -94,7 +46,7 @@ type SearchSectionsState = {
 export class SearchBarComponent implements OnInit, OnDestroy {
   private readonly hostElement = inject(ElementRef<HTMLElement>);
   private readonly router = inject(Router);
-  private readonly supabaseService = inject(SupabaseService);
+  private readonly searchBarService = inject(SearchBarService);
   private readonly searchOrchestrator = inject(SearchOrchestratorService);
 
   private readonly queryChanges = new BehaviorSubject<string>('');
@@ -158,7 +110,9 @@ export class SearchBarComponent implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
-    this.loadRecentSearches();
+    this.recentSearches.set(
+      this.searchBarService.loadRecentSearches().slice(0, MAX_RECENT_SEARCHES),
+    );
     this.configureSearchSources();
 
     this.subscription.add(
@@ -182,7 +136,9 @@ export class SearchBarComponent implements OnInit, OnDestroy {
   }
 
   onFocus(): void {
-    this.loadRecentSearches();
+    this.recentSearches.set(
+      this.searchBarService.loadRecentSearches().slice(0, MAX_RECENT_SEARCHES),
+    );
     this.dropdownOpen.set(true);
     this.activeIndex.set(-1);
     this.state.set(this.query().trim() ? this.state() : 'focused-empty');
@@ -438,270 +394,18 @@ export class SearchBarComponent implements OnInit, OnDestroy {
 
   private configureSearchSources(): void {
     this.searchOrchestrator.configureSources({
-      dbAddressResolver: (query) => this.resolveDbAddressCandidates(query),
-      dbContentResolver: (query) => this.resolveDbContentCandidates(query),
-      geocoderResolver: (query) => this.resolveGeocoderCandidates(query),
+      dbAddressResolver: (query, ctx) => this.searchBarService.resolveDbAddresses(query, ctx),
+      dbContentResolver: (query, ctx) => this.searchBarService.resolveDbContent(query, ctx),
+      geocoderResolver: (query, ctx) => this.searchBarService.resolveGeocoder(query, ctx),
     });
   }
 
-  private resolveDbAddressCandidates(query: string): Observable<SearchAddressCandidate[]> {
-    return from(this.fetchDbAddressCandidates(query)).pipe(catchError(() => of([])));
-  }
-
-  private resolveDbContentCandidates(query: string): Observable<SearchContentCandidate[]> {
-    return from(this.fetchDbContentCandidates(query)).pipe(catchError(() => of([])));
-  }
-
-  private resolveGeocoderCandidates(query: string): Observable<SearchAddressCandidate[]> {
-    return from(this.fetchGeocoderCandidates(query)).pipe(catchError(() => of([])));
-  }
-
-  private async fetchDbAddressCandidates(query: string): Promise<SearchAddressCandidate[]> {
-    const trimmedQuery = query.trim();
-    if (!trimmedQuery) {
-      return [];
-    }
-
-    const response = await this.supabaseService.client
-      .from('images')
-      .select('id,address_label,latitude,longitude')
-      .ilike('address_label', `%${trimmedQuery}%`)
-      .not('address_label', 'is', null)
-      .not('latitude', 'is', null)
-      .not('longitude', 'is', null)
-      .limit(MAX_DB_ADDRESS_ROWS);
-
-    if (response.error || !Array.isArray(response.data)) {
-      return [];
-    }
-
-    const grouped = new Map<
-      string,
-      {
-        label: string;
-        ids: string[];
-        latTotal: number;
-        lngTotal: number;
-        count: number;
-        score: number;
-      }
-    >();
-
-    for (const row of response.data as DbAddressRow[]) {
-      const label = row.address_label?.trim();
-      const lat = this.toNumber(row.latitude);
-      const lng = this.toNumber(row.longitude);
-      if (!label || lat === null || lng === null) {
-        continue;
-      }
-
-      const key = label.toLowerCase();
-      const existing = grouped.get(key);
-      if (existing) {
-        existing.ids.push(row.id);
-        existing.latTotal += lat;
-        existing.lngTotal += lng;
-        existing.count += 1;
-        existing.score = Math.max(existing.score, this.computeScore(label, trimmedQuery));
-        continue;
-      }
-
-      grouped.set(key, {
-        label,
-        ids: [row.id],
-        latTotal: lat,
-        lngTotal: lng,
-        count: 1,
-        score: this.computeScore(label, trimmedQuery),
-      });
-    }
-
-    return [...grouped.values()]
-      .sort((left, right) => {
-        const scoreDelta = right.score - left.score;
-        if (scoreDelta !== 0) {
-          return scoreDelta;
-        }
-        return right.count - left.count;
-      })
-      .slice(0, MAX_DB_ADDRESS_RESULTS)
-      .map((entry, index) => ({
-        id: entry.ids[0] ?? `db-address-${index}`,
-        family: 'db-address',
-        label: entry.label,
-        lat: entry.latTotal / entry.count,
-        lng: entry.lngTotal / entry.count,
-        imageCount: entry.count,
-        score: entry.score,
-      }));
-  }
-
-  private async fetchDbContentCandidates(query: string): Promise<SearchContentCandidate[]> {
-    const trimmedQuery = query.trim();
-    if (!trimmedQuery) {
-      return [];
-    }
-
-    const [projectsResponse, groupsResponse] = await Promise.all([
-      this.supabaseService.client
-        .from('projects')
-        .select('id,name')
-        .ilike('name', `%${trimmedQuery}%`)
-        .limit(MAX_DB_CONTENT_RESULTS),
-      this.supabaseService.client
-        .from('saved_groups')
-        .select('id,name')
-        .ilike('name', `%${trimmedQuery}%`)
-        .limit(MAX_DB_CONTENT_RESULTS),
-    ]);
-
-    const projectCandidates = (
-      projectsResponse.error || !Array.isArray(projectsResponse.data)
-        ? []
-        : (projectsResponse.data as DbContentRow[])
-            .filter((row) => !!row.name)
-            .map((row) => ({
-              id: `project-${row.id}`,
-              family: 'db-content' as const,
-              label: row.name?.trim() ?? '',
-              contentType: 'project' as const,
-              contentId: row.id,
-              subtitle: 'Project',
-              score: this.computeScore(row.name ?? '', trimmedQuery),
-            }))
-    ).filter((candidate) => candidate.label.length > 0);
-
-    const groupCandidates = (
-      groupsResponse.error || !Array.isArray(groupsResponse.data)
-        ? []
-        : (groupsResponse.data as DbContentRow[])
-            .filter((row) => !!row.name)
-            .map((row) => ({
-              id: `group-${row.id}`,
-              family: 'db-content' as const,
-              label: row.name?.trim() ?? '',
-              contentType: 'group' as const,
-              contentId: row.id,
-              subtitle: 'Saved group',
-              score: this.computeScore(row.name ?? '', trimmedQuery),
-            }))
-    ).filter((candidate) => candidate.label.length > 0);
-
-    return [...projectCandidates, ...groupCandidates]
-      .sort((left, right) => (right.score ?? 0) - (left.score ?? 0))
-      .slice(0, MAX_DB_CONTENT_RESULTS);
-  }
-
-  private async fetchGeocoderCandidates(query: string): Promise<SearchAddressCandidate[]> {
-    const normalizedQuery = this.normalizeSearchQuery(query);
-    if (!normalizedQuery) {
-      return [];
-    }
-
-    const queries = [normalizedQuery, ...this.buildFallbackQueries(normalizedQuery)];
-    for (const currentQuery of queries) {
-      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(currentQuery)}&format=json&limit=5&addressdetails=1`;
-      const response = await fetch(url);
-      if (!response.ok) {
-        continue;
-      }
-
-      const data = (await response.json()) as NominatimResult[];
-      if (!Array.isArray(data) || data.length === 0) {
-        continue;
-      }
-
-      return data.reduce<SearchAddressCandidate[]>((candidates, result, index) => {
-        const lat = Number.parseFloat(result.lat);
-        const lng = Number.parseFloat(result.lon);
-        if (Number.isNaN(lat) || Number.isNaN(lng)) {
-          return candidates;
-        }
-
-        candidates.push({
-          id: `geo-${currentQuery}-${index}`,
-          family: 'geocoder' as const,
-          label: this.formatGeocoderLabel(result),
-          lat,
-          lng,
-          score: result.importance ?? 0,
-        });
-        return candidates;
-      }, []);
-    }
-
-    return [];
-  }
-
-  private loadRecentSearches(): void {
-    const storage = this.getStorage();
-    if (!storage) {
-      this.recentSearches.set([]);
-      return;
-    }
-
-    try {
-      const raw = storage.getItem(RECENT_SEARCHES_STORAGE_KEY);
-      if (!raw) {
-        this.recentSearches.set([]);
-        return;
-      }
-
-      const parsed = JSON.parse(raw) as unknown;
-      if (!Array.isArray(parsed)) {
-        this.recentSearches.set([]);
-        return;
-      }
-
-      const recentItems = parsed
-        .filter(
-          (item): item is SearchRecentCandidate =>
-            typeof item === 'object' &&
-            item !== null &&
-            'label' in item &&
-            typeof item.label === 'string',
-        )
-        .slice(0, MAX_RECENT_SEARCHES);
-
-      this.recentSearches.set(recentItems);
-    } catch {
-      this.recentSearches.set([]);
-    }
-  }
-
   private addRecentSearch(label: string): void {
-    const normalizedLabel = label.trim();
-    if (!normalizedLabel) {
-      return;
-    }
-
-    const item: SearchRecentCandidate = {
-      id: `recent-${normalizedLabel.toLowerCase()}`,
-      family: 'recent',
-      label: normalizedLabel,
-      lastUsedAt: new Date().toISOString(),
-    };
-
-    const nextRecentSearches = [
-      item,
-      ...this.recentSearches().filter(
-        (existing) => existing.label.toLowerCase() !== normalizedLabel.toLowerCase(),
-      ),
-    ].slice(0, MAX_RECENT_SEARCHES);
-
+    const nextRecentSearches = this.searchBarService
+      .addRecentSearch(label, this.contextChanges.value.activeProjectId, this.recentSearches())
+      .slice(0, MAX_RECENT_SEARCHES);
     this.recentSearches.set(nextRecentSearches);
-    this.searchOrchestrator.addRecentSearch(normalizedLabel);
-
-    const storage = this.getStorage();
-    if (!storage) {
-      return;
-    }
-
-    try {
-      storage.setItem(RECENT_SEARCHES_STORAGE_KEY, JSON.stringify(nextRecentSearches));
-    } catch {
-      // Ignore storage failures and keep in-memory recents.
-    }
+    this.searchOrchestrator.addRecentSearch(label);
   }
 
   private createEmptySections(): SearchSectionsState {
@@ -716,142 +420,7 @@ export class SearchBarComponent implements OnInit, OnDestroy {
     return { family, title, items: [] };
   }
 
-  private getStorage(): Storage | null {
-    return typeof window === 'undefined' ? null : window.localStorage;
-  }
-
-  private computeScore(label: string, query: string): number {
-    const normalizedLabel = label.trim().toLowerCase();
-    const normalizedQuery = query.trim().toLowerCase();
-    if (!normalizedLabel || !normalizedQuery) {
-      return 0;
-    }
-
-    if (normalizedLabel === normalizedQuery) {
-      return 1;
-    }
-
-    if (normalizedLabel.startsWith(normalizedQuery)) {
-      return 0.92;
-    }
-
-    if (normalizedLabel.includes(normalizedQuery)) {
-      return 0.8;
-    }
-
-    const sharedTokens = normalizedQuery
-      .split(/\s+/)
-      .filter(Boolean)
-      .filter((token) => normalizedLabel.includes(token)).length;
-
-    return Math.min(0.79, sharedTokens * 0.2);
-  }
-
-  private toNumber(value: number | string | null): number | null {
-    if (typeof value === 'number') {
-      return Number.isFinite(value) ? value : null;
-    }
-
-    if (typeof value === 'string') {
-      const parsed = Number.parseFloat(value);
-      return Number.isNaN(parsed) ? null : parsed;
-    }
-
-    return null;
-  }
-
   private normalizeLabel(value: string): string {
     return value.trim().toLowerCase();
-  }
-
-  private normalizeSearchQuery(query: string): string {
-    return this.applyStreetTokenCorrections(
-      query
-        .trim()
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/ß/g, 'ss')
-        .replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim(),
-    );
-  }
-
-  private applyStreetTokenCorrections(query: string): string {
-    return query
-      .split(' ')
-      .map((token) => {
-        if (!token) {
-          return token;
-        }
-
-        if (token === 'g' || token === 'g.') return 'gasse';
-        if (token === 'str' || token === 'str.') return 'strasse';
-        if (token.endsWith('str.')) return `${token.slice(0, -1)}asse`;
-        if (token.endsWith('gass') || token.endsWith('gasse')) {
-          return token.endsWith('gasse') ? token : `${token}e`;
-        }
-        if (token.endsWith('gase')) return `${token.slice(0, -4)}gasse`;
-        if (token.endsWith('gas')) return `${token}se`;
-        if (token.endsWith('stras')) return `${token}se`;
-        if (token.endsWith('strase')) return `${token.slice(0, -6)}strasse`;
-        if (token.endsWith('strassee')) return token.slice(0, -1);
-        if (token.endsWith('str')) return `${token}asse`;
-
-        return token;
-      })
-      .join(' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
-
-  private buildFallbackQueries(normalizedQuery: string): string[] {
-    const candidates = new Set<string>();
-    const correctedStreetHouse = this.applyStreetTokenCorrections(normalizedQuery);
-
-    if (correctedStreetHouse && correctedStreetHouse !== normalizedQuery) {
-      candidates.add(correctedStreetHouse);
-    }
-
-    const streetOnlyBase = correctedStreetHouse || normalizedQuery;
-    const streetOnly = streetOnlyBase.replace(/\s+\d+[a-zA-Z]?\s*$/, '').trim();
-    if (streetOnly && streetOnly !== normalizedQuery && streetOnly !== correctedStreetHouse) {
-      candidates.add(streetOnly);
-    }
-
-    const correctedStreetOnly = this.applyStreetTokenCorrections(streetOnly);
-    if (
-      correctedStreetOnly &&
-      correctedStreetOnly !== normalizedQuery &&
-      correctedStreetOnly !== correctedStreetHouse &&
-      correctedStreetOnly !== streetOnly
-    ) {
-      candidates.add(correctedStreetOnly);
-    }
-
-    return [...candidates];
-  }
-
-  private formatGeocoderLabel(result: NominatimResult): string {
-    const address = result.address;
-    if (address) {
-      const street = [address.road, address.house_number].filter(Boolean).join(' ').trim();
-      const city =
-        address.city ||
-        address.town ||
-        address.village ||
-        address.municipality ||
-        address.hamlet ||
-        address.county;
-      const zipCity = [address.postcode, city].filter(Boolean).join(' ').trim();
-      const rightPart = [zipCity, address.country].filter(Boolean).join(' ').trim();
-
-      if (street && rightPart) return `${street}, ${rightPart}`;
-      if (street) return street;
-      if (rightPart) return rightPart;
-    }
-
-    return result.display_name;
   }
 }

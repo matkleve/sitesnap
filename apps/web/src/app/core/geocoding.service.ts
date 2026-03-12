@@ -58,11 +58,40 @@ export interface ForwardGeocodeResult {
   country: string | null;
 }
 
+/** Options for multi-result search queries (used by search bar). */
+export interface GeocoderSearchOptions {
+  limit?: number;
+  countrycodes?: string[];
+  viewbox?: string;
+  bounded?: boolean;
+}
+
+/** A single result from a multi-result geocoder search. */
+export interface GeocoderSearchResult {
+  lat: number;
+  lng: number;
+  displayName: string;
+  name: string | null;
+  importance: number;
+  address: {
+    road?: string;
+    house_number?: string;
+    postcode?: string;
+    city?: string;
+    town?: string;
+    village?: string;
+    municipality?: string;
+    country?: string;
+  } | null;
+}
+
 /** Raw Nominatim forward-search JSON shape (subset we use). */
 interface NominatimSearchResponse {
   lat?: string;
   lon?: string;
   display_name?: string;
+  name?: string;
+  importance?: number;
   address?: NominatimReverseResponse['address'];
 }
 
@@ -167,6 +196,39 @@ export class GeocodingService {
   // ── Private helpers ────────────────────────────────────────────────────
 
   /**
+   * Search for multiple geocoding results. Used by the search bar.
+   * Returns an empty array on failure — never throws.
+   */
+  async search(query: string, options?: GeocoderSearchOptions): Promise<GeocoderSearchResult[]> {
+    const trimmed = query.trim();
+    if (!trimmed) return [];
+
+    return this.enqueue(async () => {
+      try {
+        const body: Record<string, unknown> = {
+          action: 'forward',
+          q: trimmed,
+        };
+        if (options?.limit) body['limit'] = options.limit;
+        if (options?.countrycodes?.length) {
+          body['countrycodes'] = options.countrycodes.join(',');
+        }
+        if (options?.viewbox) body['viewbox'] = options.viewbox;
+        if (options?.bounded) body['bounded'] = 1;
+
+        const results = await this.callProxy<NominatimSearchResponse[]>(body);
+        if (!results?.length) return [];
+
+        return results
+          .map((hit) => this.parseSearchHit(hit))
+          .filter((r): r is GeocoderSearchResult => r !== null);
+      } catch {
+        return [];
+      }
+    });
+  }
+
+  /**
    * Enqueue a request so only one runs at a time.
    * Each call chains onto `this.queue`, preventing concurrent Nominatim hits.
    */
@@ -191,7 +253,7 @@ export class GeocodingService {
 
   private parseReverseResponse(data: NominatimReverseResponse): ReverseGeocodeResult {
     const { city, district, street, country } = this.extractAddressFields(data.address!);
-    const addressLabel = data.display_name ?? [street, city, country].filter(Boolean).join(', ');
+    const addressLabel = this.buildAddressLabel(data.address, street, city, data.display_name);
     return { addressLabel, city, district, street, country };
   }
 
@@ -201,8 +263,54 @@ export class GeocodingService {
     if (isNaN(lat) || isNaN(lng)) return null;
 
     const { city, district, street, country } = this.extractAddressFields(hit.address);
-    const addressLabel = hit.display_name ?? [street, city, country].filter(Boolean).join(', ');
+    const addressLabel = this.buildAddressLabel(hit.address, street, city, hit.display_name);
     return { lat, lng, addressLabel, city, district, street, country };
+  }
+
+  /**
+   * Build a clean address label as "Street Number, Postcode City".
+   * Falls back to display_name only when structured fields are missing.
+   */
+  private buildAddressLabel(
+    addr: NominatimReverseResponse['address'] | undefined,
+    street: string | null,
+    city: string | null,
+    displayName?: string,
+  ): string {
+    const postcode = addr?.postcode;
+    const cityPart = postcode && city ? `${postcode} ${city}` : city || null;
+
+    if (street && cityPart) return `${street}, ${cityPart}`;
+    if (street) return street;
+    if (cityPart) return cityPart;
+    return displayName ?? '';
+  }
+
+  /** Parse a single Nominatim search hit into a GeocoderSearchResult. */
+  private parseSearchHit(hit: NominatimSearchResponse): GeocoderSearchResult | null {
+    const lat = parseFloat(hit.lat ?? '');
+    const lng = parseFloat(hit.lon ?? '');
+    if (isNaN(lat) || isNaN(lng)) return null;
+
+    return {
+      lat,
+      lng,
+      displayName: hit.display_name ?? '',
+      name: hit.name ?? null,
+      importance: hit.importance ?? 0,
+      address: hit.address
+        ? {
+            road: hit.address.road,
+            house_number: hit.address.house_number,
+            postcode: hit.address.postcode,
+            city: hit.address.city,
+            town: hit.address.town,
+            village: hit.address.village,
+            municipality: hit.address.municipality,
+            country: hit.address.country,
+          }
+        : null,
+    };
   }
 
   /** Extract structured address fields from a Nominatim address object. */

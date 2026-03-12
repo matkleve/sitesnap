@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { SearchBarComponent } from './search-bar.component';
 import { SearchOrchestratorService } from '../../../core/search/search-orchestrator.service';
 import { SupabaseService } from '../../../core/supabase.service';
+import { GeocodingService } from '../../../core/geocoding.service';
 
 function createQueryBuilder(result: { data: unknown[]; error: unknown }) {
   const builder = {
@@ -69,6 +70,25 @@ describe('SearchBarComponent', () => {
             },
           },
         },
+        {
+          provide: GeocodingService,
+          useValue: {
+            search: vi.fn().mockResolvedValue([
+              {
+                lat: 46.948,
+                lng: 7.4474,
+                displayName: 'Burgstrasse 7, Bern, Switzerland',
+                address: {
+                  road: 'Burgstrasse',
+                  house_number: '7',
+                  city: 'Bern',
+                  postcode: '3000',
+                  country: 'Switzerland',
+                },
+              },
+            ]),
+          },
+        },
       ],
     }).compileComponents();
   });
@@ -115,18 +135,21 @@ describe('SearchBarComponent', () => {
   });
 
   it('shows grouped DB and geocoder results after debounced input', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(
-        JSON.stringify([
-          {
-            lat: '46.948',
-            lon: '7.4474',
-            display_name: 'Burgstrasse 7, Bern, Switzerland',
-          },
-        ]),
-        { status: 200, headers: { 'Content-Type': 'application/json' } },
-      ),
-    );
+    const geocodingService = TestBed.inject(GeocodingService);
+    (geocodingService.search as ReturnType<typeof vi.fn>).mockResolvedValue([
+      {
+        lat: 46.948,
+        lng: 7.4474,
+        displayName: 'Burgstrasse 7, Bern, Switzerland',
+        address: {
+          road: 'Burgstrasse',
+          house_number: '7',
+          city: 'Bern',
+          postcode: '3000',
+          country: 'Switzerland',
+        },
+      },
+    ]);
 
     const fixture = TestBed.createComponent(SearchBarComponent);
     fixture.detectChanges();
@@ -146,12 +169,8 @@ describe('SearchBarComponent', () => {
   });
 
   it('commits the highlighted item with Enter and emits map-center for addresses', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify([]), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
+    const geocodingService = TestBed.inject(GeocodingService);
+    (geocodingService.search as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 
     const fixture = TestBed.createComponent(SearchBarComponent);
     const mapCenterSpy = vi.fn();
@@ -179,13 +198,6 @@ describe('SearchBarComponent', () => {
   });
 
   it('navigates to the groups route for group content commits', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify([]), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
-
     const fixture = TestBed.createComponent(SearchBarComponent);
     fixture.detectChanges();
 
@@ -237,12 +249,8 @@ describe('SearchBarComponent', () => {
   });
 
   it('shows the empty state and emits drop pin when requested', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify([]), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
+    const geocodingService = TestBed.inject(GeocodingService);
+    (geocodingService.search as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 
     const fixture = TestBed.createComponent(SearchBarComponent);
     const dropPinSpy = vi.fn();
