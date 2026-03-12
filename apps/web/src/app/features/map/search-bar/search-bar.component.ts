@@ -15,7 +15,8 @@ import { Router } from '@angular/router';
 import { BehaviorSubject, Subscription } from 'rxjs';
 import { SearchDropdownItemComponent } from './search-dropdown-item.component';
 import { SearchOrchestratorService } from '../../../core/search/search-orchestrator.service';
-import { SearchBarService } from '../../../core/search/search-bar.service';
+import { SearchBarService, GhostTrieEntry } from '../../../core/search/search-bar.service';
+import { GeocodingService } from '../../../core/geocoding.service';
 import {
   SearchCandidate,
   SearchQueryContext,
@@ -26,6 +27,19 @@ import {
 } from '../../../core/search/search.models';
 
 const MAX_RECENT_SEARCHES = 8;
+const MAX_RECENT_MATCHES_WHILE_TYPING = 2;
+
+const PLACEHOLDER_EXAMPLES = [
+  'Search address, project, group…',
+  'Denisgasse 46, Vienna',
+  '48.2082, 16.3738',
+  'maps.google.com/…',
+  'Project Alpha',
+  'Schönbrunner Allee 6',
+  '48°12\'30"N 16°22\'23"E',
+];
+const PLACEHOLDER_INTERVAL_MS = 4000;
+const PLACEHOLDER_FADE_MS = 300;
 
 type SearchSectionsState = {
   dbAddress: SearchSection;
@@ -48,11 +62,14 @@ export class SearchBarComponent implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly searchBarService = inject(SearchBarService);
   private readonly searchOrchestrator = inject(SearchOrchestratorService);
+  private readonly geocodingService = inject(GeocodingService);
 
   private readonly queryChanges = new BehaviorSubject<string>('');
   private readonly contextChanges = new BehaviorSubject<SearchQueryContext>({});
   private readonly subscription = new Subscription();
   private suppressNextDocumentClick = false;
+  private placeholderTimer: ReturnType<typeof setInterval> | null = null;
+  private placeholderIndex = 0;
 
   readonly searchInput = viewChild.required<ElementRef<HTMLInputElement>>('searchInput');
 
@@ -63,12 +80,15 @@ export class SearchBarComponent implements OnInit, OnDestroy {
   readonly state = signal<SearchState>('idle');
   readonly query = signal('');
   readonly dropdownOpen = signal(false);
+  readonly placeholderText = signal(PLACEHOLDER_EXAMPLES[0]);
+  readonly placeholderFading = signal(false);
   readonly activeIndex = signal(-1);
   readonly sections = signal<SearchSectionsState>(this.createEmptySections());
   readonly recentSearches = signal<SearchRecentCandidate[]>([]);
   readonly committedCandidate = signal<SearchCandidate | null>(null);
   readonly commandSection = signal<SearchSection | null>(null);
   readonly liveRegionText = signal('');
+  readonly ghostText = signal<string | null>(null);
 
   readonly allEmpty = computed(() => {
     const sections = this.sections();
@@ -91,6 +111,14 @@ export class SearchBarComponent implements OnInit, OnDestroy {
       this.allEmpty(),
   );
 
+  readonly matchingRecents = computed(() => {
+    const q = this.query().trim().toLowerCase();
+    if (!q || this.showingRecentSearches()) return [];
+    return this.recentSearches()
+      .filter((r) => r.label.toLowerCase().includes(q))
+      .slice(0, MAX_RECENT_MATCHES_WHILE_TYPING);
+  });
+
   readonly selectableItems = computed(() => {
     if (!this.dropdownOpen()) {
       return [] as SearchCandidate[];
@@ -102,6 +130,7 @@ export class SearchBarComponent implements OnInit, OnDestroy {
 
     const sections = this.sections();
     return [
+      ...this.matchingRecents(),
       ...sections.dbAddress.items,
       ...sections.dbContent.items,
       ...(this.commandSection()?.items ?? []),
@@ -114,6 +143,8 @@ export class SearchBarComponent implements OnInit, OnDestroy {
       this.searchBarService.loadRecentSearches().slice(0, MAX_RECENT_SEARCHES),
     );
     this.configureSearchSources();
+    this.rebuildGhostTrie();
+    this.startPlaceholderRotation();
 
     this.subscription.add(
       this.searchOrchestrator
@@ -124,6 +155,7 @@ export class SearchBarComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subscription.unsubscribe();
+    this.stopPlaceholderRotation();
   }
 
   focusSearch(): void {
@@ -164,14 +196,49 @@ export class SearchBarComponent implements OnInit, OnDestroy {
       this.sections.set(this.createEmptySections());
       this.commandSection.set(null);
       this.liveRegionText.set('');
+      this.ghostText.set(null);
     } else {
+      // Coordinate/URL detection (UC-5)
+      const coords = this.searchBarService.detectCoordinates(nextQuery);
+      if (coords) {
+        this.state.set('committed');
+        this.dropdownOpen.set(false);
+        this.ghostText.set(null);
+        const label = `${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`;
+        this.committedCandidate.set({
+          id: `coords-${label}`,
+          family: 'geocoder',
+          label,
+          lat: coords.lat,
+          lng: coords.lng,
+        });
+        this.mapCenterRequested.emit({ lat: coords.lat, lng: coords.lng, label });
+        this.reverseGeocodeAndUpdateLabel(coords.lat, coords.lng);
+        return;
+      }
+
       this.state.set('typing');
+      // Ghost completion (UC-8)
+      this.ghostText.set(this.searchBarService.queryGhostCompletion(nextQuery));
     }
 
     this.queryChanges.next(nextQuery);
   }
 
   onInputKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Tab' && this.ghostText()) {
+      event.preventDefault();
+      const fullQuery = this.query() + this.ghostText();
+      this.query.set(fullQuery);
+      this.searchInput().nativeElement.value = fullQuery;
+      this.ghostText.set(null);
+      this.state.set('typing');
+      this.queryChanges.next(fullQuery);
+      // Recompute ghost for new query
+      this.ghostText.set(this.searchBarService.queryGhostCompletion(fullQuery));
+      return;
+    }
+
     if (event.key === 'ArrowDown') {
       event.preventDefault();
       this.moveActiveIndex(1);
@@ -233,12 +300,21 @@ export class SearchBarComponent implements OnInit, OnDestroy {
     return `search-option-${index}`;
   }
 
+  addressOptionIndex(index: number): number {
+    return this.matchingRecents().length + index;
+  }
+
   contentOptionIndex(index: number): number {
-    return this.sections().dbAddress.items.length + index;
+    return this.matchingRecents().length + this.sections().dbAddress.items.length + index;
   }
 
   geocoderOptionIndex(index: number): number {
-    return this.sections().dbAddress.items.length + this.sections().dbContent.items.length + index;
+    return (
+      this.matchingRecents().length +
+      this.sections().dbAddress.items.length +
+      this.sections().dbContent.items.length +
+      index
+    );
   }
 
   @HostListener('document:keydown', ['$event'])
@@ -275,7 +351,7 @@ export class SearchBarComponent implements OnInit, OnDestroy {
 
     const dbAddressSection =
       result.sections.find((section) => section.family === 'db-address') ??
-      this.createSection('db-address', 'Addresses');
+      this.createSection('db-address', 'Photo Locations');
     const dbContentSection =
       result.sections.find((section) => section.family === 'db-content') ??
       this.createSection('db-content', 'Projects & Groups');
@@ -410,7 +486,7 @@ export class SearchBarComponent implements OnInit, OnDestroy {
 
   private createEmptySections(): SearchSectionsState {
     return {
-      dbAddress: this.createSection('db-address', 'Addresses'),
+      dbAddress: this.createSection('db-address', 'Photo Locations'),
       dbContent: this.createSection('db-content', 'Projects & Groups'),
       geocoder: this.createSection('geocoder', 'Places'),
     };
@@ -422,5 +498,60 @@ export class SearchBarComponent implements OnInit, OnDestroy {
 
   private normalizeLabel(value: string): string {
     return value.trim().toLowerCase();
+  }
+
+  private reverseGeocodeAndUpdateLabel(lat: number, lng: number): void {
+    this.geocodingService.reverse(lat, lng).then((result) => {
+      if (!result) return;
+      const committed = this.committedCandidate();
+      if (!committed || committed.family !== 'geocoder') return;
+      // Update label if still committed to these coords
+      const coordLabel = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+      if (committed.label === coordLabel) {
+        this.committedCandidate.set({ ...committed, label: result.addressLabel });
+        this.query.set(result.addressLabel);
+        this.addRecentSearch(result.addressLabel);
+      }
+    });
+  }
+
+  private rebuildGhostTrie(): void {
+    const entries: GhostTrieEntry[] = [];
+    const activeProjectId = this.contextChanges.value.activeProjectId;
+
+    // Priority 1+2: Recent searches
+    for (const recent of this.recentSearches()) {
+      const isActiveProject = recent.projectId === activeProjectId;
+      const sourcePriority = isActiveProject ? 100 : 80;
+      const daysSince = recent.lastUsedAt
+        ? (Date.now() - new Date(recent.lastUsedAt).getTime()) / 86400000
+        : 0;
+      const recencyDecay = 1 / (1 + daysSince * 0.1);
+      const projectBoost = isActiveProject ? 2.0 : 1.0;
+      entries.push({
+        label: recent.label,
+        weight: sourcePriority * projectBoost * recencyDecay,
+      });
+    }
+
+    this.searchBarService.buildGhostTrie(entries);
+  }
+
+  private startPlaceholderRotation(): void {
+    this.placeholderTimer = setInterval(() => {
+      this.placeholderFading.set(true);
+      setTimeout(() => {
+        this.placeholderIndex = (this.placeholderIndex + 1) % PLACEHOLDER_EXAMPLES.length;
+        this.placeholderText.set(PLACEHOLDER_EXAMPLES[this.placeholderIndex]);
+        this.placeholderFading.set(false);
+      }, PLACEHOLDER_FADE_MS);
+    }, PLACEHOLDER_INTERVAL_MS);
+  }
+
+  private stopPlaceholderRotation(): void {
+    if (this.placeholderTimer) {
+      clearInterval(this.placeholderTimer);
+      this.placeholderTimer = null;
+    }
   }
 }

@@ -12,6 +12,19 @@ import {
   SearchQueryContext,
   SearchRecentCandidate,
 } from './search.models';
+import { detectCoordinates, type DetectedCoordinates } from './coordinate-detection';
+import { GhostTrie, type GhostTrieEntry } from './ghost-trie';
+import {
+  computeTextMatchScore,
+  formatGeocoderAddressLabel,
+  formatDbAddressLabel,
+  normalizeSearchQuery,
+  buildFallbackQueries,
+  toNumber,
+} from './search-query';
+
+export type { DetectedCoordinates } from './coordinate-detection';
+export type { GhostTrieEntry } from './ghost-trie';
 
 const RECENT_SEARCHES_STORAGE_KEY = 'sitesnap-recent-searches';
 const MAX_RECENT_SEARCHES = 20;
@@ -33,10 +46,37 @@ interface DbContentRow {
   name: string | null;
 }
 
+interface AddressGroup {
+  label: string;
+  ids: string[];
+  latTotal: number;
+  lngTotal: number;
+  count: number;
+  score: number;
+}
+
 @Injectable({ providedIn: 'root' })
 export class SearchBarService {
   private readonly supabaseService = inject(SupabaseService);
   private readonly geocodingService = inject(GeocodingService);
+
+  private readonly ghostTrie = new GhostTrie();
+
+  // ── Coordinate Detection ─────────────────────────────────────────────
+
+  detectCoordinates(input: string): DetectedCoordinates | null {
+    return detectCoordinates(input);
+  }
+
+  // ── Ghost Completion ─────────────────────────────────────────────────
+
+  buildGhostTrie(entries: GhostTrieEntry[]): void {
+    this.ghostTrie.build(entries);
+  }
+
+  queryGhostCompletion(input: string): string | null {
+    return this.ghostTrie.query(input);
+  }
 
   // ── Recent Searches ──────────────────────────────────────────────────
 
@@ -51,7 +91,7 @@ export class SearchBarService {
       const parsed = JSON.parse(raw) as unknown;
       if (!Array.isArray(parsed)) return [];
 
-      return parsed
+      const recents = parsed
         .filter(
           (item): item is SearchRecentCandidate =>
             typeof item === 'object' &&
@@ -59,7 +99,11 @@ export class SearchBarService {
             'label' in item &&
             typeof item.label === 'string',
         )
+        .map((item) => ({ ...item, label: sanitizeRecentLabel(item.label) }))
+        .filter((item) => item.label.length > 0)
         .slice(0, MAX_RECENT_SEARCHES);
+
+      return recents;
     } catch {
       return [];
     }
@@ -140,63 +184,13 @@ export class SearchBarService {
 
   // ── Address Formatting ───────────────────────────────────────────────
 
-  formatAddressLabel(result: GeocoderSearchResult): string {
-    const addr = result.address;
-    if (!addr) return this.truncateDisplayName(result.displayName);
-
-    const city = addr.city || addr.town || addr.village || addr.municipality;
-    const parts = this.buildAddressParts(addr.road, addr.house_number, addr.postcode, city);
-    return parts || this.truncateDisplayName(result.displayName);
-  }
-
-  private buildAddressParts(
-    street?: string,
-    number?: string,
-    postcode?: string,
-    city?: string,
-  ): string | null {
-    const streetPart = street ? (number ? `${street} ${number}` : street) : null;
-    const cityPart = postcode && city ? `${postcode} ${city}` : city || null;
-
-    if (streetPart && cityPart) return `${streetPart}, ${cityPart}`;
-    if (streetPart) return streetPart;
-    return cityPart;
-  }
+  formatAddressLabel = formatGeocoderAddressLabel;
 
   // ── Query Normalization ──────────────────────────────────────────────
 
-  normalizeSearchQuery(query: string): string {
-    return this.applyStreetTokenCorrections(
-      query
-        .trim()
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/ß/g, 'ss')
-        .replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim(),
-    );
-  }
+  normalizeSearchQuery = normalizeSearchQuery;
 
-  buildFallbackQueries(normalizedQuery: string): string[] {
-    const candidates = new Set<string>();
-    const correctedFull = this.applyStreetTokenCorrections(normalizedQuery);
-    this.addIfDistinct(candidates, correctedFull, normalizedQuery);
-
-    const base = correctedFull || normalizedQuery;
-    const streetOnly = base.replace(/\s+\d+[a-zA-Z]?\s*$/, '').trim();
-    this.addIfDistinct(candidates, streetOnly, normalizedQuery, correctedFull);
-
-    const correctedStreetOnly = this.applyStreetTokenCorrections(streetOnly);
-    this.addIfDistinct(candidates, correctedStreetOnly, normalizedQuery, correctedFull, streetOnly);
-
-    return [...candidates];
-  }
-
-  private addIfDistinct(set: Set<string>, value: string, ...exclude: string[]): void {
-    if (value && !exclude.includes(value)) set.add(value);
-  }
+  buildFallbackQueries = buildFallbackQueries;
 
   // ── Private ──────────────────────────────────────────────────────────
 
@@ -215,27 +209,21 @@ export class SearchBarService {
 
     if (response.error || !Array.isArray(response.data)) return [];
 
-    const grouped = new Map<
-      string,
-      {
-        label: string;
-        ids: string[];
-        latTotal: number;
-        lngTotal: number;
-        count: number;
-        score: number;
-      }
-    >();
+    const grouped = this.groupAddressRows(response.data as DbAddressRow[], trimmedQuery);
 
-    for (const row of response.data as DbAddressRow[]) {
+    return this.rankedAddressCandidates(grouped);
+  }
+
+  private groupAddressRows(rows: DbAddressRow[], trimmedQuery: string): Map<string, AddressGroup> {
+    const grouped = new Map<string, AddressGroup>();
+
+    for (const row of rows) {
       const rawLabel = row.address_label?.trim();
-      const lat = this.toNumber(row.latitude);
-      const lng = this.toNumber(row.longitude);
+      const lat = toNumber(row.latitude);
+      const lng = toNumber(row.longitude);
       if (!rawLabel || lat === null || lng === null) continue;
 
-      // Reformat legacy verbose labels using structured columns
-      const label = this.formatDbAddressLabel(rawLabel, row.street, row.city);
-
+      const label = formatDbAddressLabel(rawLabel, row.street, row.city);
       const key = label.toLowerCase();
       const existing = grouped.get(key);
       if (existing) {
@@ -243,7 +231,7 @@ export class SearchBarService {
         existing.latTotal += lat;
         existing.lngTotal += lng;
         existing.count += 1;
-        existing.score = Math.max(existing.score, this.computeScore(label, trimmedQuery));
+        existing.score = Math.max(existing.score, computeTextMatchScore(label, trimmedQuery));
         continue;
       }
 
@@ -253,8 +241,17 @@ export class SearchBarService {
         latTotal: lat,
         lngTotal: lng,
         count: 1,
-        score: this.computeScore(label, trimmedQuery),
+        score: computeTextMatchScore(label, trimmedQuery),
       });
+    }
+
+    return grouped;
+  }
+
+  private rankedAddressCandidates(grouped: Map<string, AddressGroup>): SearchAddressCandidate[] {
+    // Apply dataGravity: textMatch × log2(imageCount + 1)
+    for (const entry of grouped.values()) {
+      entry.score = entry.score * Math.log2(entry.count + 1);
     }
 
     return [...grouped.values()]
@@ -304,7 +301,7 @@ export class SearchBarService {
               contentType: 'project' as const,
               contentId: row.id,
               subtitle: 'Project',
-              score: this.computeScore(row.name ?? '', trimmedQuery),
+              score: computeTextMatchScore(row.name ?? '', trimmedQuery),
             }))
     ).filter((candidate) => candidate.label.length > 0);
 
@@ -320,7 +317,7 @@ export class SearchBarService {
               contentType: 'group' as const,
               contentId: row.id,
               subtitle: 'Saved group',
-              score: this.computeScore(row.name ?? '', trimmedQuery),
+              score: computeTextMatchScore(row.name ?? '', trimmedQuery),
             }))
     ).filter((candidate) => candidate.label.length > 0);
 
@@ -333,7 +330,10 @@ export class SearchBarService {
     normalizedQuery: string,
     context: SearchQueryContext,
   ): Promise<SearchAddressCandidate[]> {
-    const searchOptions: GeocoderSearchOptions = { limit: 5 };
+    // Require at least 3 characters to avoid noise (e.g. "De" → Germany)
+    if (normalizedQuery.length < 3) return [];
+
+    const searchOptions: GeocoderSearchOptions = { limit: 3 };
     if (context.countryCodes?.length) {
       searchOptions.countrycodes = context.countryCodes;
     }
@@ -346,9 +346,9 @@ export class SearchBarService {
     for (const currentQuery of queries) {
       const results = await this.geocodingService.search(currentQuery, searchOptions);
       if (results.length > 0) {
-        return results.map((result, index) =>
-          this.toGeocoderCandidate(result, currentQuery, index),
-        );
+        return results
+          .filter((r) => isStreetLevelResult(r))
+          .map((result, index) => this.toGeocoderCandidate(result, currentQuery, index));
       }
     }
 
@@ -388,86 +388,30 @@ export class SearchBarService {
   private getStorage(): Storage | null {
     return typeof window === 'undefined' ? null : window.localStorage;
   }
+}
 
-  private computeScore(label: string, query: string): number {
-    const normalizedLabel = label.trim().toLowerCase();
-    const normalizedQuery = query.trim().toLowerCase();
-    if (!normalizedLabel || !normalizedQuery) return 0;
+/**
+ * Clean up raw Nominatim display_name entries (e.g.
+ * "Wohngesund, 6, Schönbrunner Allee, Vösendorf, Bezirk Mödling, Lower Austria, Austria")
+ * by keeping only the first 3 meaningful parts.
+ */
+function sanitizeRecentLabel(label: string): string {
+  const parts = label
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean);
+  if (parts.length <= 3) return label.trim();
+  return parts.slice(0, 3).join(', ');
+}
 
-    if (normalizedLabel === normalizedQuery) return 1;
-    if (normalizedLabel.startsWith(normalizedQuery)) return 0.92;
-    if (normalizedLabel.includes(normalizedQuery)) return 0.8;
-
-    const sharedTokens = normalizedQuery
-      .split(/\s+/)
-      .filter(Boolean)
-      .filter((token) => normalizedLabel.includes(token)).length;
-
-    return Math.min(0.79, sharedTokens * 0.2);
-  }
-
-  /**
-   * Reformat a DB address label using structured street/city columns.
-   * Legacy rows store verbose Nominatim display_name; structured columns
-   * let us rebuild a clean "Street, City" label.
-   */
-  private formatDbAddressLabel(
-    rawLabel: string,
-    street: string | null,
-    city: string | null,
-  ): string {
-    if (street && city) return `${street}, ${city}`;
-    if (street) return street;
-    if (city) return city;
-    return rawLabel;
-  }
-
-  private toNumber(value: number | string | null): number | null {
-    if (typeof value === 'number') return Number.isFinite(value) ? value : null;
-    if (typeof value === 'string') {
-      const parsed = Number.parseFloat(value);
-      return Number.isNaN(parsed) ? null : parsed;
-    }
-    return null;
-  }
-
-  private truncateDisplayName(displayName: string): string {
-    return displayName.length > 60 ? displayName.slice(0, 60) + '…' : displayName;
-  }
-
-  private applyStreetTokenCorrections(query: string): string {
-    return query
-      .split(' ')
-      .map((token) => this.correctStreetToken(token))
-      .join(' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
-
-  private correctStreetToken(token: string): string {
-    if (!token) return token;
-
-    // Exact-match abbreviations
-    if (token === 'g' || token === 'g.') return 'gasse';
-    if (token === 'str' || token === 'str.') return 'strasse';
-
-    // Suffix-based corrections (order matters: longest suffix first)
-    const suffixReplacements: [string, string][] = [
-      ['strassee', 'strasse'],
-      ['strase', 'strasse'],
-      ['stras', 'strasse'],
-      ['str.', 'strasse'],
-      ['str', 'strasse'],
-      ['gase', 'gasse'],
-      ['gass', 'gasse'],
-      ['gas', 'gasse'],
-    ];
-
-    for (const [suffix, replacement] of suffixReplacements) {
-      if (token.endsWith(suffix)) {
-        return token.slice(0, -suffix.length) + replacement;
-      }
-    }
-    return token;
-  }
+/**
+ * Filter out country/state-level results that aren't useful for a construction app.
+ * Keeps results that have at least a city OR a road in their address.
+ */
+function isStreetLevelResult(result: GeocoderSearchResult): boolean {
+  const addr = result.address;
+  if (!addr) return true; // Keep results with no address (can't filter)
+  const hasCity = !!(addr.city || addr.town || addr.village || addr.municipality);
+  const hasRoad = !!addr.road;
+  return hasCity || hasRoad;
 }

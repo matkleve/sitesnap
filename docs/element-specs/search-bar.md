@@ -478,8 +478,8 @@ Types are defined in `core/search/search.models.ts` (already exists).
 - [x] Results panel is revealed inside the same surface and does not behave like a detached floating dropdown
 - [x] Dropdown rows use `.ui-item` with a fixed leading media column
 - [x] Section divider only shows when both DB and geocoder sections have items
-- [ ] Results panel expansion animates outer panel height without animating row height, row padding, media width, or panel radius
-- [ ] Opening and closing the dropdown does not change outer corner radius, item padding, or media-column width
+- [x] Results panel expansion animates outer panel height without animating row height, row padding, media width, or panel radius
+- [x] Opening and closing the dropdown does not change outer corner radius, item padding, or media-column width
 
 ### Interaction
 
@@ -490,14 +490,14 @@ Types are defined in `core/search/search.models.ts` (already exists).
 - [x] Enter commits the highlighted item (or top item if none highlighted)
 - [x] Clicking a result commits it
 - [x] Address commit centers the map and shows Search Location Marker
-- [ ] Content commit navigates to the correct route
+- [x] Content commit navigates to the correct route
 - [x] Escape closes dropdown; second Escape blurs input
 - [x] Click outside closes dropdown
 - [x] `×` clear button appears after commit; clicking it resets everything
 - [x] `×` clear button uses square control geometry aligned to shared control/media sizing tokens
 - [x] Empty state shows "No address found" with "Drop pin" recovery action
-- [ ] Tab accepts inline ghost completion into input text
-- [ ] Pasting coordinates or Google Maps URL auto-detects and centers map
+- [x] Tab accepts inline ghost completion into input text
+- [x] Pasting coordinates or Google Maps URL auto-detects and centers map
 
 ### Data & Resolution
 
@@ -505,12 +505,12 @@ Types are defined in `core/search/search.models.ts` (already exists).
 - [x] Geocoder results that are <30m from a DB result are hidden (dedup via `SearchOrchestratorService`)
 - [x] All geocoder requests go through `GeocodingService` → Edge Function proxy (no direct Nominatim calls)
 - [x] Fallback queries only fire when primary query returns 0 results (not unconditionally)
-- [ ] Geocoder failure is non-blocking — DB results still render; geocoder section shows skeleton then hides
+- [x] Geocoder failure is non-blocking — DB results still render; geocoder section shows skeleton then hides
 - [x] In-flight geocoder requests are cancelled when the user types a new query (`AbortController` or RxJS `switchMap`)
 - [x] All result sources load and render independently (3-phase progressive: typing → DB partial → geocoder complete)
 - [x] Geocoder results use formatted address labels (`Street Number, Postcode City`), not raw Nominatim `display_name`
 - [x] Named places (POIs, buildings) show name on primary line + formatted address on secondary line
-- [ ] Ghost completion is computed locally from recents + cached DB labels (never waits for geocoder)
+- [x] Ghost completion is computed locally from recents + cached DB labels (never waits for geocoder)
 
 ### Recent Searches
 
@@ -537,7 +537,7 @@ Types are defined in `core/search/search.models.ts` (already exists).
 ### Accessibility
 
 - [x] Dropdown uses `role="listbox"`, items use `role="option"`
-- [ ] Screen reader announces result count on query completion
+- [x] Screen reader announces result count on query completion
 
 ### Architecture
 
@@ -551,7 +551,7 @@ Types are defined in `core/search/search.models.ts` (already exists).
 - [ ] DB address ranking uses `textMatch × projectBoost × dataGravity(log2 imageCount) × recencyDecay`
 - [ ] DB content ranking uses `textMatch × projectBoost × sizeSignal(log2 photoCount)`
 - [ ] Geocoder ranking uses `nominatimImportance × proximityDecay × countryBoost`
-- [ ] Sections render in fixed order: Addresses → Projects & Groups → Places
+- [x] Sections render in fixed order: Addresses → Projects & Groups → Places
 
 ### Ghost Completion Algorithm
 
@@ -559,17 +559,17 @@ Types are defined in `core/search/search.models.ts` (already exists).
 - [ ] Trie contains: recents, cached DB address labels, DB content names, previous geocoder commits
 - [ ] Scoring: `sourcePriority × relevanceSignal × projectBoost × recencyDecay`
 - [ ] Active-project items get 2× weight multiplier
-- [ ] `dataGravity` for addresses: `log2(imageCount + 1)` — worksites with more photos autocomplete first
-- [ ] Query-phase lookup is <1ms (trie walk, no network)
+- [x] `dataGravity` for addresses: `log2(imageCount + 1)` — worksites with more photos autocomplete first
+- [x] Query-phase lookup is <1ms (trie walk, no network)
 - [ ] Tie-breaking: shorter label wins (more specific)
 
 ### Coordinate & URL Detection (UC-5)
 
-- [ ] Pasted decimal coordinates (`47.3769, 8.5417`) are detected and skip text search
-- [ ] Pasted Google Maps URLs have coordinates extracted and handled as above
-- [ ] DMS coordinates (`47°22'36.8"N 8°32'30.1"E`) are converted to decimal and handled
-- [ ] Reverse-geocode fires after centering to populate the committed label
-- [ ] Reverse-geocode failure falls back to displaying raw coordinates
+- [x] Pasted decimal coordinates (`47.3769, 8.5417`) are detected and skip text search
+- [x] Pasted Google Maps URLs have coordinates extracted and handled as above
+- [x] DMS coordinates (`47°22'36.8"N 8°32'30.1"E`) are converted to decimal and handled
+- [x] Reverse-geocode fires after centering to populate the committed label
+- [x] Reverse-geocode failure falls back to displaying raw coordinates
 
 ### "Search This Area" (UC-14)
 

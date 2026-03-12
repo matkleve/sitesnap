@@ -17,12 +17,27 @@
       [attr.aria-expanded]="dropdownOpen()"
       [attr.aria-controls]="dropdownOpen() ? 'search-results-listbox' : null"
       [attr.aria-activedescendant]="activeIndex() >= 0 ? optionIdFor(activeIndex()) : null"
-      placeholder="Search address, project, group…"
+      [attr.aria-label]="placeholderText()"
       [value]="query()"
       (focus)="onFocus()"
       (input)="onInput($event)"
       (keydown)="onInputKeydown($event)"
     />
+
+    @if (!query()) {
+      <span
+        class="search-bar__placeholder"
+        [class.search-bar__placeholder--fading]="placeholderFading()"
+        aria-hidden="true"
+        >{{ placeholderText() }}</span
+      >
+    }
+
+    @if (ghostText()) {
+      <span class="search-bar__ghost-text" aria-hidden="true"
+        >{{ query() }}<span class="search-bar__ghost-suffix">{{ ghostText() }}</span></span
+      >
+    }
 
     @if (committedCandidate()) {
       <button
@@ -64,13 +79,24 @@
           }
         }
       } @else {
-        @if (sections().dbAddress.items.length > 0) {
-          <div class="search-bar__section-label" role="presentation">Addresses</div>
-          @for (candidate of sections().dbAddress.items; track candidate.id; let index = $index) {
+        @if (matchingRecents().length > 0) {
+          @for (candidate of matchingRecents(); track candidate.id; let index = $index) {
             <ss-search-dropdown-item
               [candidate]="candidate"
               [active]="activeIndex() === index"
               [optionId]="optionIdFor(index)"
+              (selected)="onCandidateSelected($event)"
+            />
+          }
+        }
+
+        @if (sections().dbAddress.items.length > 0) {
+          <div class="search-bar__section-label" role="presentation">Photo Locations</div>
+          @for (candidate of sections().dbAddress.items; track candidate.id; let index = $index) {
+            <ss-search-dropdown-item
+              [candidate]="candidate"
+              [active]="activeIndex() === addressOptionIndex(index)"
+              [optionId]="optionIdFor(addressOptionIndex(index))"
               (selected)="onCandidateSelected($event)"
             />
           }
