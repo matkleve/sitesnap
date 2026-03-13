@@ -1,4 +1,4 @@
-# Search Bar
+﻿# Search Bar
 
 > **Blueprint:** [implementation-blueprints/search-bar.md](../implementation-blueprints/search-bar.md)
 
@@ -16,104 +16,6 @@ Floating search surface pinned top-center over the map. Use the shared `.ui-cont
 - **Parent**: `MapShellComponent` at `features/map/map-shell/map-shell.component.ts`
 - **Appears when**: Always visible when map page is active
 - **Dropdown appears when**: Input is focused or has query text
-
----
-
-## Use Cases
-
-> **Full use cases:** [use-cases/search-bar.md](../use-cases/search-bar.md) — 18 scenarios (UC-1 through UC-18) with 50+ edge cases.
-
-The use cases are the source of truth. The state machine, actions table, and technical sections below all derive from them. Key scenarios:
-
-| UC    | Scenario                              | Key edge cases                                          |
-| ----- | ------------------------------------- | ------------------------------------------------------- |
-| UC-1  | Quick address lookup (happy path)     | Cancel in-flight, slow connection, no DB match          |
-| UC-2  | Repeat searches across sessions       | Project switch re-ranks, LRU eviction                   |
-| UC-3  | Named place / POI search              | Building name + address, verbose label formatting       |
-| UC-4  | Search with typos                     | pg_trgm fuzzy, suffix normalization (`str.` ↔ `straße`) |
-| UC-5  | Paste coordinates or map link         | Google Maps URL, DMS format, reverse-geocode failure    |
-| UC-6  | Project or group search               | Dual-section results, active project boost              |
-| UC-7  | Geocoder slow or failing              | 429 retry, Edge Function down, Supabase down            |
-| UC-8  | Tab autocomplete from history         | No match, priority tiers, cross-project ghost           |
-| UC-9  | Active project filter context         | Project boost, country bias from project data           |
-| UC-10 | Address not in the system yet         | Geocoder-only results, unknown country                  |
-| UC-11 | Mobile on-site search                 | Small viewport, virtual keyboard, offline               |
-| UC-12 | Clear and start over                  | Backspace on empty, edit committed text                 |
-| UC-13 | Keyboard-only navigation              | Arrow wrap, Tab vs ArrowDown priority                   |
-| UC-14 | Similar addresses in different cities | Proximity decay, dedup, multi-country restriction       |
-| UC-15 | Cold start after login                | Background geo-context, fresh org                       |
-| UC-16 | "Did you mean?" suggestion            | Ambiguous correction, geocoder correction               |
-| UC-17 | Concurrent search and filter          | Filter persistence, distance reference point            |
-| UC-18 | Long session cache management         | LRU eviction, trie rebuild                              |
-
----
-
-## State Machine
-
-Derived from the use cases above. Each state corresponds to a user scenario:
-
-```mermaid
-stateDiagram-v2
-    [*] --> Idle : Page loads (UC-15)
-
-    Idle --> FocusedEmpty : Click / Tab / Cmd+K (UC-1.1, UC-2.1)
-    FocusedEmpty --> Idle : Blur without typing
-    FocusedEmpty --> Typing : User types character (UC-1.3)
-
-    Typing --> Typing : More characters / debounce resets (UC-1a)
-    Typing --> Typing : Tab accepts ghost (UC-8) → new query
-    Typing --> FocusedEmpty : Backspace to empty (UC-12b)
-    Typing --> CoordinateDetected : Paste coordinates (UC-5)
-    Typing --> ResultsPartial : DB source returns (UC-1.5, UC-7)
-
-    CoordinateDetected --> Committed : Map centers + reverse-geocode (UC-5.3)
-
-    ResultsPartial --> ResultsComplete : Geocoder returns or times out (UC-1.6, UC-7)
-    ResultsPartial --> Typing : User modifies query (UC-1a)
-    ResultsPartial --> Committed : User selects a DB result early (UC-7.5)
-
-    ResultsComplete --> Committed : Enter / Click / recent-selected (UC-1.7, UC-6.3)
-    ResultsComplete --> Typing : User modifies query (UC-1a)
-    ResultsComplete --> Idle : Escape → Escape (UC-13.5-6)
-
-    Committed --> Typing : User edits query text (UC-12b)
-    Committed --> Idle : Clear button / Backspace on empty (UC-12)
-```
-
-### Source Loading Phases
-
-Each search query triggers 3 independent data sources. They load progressively — no source waits for another:
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant Component
-    participant DB as DB (Supabase)
-    participant Cache as Local Cache
-    participant Geo as Geocoder (Edge Fn)
-
-    User->>Component: Types "schl" (UC-1.3)
-    Component->>Component: Debounce 300ms
-
-    par Phase 2 — Instant (~100ms)
-        Component->>Cache: Ghost completion lookup (UC-8)
-        Cache-->>Component: "eiergasse 18, 1100 Wien"
-        Component->>DB: DB address query
-        Component->>DB: DB content query
-    and Phase 3 — Slow (~1-2s)
-        Component->>Geo: GeocodingService.search()
-    end
-
-    DB-->>Component: DB results (UC-1.5)
-    Component->>Component: Render Addresses + Content sections
-
-    Note over Component,Geo: Geocoder skeleton pulses
-
-    Geo-->>Component: Geocoder results (UC-1.6)
-    Component->>Component: Dedup, proximity decay, render Places
-
-    Note over Component: UC-7: If Geo fails/times out,<br/>skeleton hides silently
-```
 
 ---
 
@@ -309,123 +211,7 @@ The ghost completion uses a prefix trie optimized for fast prefix lookup with we
 
 The `SearchOrchestratorService` already exists at `core/search/search-orchestrator.service.ts`. It handles debouncing, caching, deduplication, and ranking. The component drives it with a query observable + context observable.
 
-### Search Source Tiers (Independent Loading)
-
-All search sources fire in parallel and render independently. No source blocks another. Sources are grouped into tiers by latency:
-
-| Tier        | Source               | Latency               | Table / API                          | Section Header        |
-| ----------- | -------------------- | --------------------- | ------------------------------------ | --------------------- |
-| **Instant** | Recent searches      | 0ms (localStorage)    | —                                    | "Recent searches"     |
-| **Instant** | Ghost completion     | <1ms (in-memory trie) | —                                    | _(inline ghost text)_ |
-| **Fast**    | DB addresses         | ~50–200ms             | `images.address_label`               | "Addresses"           |
-| **Fast**    | DB projects & groups | ~50–200ms             | `projects.name`, `saved_groups.name` | "Projects & Groups"   |
-| **Slow**    | Geocoder (Nominatim) | ~1–2s                 | Edge Function → Nominatim            | "Places"              |
-
-The orchestrator emits results progressively via `concat(typing$, partial$, complete$)`:
-
-- **Phase 1 (0ms):** Typing state — skeleton UI, ghost completion rendered
-- **Phase 2 (~100ms):** Partial — all DB sources (addresses + content) rendered
-- **Phase 3 (~1–2s):** Complete — geocoder results appended, deduped against DB
-
-### SearchQueryContext
-
-The `SearchQueryContext` passed to the orchestrator must include the active project so resolvers and ranking can use it:
-
-```typescript
-export interface SearchQueryContext {
-  organizationId?: string;
-  activeProjectId?: string; // ← from ProjectsDropdown selection
-  viewportBounds?: { north: number; east: number; south: number; west: number };
-  dataCentroid?: { lat: number; lng: number }; // ← org image centroid, cached per session
-  countryCodes?: string[]; // ← derived from org image data (e.g. ['at'])
-  activeFilterCount?: number;
-  commandMode?: boolean;
-  selectedGroupId?: string;
-}
-```
-
-The component must emit context changes whenever the active project changes (via `ProjectsDropdownService` or equivalent). Resolvers receive this context and use `activeProjectId` to boost ranking of matching results.
-
-On session start, the component (or a shared service) queries the organization's data centroid and country codes, caches them for the session, and includes them in every `SearchQueryContext` emission.
-
-### Geocoder Resolution — Proxy Only
-
-**All geocoder requests must go through `GeocodingService`** which routes them via the Supabase Edge Function proxy (`/functions/v1/geocode`). The component must never call Nominatim directly via `fetch()`. This is required because:
-
-- Direct browser→Nominatim calls fail with CORS errors on HTTP 429.
-- The Edge Function adds the required `User-Agent` header.
-- Server-side rate limiting is enforced there.
-
-`GeocodingService` needs a `search(query, options)` method that returns multiple results (the existing `forward()` returns only 1 result with `limit=1`). The search bar needs `limit=5`.
-
-### Rate Limiting & Perceived Speed
-
-Nominatim's usage policy requires max 1 request/second. The Edge Function enforces a 1.1s minimum interval. This is acceptable because:
-
-1. **Geocoder results are the slowest source by design.** The 3-phase progressive loading ensures DB results + recents render instantly (~50–200ms) while the geocoder skeleton pulses.
-2. **Most queries are answered by DB alone.** If the user's data already covers the address, the geocoder section is supplementary.
-3. **Cache eliminates repeated waits.** A 5-minute TTL means re-typing the same prefix is instant.
-4. **Fallback queries are conditional.** Only fire if primary returns 0 results, not unconditionally.
-
-The perceived speed comes from parallel, independent sources — not from making Nominatim faster.
-
-### Independent Source Loading (3-Phase Progressive)
-
-All result sources must load and render independently. No source blocks another:
-
-| Phase            | Timing          | What renders                                          | Geocoder state               |
-| ---------------- | --------------- | ----------------------------------------------------- | ---------------------------- |
-| **1 — Typing**   | Immediate (0ms) | Skeleton UI, ghost completion, input feedback         | `loading`                    |
-| **2 — Partial**  | ~50–200ms       | DB addresses + DB content (projects/groups) + recents | `loading` (skeleton rows)    |
-| **3 — Complete** | ~1–2s           | Geocoder results appended below                       | `loaded` or `error` (hidden) |
-
-The `SearchOrchestratorService` already implements this via `concat(typing$, partial$, complete$)` using `combineLatest` for phases 2 and 3 separately. Each source observable uses `shareReplay` to prevent duplicate requests across phases.
-
-If the geocoder fails or times out (5s timeout), phase 3 simply hides the geocoder section — it must never block or delay the DB results from phase 2.
-
-### Fallback Query Strategy
-
-The `buildFallbackQueries()` method generates up to 3 query variants (corrected street+house, street-only, corrected street-only). To avoid 2–3× slower sequential geocoder calls:
-
-- Fire the primary query first through `GeocodingService.search()`.
-- Only fire fallback variants if the primary returns 0 results.
-- Never fire all variants unconditionally.
-
-### Result Ranking Algorithm
-
-Within each section, results are ranked by a composite score. The formula differs by source but follows common principles from information retrieval (BM25-inspired text relevance + domain-specific signals):
-
-**DB Address Ranking:**
-
-```
-score = textMatch × projectBoost × dataGravity × recencyDecay
-```
-
-- `textMatch`: Position and completeness of the query match (prefix match > substring, exact > partial)
-- `projectBoost`: `2.0` if address belongs to active project, `1.0` otherwise
-- `dataGravity`: `log2(imageCount + 1)` — addresses with more photos are more important worksites
-- `recencyDecay`: `1 / (1 + daysSinceLastPhoto * 0.05)` — recently-active sites rank higher
-
-**DB Content Ranking (Projects & Groups):**
-
-```
-score = textMatch × projectBoost × sizeSignal
-```
-
-- `projectBoost`: `3.0` if matches active project, `1.0` otherwise (projects are high-intent)
-- `sizeSignal`: `log2(photoCount + 1)` — larger projects rank above empty ones
-
-**Geocoder Ranking:**
-
-```
-score = nominatimImportance × proximityDecay × countryBoost
-```
-
-- `nominatimImportance`: Nominatim's own importance score (0–1)
-- `proximityDecay`: `1 / (1 + distanceFromCentroidKm * 0.01)` — closer to org data = more relevant
-- `countryBoost`: `1.5` if result is in one of the org's active countries, `1.0` otherwise
-
-**Cross-section ordering:** Sections render in fixed order (Addresses → Projects & Groups → Places). Within each section, items are sorted by their section-specific score descending.
+Detailed source-loading, ranking, and geocoder behavior lives in the optional sections after `Acceptance Criteria`.
 
 ## State
 
@@ -607,6 +393,220 @@ Types are defined in `core/search/search.models.ts` (already exists).
 
 - [ ] Highlighted geocoder result (via keyboard nav) shows a tiny map thumbnail to the right of the row
 - [ ] Preview helps verify the correct location before committing
+
+## Use Cases
+
+> **Full use cases:** [use-cases/search-bar.md](../use-cases/search-bar.md) — 18 scenarios (UC-1 through UC-18) with 50+ edge cases.
+
+The use cases are the source of truth. The state machine, actions table, and technical sections below all derive from them. Key scenarios:
+
+| UC    | Scenario                              | Key edge cases                                          |
+| ----- | ------------------------------------- | ------------------------------------------------------- |
+| UC-1  | Quick address lookup (happy path)     | Cancel in-flight, slow connection, no DB match          |
+| UC-2  | Repeat searches across sessions       | Project switch re-ranks, LRU eviction                   |
+| UC-3  | Named place / POI search              | Building name + address, verbose label formatting       |
+| UC-4  | Search with typos                     | pg_trgm fuzzy, suffix normalization (`str.` ↔ `straße`) |
+| UC-5  | Paste coordinates or map link         | Google Maps URL, DMS format, reverse-geocode failure    |
+| UC-6  | Project or group search               | Dual-section results, active project boost              |
+| UC-7  | Geocoder slow or failing              | 429 retry, Edge Function down, Supabase down            |
+| UC-8  | Tab autocomplete from history         | No match, priority tiers, cross-project ghost           |
+| UC-9  | Active project filter context         | Project boost, country bias from project data           |
+| UC-10 | Address not in the system yet         | Geocoder-only results, unknown country                  |
+| UC-11 | Mobile on-site search                 | Small viewport, virtual keyboard, offline               |
+| UC-12 | Clear and start over                  | Backspace on empty, edit committed text                 |
+| UC-13 | Keyboard-only navigation              | Arrow wrap, Tab vs ArrowDown priority                   |
+| UC-14 | Similar addresses in different cities | Proximity decay, dedup, multi-country restriction       |
+| UC-15 | Cold start after login                | Background geo-context, fresh org                       |
+| UC-16 | "Did you mean?" suggestion            | Ambiguous correction, geocoder correction               |
+| UC-17 | Concurrent search and filter          | Filter persistence, distance reference point            |
+| UC-18 | Long session cache management         | LRU eviction, trie rebuild                              |
+
+## State Machine
+
+Derived from the use cases above. Each state corresponds to a user scenario:
+
+```mermaid
+stateDiagram-v2
+  [*] --> Idle : Page loads (UC-15)
+
+  Idle --> FocusedEmpty : Click / Tab / Cmd+K (UC-1.1, UC-2.1)
+  FocusedEmpty --> Idle : Blur without typing
+  FocusedEmpty --> Typing : User types character (UC-1.3)
+
+  Typing --> Typing : More characters / debounce resets (UC-1a)
+  Typing --> Typing : Tab accepts ghost (UC-8) → new query
+  Typing --> FocusedEmpty : Backspace to empty (UC-12b)
+  Typing --> CoordinateDetected : Paste coordinates (UC-5)
+  Typing --> ResultsPartial : DB source returns (UC-1.5, UC-7)
+
+  CoordinateDetected --> Committed : Map centers + reverse-geocode (UC-5.3)
+
+  ResultsPartial --> ResultsComplete : Geocoder returns or times out (UC-1.6, UC-7)
+  ResultsPartial --> Typing : User modifies query (UC-1a)
+  ResultsPartial --> Committed : User selects a DB result early (UC-7.5)
+
+  ResultsComplete --> Committed : Enter / Click / recent-selected (UC-1.7, UC-6.3)
+  ResultsComplete --> Typing : User modifies query (UC-1a)
+  ResultsComplete --> Idle : Escape → Escape (UC-13.5-6)
+
+  Committed --> Typing : User edits query text (UC-12b)
+  Committed --> Idle : Clear button / Backspace on empty (UC-12)
+```
+
+### Source Loading Phases
+
+Each search query triggers 3 independent data sources. They load progressively — no source waits for another:
+
+```mermaid
+sequenceDiagram
+  participant User
+  participant Component
+  participant DB as DB (Supabase)
+  participant Cache as Local Cache
+  participant Geo as Geocoder (Edge Fn)
+
+  User->>Component: Types "schl" (UC-1.3)
+  Component->>Component: Debounce 300ms
+
+  par Phase 2 — Instant (~100ms)
+    Component->>Cache: Ghost completion lookup (UC-8)
+    Cache-->>Component: "eiergasse 18, 1100 Wien"
+    Component->>DB: DB address query
+    Component->>DB: DB content query
+  and Phase 3 — Slow (~1-2s)
+    Component->>Geo: GeocodingService.search()
+  end
+
+  DB-->>Component: DB results (UC-1.5)
+  Component->>Component: Render Addresses + Content sections
+
+  Note over Component,Geo: Geocoder skeleton pulses
+
+  Geo-->>Component: Geocoder results (UC-1.6)
+  Component->>Component: Dedup, proximity decay, render Places
+
+  Note over Component: UC-7: If Geo fails/times out,<br/>skeleton hides silently
+```
+
+## Data Pipeline
+
+### Search Source Tiers (Independent Loading)
+
+All search sources fire in parallel and render independently. No source blocks another. Sources are grouped into tiers by latency:
+
+| Tier        | Source               | Latency               | Table / API                          | Section Header        |
+| ----------- | -------------------- | --------------------- | ------------------------------------ | --------------------- |
+| **Instant** | Recent searches      | 0ms (localStorage)    | —                                    | "Recent searches"     |
+| **Instant** | Ghost completion     | <1ms (in-memory trie) | —                                    | _(inline ghost text)_ |
+| **Fast**    | DB addresses         | ~50–200ms             | `images.address_label`               | "Addresses"           |
+| **Fast**    | DB projects & groups | ~50–200ms             | `projects.name`, `saved_groups.name` | "Projects & Groups"   |
+| **Slow**    | Geocoder (Nominatim) | ~1–2s                 | Edge Function → Nominatim            | "Places"              |
+
+The orchestrator emits results progressively via `concat(typing$, partial$, complete$)`:
+
+- **Phase 1 (0ms):** Typing state — skeleton UI, ghost completion rendered
+- **Phase 2 (~100ms):** Partial — all DB sources (addresses + content) rendered
+- **Phase 3 (~1–2s):** Complete — geocoder results appended, deduped against DB
+
+### SearchQueryContext
+
+The `SearchQueryContext` passed to the orchestrator must include the active project so resolvers and ranking can use it:
+
+```typescript
+export interface SearchQueryContext {
+  organizationId?: string;
+  activeProjectId?: string; // ← from ProjectsDropdown selection
+  viewportBounds?: { north: number; east: number; south: number; west: number };
+  dataCentroid?: { lat: number; lng: number }; // ← org image centroid, cached per session
+  countryCodes?: string[]; // ← derived from org image data (e.g. ['at'])
+  activeFilterCount?: number;
+  commandMode?: boolean;
+  selectedGroupId?: string;
+}
+```
+
+The component must emit context changes whenever the active project changes (via `ProjectsDropdownService` or equivalent). Resolvers receive this context and use `activeProjectId` to boost ranking of matching results.
+
+On session start, the component (or a shared service) queries the organization's data centroid and country codes, caches them for the session, and includes them in every `SearchQueryContext` emission.
+
+### Geocoder Resolution — Proxy Only
+
+**All geocoder requests must go through `GeocodingService`** which routes them via the Supabase Edge Function proxy (`/functions/v1/geocode`). The component must never call Nominatim directly via `fetch()`. This is required because:
+
+- Direct browser→Nominatim calls fail with CORS errors on HTTP 429.
+- The Edge Function adds the required `User-Agent` header.
+- Server-side rate limiting is enforced there.
+
+`GeocodingService` needs a `search(query, options)` method that returns multiple results (the existing `forward()` returns only 1 result with `limit=1`). The search bar needs `limit=5`.
+
+### Rate Limiting & Perceived Speed
+
+Nominatim's usage policy requires max 1 request/second. The Edge Function enforces a 1.1s minimum interval. This is acceptable because:
+
+1. **Geocoder results are the slowest source by design.** The 3-phase progressive loading ensures DB results + recents render instantly (~50–200ms) while the geocoder skeleton pulses.
+2. **Most queries are answered by DB alone.** If the user's data already covers the address, the geocoder section is supplementary.
+3. **Cache eliminates repeated waits.** A 5-minute TTL means re-typing the same prefix is instant.
+4. **Fallback queries are conditional.** Only fire if primary returns 0 results, not unconditionally.
+
+The perceived speed comes from parallel, independent sources — not from making Nominatim faster.
+
+### Independent Source Loading (3-Phase Progressive)
+
+All result sources must load and render independently. No source blocks another:
+
+| Phase            | Timing          | What renders                                          | Geocoder state               |
+| ---------------- | --------------- | ----------------------------------------------------- | ---------------------------- |
+| **1 — Typing**   | Immediate (0ms) | Skeleton UI, ghost completion, input feedback         | `loading`                    |
+| **2 — Partial**  | ~50–200ms       | DB addresses + DB content (projects/groups) + recents | `loading` (skeleton rows)    |
+| **3 — Complete** | ~1–2s           | Geocoder results appended below                       | `loaded` or `error` (hidden) |
+
+The `SearchOrchestratorService` already implements this via `concat(typing$, partial$, complete$)` using `combineLatest` for phases 2 and 3 separately. Each source observable uses `shareReplay` to prevent duplicate requests across phases.
+
+If the geocoder fails or times out (5s timeout), phase 3 simply hides the geocoder section — it must never block or delay the DB results from phase 2.
+
+### Fallback Query Strategy
+
+The `buildFallbackQueries()` method generates up to 3 query variants (corrected street+house, street-only, corrected street-only). To avoid 2–3× slower sequential geocoder calls:
+
+- Fire the primary query first through `GeocodingService.search()`.
+- Only fire fallback variants if the primary returns 0 results.
+- Never fire all variants unconditionally.
+
+### Result Ranking Algorithm
+
+Within each section, results are ranked by a composite score. The formula differs by source but follows common principles from information retrieval (BM25-inspired text relevance + domain-specific signals):
+
+**DB Address Ranking:**
+
+```
+score = textMatch × projectBoost × dataGravity × recencyDecay
+```
+
+- `textMatch`: Position and completeness of the query match (prefix match > substring, exact > partial)
+- `projectBoost`: `2.0` if address belongs to active project, `1.0` otherwise
+- `dataGravity`: `log2(imageCount + 1)` — addresses with more photos are more important worksites
+- `recencyDecay`: `1 / (1 + daysSinceLastPhoto * 0.05)` — recently-active sites rank higher
+
+**DB Content Ranking (Projects & Groups):**
+
+```
+score = textMatch × projectBoost × sizeSignal
+```
+
+- `projectBoost`: `3.0` if matches active project, `1.0` otherwise (projects are high-intent)
+- `sizeSignal`: `log2(photoCount + 1)` — larger projects rank above empty ones
+
+**Geocoder Ranking:**
+
+```
+score = nominatimImportance × proximityDecay × countryBoost
+```
+
+- `nominatimImportance`: Nominatim's own importance score (0–1)
+- `proximityDecay`: `1 / (1 + distanceFromCentroidKm * 0.01)` — closer to org data = more relevant
+- `countryBoost`: `1.5` if result is in one of the org's active countries, `1.0` otherwise
+
+**Cross-section ordering:** Sections render in fixed order (Addresses → Projects & Groups → Places). Within each section, items are sorted by their section-specific score descending.
 
 ## Search + Filter Integration Rules
 
