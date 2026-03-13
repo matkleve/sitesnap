@@ -19,7 +19,7 @@
  *   1  One or more specs have errors
  */
 
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join, basename, resolve } from "node:path";
 
 // ─── Config ────────────────────────────────────────────────────────────────
@@ -99,6 +99,135 @@ function findSection(sections, targetName) {
       s.name.toLowerCase().startsWith(targetName.toLowerCase())
     );
   });
+}
+
+function escapeTableCell(value) {
+  return String(value).replace(/\|/g, "\\|").trim();
+}
+
+function parseSettingsEntries(filePath, parsed) {
+  const diagnostics = [];
+  const entries = [];
+  const section = findSection(parsed.sections, "Settings");
+
+  if (!section) {
+    return { entries, diagnostics, hasSettingsSection: false };
+  }
+
+  const settingsLines = parsed.lines
+    .slice(section.startLine, section.endLine)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  for (const line of settingsLines) {
+    let match = line.match(/^- \*\*(.+?)\*\*:\s*(.+)$/);
+    if (!match) {
+      match = line.match(/^- (.+?)\s+[—-]\s+(.+)$/);
+    }
+
+    if (match) {
+      entries.push({
+        section: match[1].trim(),
+        sourceSpec: basename(filePath),
+        what: match[2].trim(),
+      });
+    }
+  }
+
+  if (entries.length === 0) {
+    diagnostics.push({
+      severity: "warning",
+      rule: "settings-section-format",
+      file: filePath,
+      line: section.startLine,
+      message:
+        'Section "## Settings" should include bullet items in the format "- **Section**: what it configures".',
+    });
+  }
+
+  return { entries, diagnostics, hasSettingsSection: true };
+}
+
+function renderSettingsRegistry(entries) {
+  const sortedEntries = [...entries].sort((a, b) => {
+    const sectionCompare = a.section.localeCompare(b.section);
+    if (sectionCompare !== 0) {
+      return sectionCompare;
+    }
+    return a.sourceSpec.localeCompare(b.sourceSpec);
+  });
+
+  const lines = [
+    "# Settings Registry",
+    "",
+    "Generated from all `## Settings` sections in `docs/element-specs/*.md`.",
+    "Do not edit manually; update element specs and run `node scripts/lint-specs.mjs --fix`.",
+    "",
+    "| Section | Source Spec | What it configures |",
+    "|---------|-------------|--------------------|",
+  ];
+
+  if (sortedEntries.length === 0) {
+    lines.push(
+      "| _None declared yet_ | Proposed | No specs currently include a `## Settings` section. |",
+    );
+  } else {
+    for (const entry of sortedEntries) {
+      lines.push(
+        `| ${escapeTableCell(entry.section)} | ${escapeTableCell(entry.sourceSpec)} | ${escapeTableCell(entry.what)} |`,
+      );
+    }
+  }
+
+  return `${lines.join("\n")}\n`;
+}
+
+function ruleSettingsRegistrySync(specFiles, config, projectRoot) {
+  const diagnostics = [];
+  const entries = [];
+
+  for (const filePath of specFiles) {
+    const content = readFileSync(filePath, "utf-8");
+    const parsed = parseSections(content);
+    const parsedSettings = parseSettingsEntries(filePath, parsed);
+
+    entries.push(...parsedSettings.entries);
+    diagnostics.push(...parsedSettings.diagnostics);
+  }
+
+  const registryPath = join(projectRoot, "docs", "settings-registry.md");
+  const generatedRegistry = renderSettingsRegistry(entries);
+
+  if (config.fix) {
+    writeFileSync(registryPath, generatedRegistry, "utf-8");
+    return diagnostics;
+  }
+
+  if (!existsSync(registryPath)) {
+    diagnostics.push({
+      severity: "error",
+      rule: "settings-registry-sync",
+      file: registryPath,
+      line: 1,
+      message:
+        "Missing docs/settings-registry.md. Run node scripts/lint-specs.mjs --fix to generate it.",
+    });
+    return diagnostics;
+  }
+
+  const currentRegistry = readFileSync(registryPath, "utf-8");
+  if (currentRegistry !== generatedRegistry) {
+    diagnostics.push({
+      severity: "error",
+      rule: "settings-registry-sync",
+      file: registryPath,
+      line: 1,
+      message:
+        "docs/settings-registry.md is out of sync with spec Settings sections. Run node scripts/lint-specs.mjs --fix.",
+    });
+  }
+
+  return diagnostics;
 }
 
 // ─── Rules ──────────────────────────────────────────────────────────────────
@@ -259,10 +388,13 @@ function parseArgs(argv) {
     maxWhatItIs: DEFAULT_MAX_WHAT_IT_IS,
     maxWhatItLooksLike: DEFAULT_MAX_WHAT_IT_LOOKS_LIKE,
     specDir: null,
+    fix: false,
   };
 
   for (const arg of args) {
-    if (arg.startsWith("--max-lines=")) {
+    if (arg === "--fix") {
+      config.fix = true;
+    } else if (arg.startsWith("--max-lines=")) {
       config.maxLines = parseInt(arg.split("=")[1], 10);
     } else if (arg.startsWith("--warn-lines=")) {
       config.warnLines = parseInt(arg.split("=")[1], 10);
@@ -316,6 +448,20 @@ function main() {
     const warnings = result.diagnostics.filter((d) => d.severity === "warning");
     totalErrors += errors.length;
     totalWarnings += warnings.length;
+  }
+
+  const settingsRegistryDiagnostics = ruleSettingsRegistrySync(
+    files,
+    config,
+    projectRoot,
+  );
+
+  for (const diagnostic of settingsRegistryDiagnostics) {
+    if (diagnostic.severity === "error") {
+      totalErrors += 1;
+    } else {
+      totalWarnings += 1;
+    }
   }
 
   // ─── Output ───────────────────────────────────────────────────────────
@@ -377,6 +523,21 @@ function main() {
           `${color}${icon}${COL_RESET} ${result.file}:${d.line} ${COL_DIM}[${d.rule}]${COL_RESET} ${d.message}`,
         );
       }
+    }
+  }
+
+  if (settingsRegistryDiagnostics.length > 0) {
+    if (filesWithIssues.length === 0) {
+      console.log("");
+    }
+
+    for (const d of settingsRegistryDiagnostics) {
+      const color = d.severity === "error" ? COL_RED : COL_YELLOW;
+      const icon = d.severity === "error" ? "✖" : "⚠";
+      const displayFile = d.file.replace(projectRoot + "\\", "");
+      console.log(
+        `${color}${icon}${COL_RESET} ${displayFile}:${d.line} ${COL_DIM}[${d.rule}]${COL_RESET} ${d.message}`,
+      );
     }
   }
 

@@ -282,4 +282,17 @@ describe('SearchBarComponent', () => {
 
     expect(dropPinSpy).toHaveBeenCalledTimes(1);
   });
+
+  it('keeps fixed input-row track sizing in component styles', () => {
+    const fixture = TestBed.createComponent(SearchBarComponent);
+    fixture.detectChanges();
+
+    const styleText = Array.from(document.querySelectorAll('style'))
+      .map((node) => node.textContent ?? '')
+      .join('\n');
+
+    expect(styleText).toContain('grid-template-rows: var(--search-bar-row-height) minmax(0, 0fr);');
+    expect(styleText).toContain('grid-template-rows: var(--search-bar-row-height) minmax(0, 1fr);');
+    expect(styleText).toContain('height: var(--search-bar-row-height);');
+  });
 });

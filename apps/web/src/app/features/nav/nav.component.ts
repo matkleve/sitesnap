@@ -22,57 +22,56 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 
 export interface NavItem {
-    /** Google Material Icon ligature name (e.g. 'map', 'photo_camera'). */
-    icon: string;
-    label: string;
-    route: string;
-    disabled?: boolean;
+  /** Google Material Icon ligature name (e.g. 'map', 'photo_camera'). */
+  icon: string;
+  label: string;
+  route: string;
+  disabled?: boolean;
 }
 
 @Component({
-    selector: 'app-nav',
-    standalone: true,
-    imports: [RouterLink, RouterLinkActive],
-    templateUrl: './nav.component.html',
-    styleUrl: './nav.component.scss',
+  selector: 'app-nav',
+  standalone: true,
+  imports: [RouterLink, RouterLinkActive],
+  templateUrl: './nav.component.html',
+  styleUrl: './nav.component.scss',
 })
 export class NavComponent {
-    private readonly authService = inject(AuthService);
+  private readonly authService = inject(AuthService);
 
-    /** Nav items in display order. Items with disabled: true are visually greyed
-     *  out and non-interactive — reserved for future features. */
-    navItems: NavItem[] = [
-        { icon: 'map', label: 'Map', route: '/' },
-        { icon: 'photo_camera', label: 'Photos', route: '/photos' },
-        { icon: 'folder', label: 'Groups', route: '/groups' },
-        { icon: 'settings', label: 'Settings', route: '/settings' },
-    ];
+  /** Nav items in display order. Items with disabled: true are visually greyed
+   *  out and non-interactive — reserved for future features. */
+  navItems: NavItem[] = [
+    { icon: 'map', label: 'Map', route: '/' },
+    { icon: 'photo_camera', label: 'Photos', route: '/photos' },
+    { icon: 'folder', label: 'Projects', route: '/groups' },
+  ];
 
-    readonly displayName = computed<string>(() => {
-        const user = this.authService.user();
-        const fullName = user?.user_metadata?.['full_name'];
+  readonly avatarName = computed<string>(() => {
+    const user = this.authService.user();
+    const fullName = user?.user_metadata?.['full_name'];
 
-        if (typeof fullName === 'string' && fullName.trim().length > 0) {
-            return fullName.trim();
-        }
+    if (typeof fullName === 'string' && fullName.trim().length > 0) {
+      return fullName.trim();
+    }
 
-        const email = user?.email;
-        if (typeof email === 'string' && email.includes('@')) {
-            return email.split('@')[0];
-        }
+    const email = user?.email;
+    if (typeof email === 'string' && email.includes('@')) {
+      return email.split('@')[0];
+    }
 
-        return 'Settings';
-    });
+    return '';
+  });
 
-    readonly avatarUrl = computed<string | null>(() => {
-        const avatarUrl = this.authService.user()?.user_metadata?.['avatar_url'];
-        return typeof avatarUrl === 'string' && avatarUrl.trim().length > 0 ? avatarUrl : null;
-    });
+  readonly avatarUrl = computed<string | null>(() => {
+    const avatarUrl = this.authService.user()?.user_metadata?.['avatar_url'];
+    return typeof avatarUrl === 'string' && avatarUrl.trim().length > 0 ? avatarUrl : null;
+  });
 
-    /** First letter of the authenticated user's display name, upper-cased.
-     *  Falls back to '?' if no user is signed in. */
-    readonly avatarInitial = computed<string>(() => {
-        const name = this.displayName();
-        return name === 'Settings' ? '?' : name[0].toUpperCase();
-    });
+  /** First letter of the authenticated user's display name, upper-cased.
+   *  Falls back to '?' if no user is signed in. */
+  readonly avatarInitial = computed<string>(() => {
+    const name = this.avatarName();
+    return name.length === 0 ? '?' : name[0].toUpperCase();
+  });
 }

@@ -31,6 +31,7 @@ const MAX_RECENT_SEARCHES = 20;
 const MAX_DB_ADDRESS_ROWS = 24;
 const MAX_DB_ADDRESS_RESULTS = 5;
 const MAX_DB_CONTENT_RESULTS = 6;
+const MAX_GEOCODER_RESULTS = 3;
 
 interface DbAddressRow {
   id: string;
@@ -333,7 +334,7 @@ export class SearchBarService {
     // Require at least 3 characters to avoid noise (e.g. "De" → Germany)
     if (normalizedQuery.length < 3) return [];
 
-    const searchOptions: GeocoderSearchOptions = { limit: 3 };
+    const searchOptions: GeocoderSearchOptions = { limit: MAX_GEOCODER_RESULTS };
     if (context.countryCodes?.length) {
       searchOptions.countrycodes = context.countryCodes;
     }
@@ -348,6 +349,7 @@ export class SearchBarService {
       if (results.length > 0) {
         return results
           .filter((r) => isStreetLevelResult(r))
+          .slice(0, MAX_GEOCODER_RESULTS)
           .map((result, index) => this.toGeocoderCandidate(result, currentQuery, index));
       }
     }

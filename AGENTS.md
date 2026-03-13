@@ -16,21 +16,25 @@ docs/                 → Design docs, element specs, glossary (source of truth)
 ## Development
 
 ### Install dependencies
+
 ```bash
 npm install
 ```
 
 ### Run the dev server
+
 ```bash
 cd apps/web && ng serve
 ```
 
 ### Build
+
 ```bash
 cd apps/web && ng build
 ```
 
 ### Run tests
+
 ```bash
 cd apps/web && ng test
 ```
@@ -61,3 +65,7 @@ cd apps/web && ng test
 
 Field-first, map-primary, progressive disclosure, warmth, calm confidence.
 Non-negotiable rules: `docs/design/constitution.md`
+
+## Settings Overlay Convention
+
+For any feature that introduces user-configurable behavior, add an optional `## Settings` section to that feature's element spec in `docs/element-specs/`. Use concise bullets in the form `- **Section**: what it configures`. The settings inventory is centralized in `docs/settings-registry.md` and must stay in sync with all spec `## Settings` sections via `node scripts/lint-specs.mjs`. When adding a new configurable feature, update the spec first and then run the linter (or `--fix`) to refresh/validate the registry.

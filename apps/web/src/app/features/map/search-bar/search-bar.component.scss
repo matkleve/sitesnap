@@ -21,6 +21,9 @@
   --search-bar-padding-inline: var(--ui-container-padding-inline);
   --search-bar-padding-block: var(--ui-container-padding-block);
   --search-bar-gap: var(--ui-container-gap);
+  --search-bar-dropdown-padding-inline: var(--container-padding-inline-panel);
+  --search-bar-dropdown-padding-block: var(--container-padding-block-panel);
+  --search-bar-dropdown-gap: var(--container-gap-panel);
   --search-bar-media-size: var(--spacing-6);
   --search-bar-row-height: 3rem;
   --search-bar-results-max-block-size: min(32rem, 60vh);
@@ -38,10 +41,8 @@
   border-radius: var(--ui-container-radius);
   background: color-mix(in srgb, var(--color-bg-surface) 92%, transparent);
   box-shadow: var(--elevation-overlay);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
   overflow: hidden;
-  transition: grid-template-rows var(--search-bar-reveal-duration) ease-out;
+  contain: layout paint;
 }
 
 .search-bar--expanded {
@@ -57,6 +58,9 @@
   min-height: var(--search-bar-row-height);
   align-items: center;
   column-gap: var(--search-bar-gap);
+  background: color-mix(in srgb, var(--color-bg-surface) 92%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
 
 .search-bar__slot-wrapper {
@@ -182,6 +186,7 @@
   visibility: hidden;
   pointer-events: none;
   overflow: hidden;
+  will-change: opacity;
   transition:
     opacity 120ms ease-out,
     border-top-color 120ms ease-out;
@@ -196,11 +201,15 @@
 
 .search-bar__dropdown-content {
   display: grid;
-  gap: var(--search-bar-gap);
-  padding-block: var(--search-bar-padding-block);
+  gap: var(--search-bar-dropdown-gap);
+  block-size: fit-content;
+  padding: var(--search-bar-dropdown-padding-block) var(--search-bar-dropdown-padding-inline);
   max-block-size: var(--search-bar-results-max-block-size);
   overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   opacity: 0;
+  will-change: opacity;
 }
 
 .search-bar--expanded .search-bar__dropdown-content {
@@ -209,7 +218,7 @@
 }
 
 .search-bar__section-label {
-  padding: 0 var(--search-bar-padding-inline);
+  padding: 0;
   color: var(--color-text-secondary);
   font-size: 0.75rem;
   font-weight: 600;
@@ -219,7 +228,7 @@
 
 .search-bar__divider {
   height: 1px;
-  margin: 0 var(--search-bar-padding-inline);
+  margin: 0;
   background: var(--color-border);
 }
 
@@ -227,7 +236,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--search-bar-gap);
-  padding-inline: var(--search-bar-padding-inline);
 }
 
 .search-bar__empty-title {
@@ -254,7 +262,6 @@
 .search-bar__skeleton-list {
   display: grid;
   gap: var(--search-bar-gap);
-  padding-inline: var(--search-bar-padding-inline);
 }
 
 .search-bar__skeleton-row {

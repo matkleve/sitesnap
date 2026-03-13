@@ -53,6 +53,8 @@ interface CachedResult {
   result: SearchResultSet;
 }
 
+const MAX_GEOCODER_SECTION_ITEMS = 3;
+
 @Injectable({ providedIn: 'root' })
 export class SearchOrchestratorService {
   private readonly options: SearchOrchestratorOptions = {
@@ -234,9 +236,9 @@ export class SearchOrchestratorService {
       (left, right) => (right.score ?? 0) - (left.score ?? 0),
     );
 
-    const rankedGeocoder = [...geocoder].sort(
-      (left, right) => (right.score ?? 0) - (left.score ?? 0),
-    );
+    const rankedGeocoder = [...geocoder]
+      .sort((left, right) => (right.score ?? 0) - (left.score ?? 0))
+      .slice(0, MAX_GEOCODER_SECTION_ITEMS);
 
     sections.push({ family: 'db-address', title: 'Photo Locations', items: rankedDbAddress });
     sections.push({ family: 'db-content', title: 'Projects & Groups', items: rankedDbContent });

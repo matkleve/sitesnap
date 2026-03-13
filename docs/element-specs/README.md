@@ -102,6 +102,14 @@ Cross-cutting options:
 - `Data Pipeline`
 - `Lifecycle` flows
 - `Child Specs` (split parent specs only)
+- `Settings` (optional section used by configurable features)
+
+`## Settings` convention:
+
+- Use this section to list user-configurable settings exposed by the spec.
+- Recommended bullet format per item: `- **<Section>**: <what it configures>`.
+- Keep it concise and user-facing (for example: Theme, Notifications, Roles & Permissions).
+- When present, entries must be reflected in `docs/settings-registry.md`.
 
 Guidance: prefer one general structure with required core sections plus optional sections, rather than separate templates per element type.
 
@@ -141,6 +149,7 @@ Run `node scripts/lint-specs.mjs` from the project root to validate all specs. R
 | `what-it-is-length`       | warning    | 5 lines   | Keep "What It Is" to 1–2 sentences                                                                                      |
 | `what-it-looks-like-len`  | warning    | 40 lines  | Move visual detail to Actions or child specs                                                                            |
 | `has-acceptance-criteria` | error      | —         | At least one `- [ ]` checkbox in Acceptance Criteria                                                                    |
+| `settings-registry-sync`  | error      | —         | `docs/settings-registry.md` must match all `## Settings` entries found in specs                                         |
 
 Lint is the minimum machine-enforced gate. The **Spec Structure Contract** above is the stricter authoring standard.
 
