@@ -1,8 +1,8 @@
-# Copilot Instructions for SiteSnap
+# Copilot Instructions for Feldpost
 
 ## Project Overview
 
-SiteSnap is a geo-temporal image management system for construction companies. It is an Angular 21 SPA with a Leaflet map and a Supabase backend (Auth, PostgreSQL + PostGIS, Storage).
+Feldpost is a geo-temporal image management system for construction companies. It is an Angular 21 SPA with a Leaflet map and a Supabase backend (Auth, PostgreSQL + PostGIS, Storage).
 
 ## Tech Stack
 

@@ -1,4 +1,4 @@
-﻿# Sitesnap – Component: Filter Panel
+# Feldpost – Component: Filter Panel
 
 ## 5.2 Filter Panel
 

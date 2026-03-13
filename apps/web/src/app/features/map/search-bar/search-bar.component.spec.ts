@@ -100,7 +100,7 @@ describe('SearchBarComponent', () => {
 
   it('opens recent searches on focus', () => {
     localStorage.setItem(
-      'sitesnap-recent-searches',
+      'feldpost-recent-searches',
       JSON.stringify([
         {
           id: 'recent-burg',

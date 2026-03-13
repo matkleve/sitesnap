@@ -1,4 +1,4 @@
-﻿# Sitesnap – Design Tokens
+# Feldpost – Design Tokens
 
 Load this file for any task involving visual styling, sizing, or color.
 
@@ -91,7 +91,7 @@ Minimum rendered text size: **12px / 0.75rem** (caption only). Body text is neve
 
 ## 3.3 Spacing and Grid
 
-Sitesnap uses a **0.25rem (4px) base unit** with a Tailwind-standard scale (0.25rem, 0.5rem, 0.75rem, 1rem, 1.25rem, 1.5rem, 2rem, 2.5rem, 3rem, 4rem, 5rem, 6rem).
+Feldpost uses a **0.25rem (4px) base unit** with a Tailwind-standard scale (0.25rem, 0.5rem, 0.75rem, 1rem, 1.25rem, 1.5rem, 2rem, 2.5rem, 3rem, 4rem, 5rem, 6rem).
 
 Key layout dimensions:
 

@@ -26,7 +26,7 @@ import {
 export type { DetectedCoordinates } from './coordinate-detection';
 export type { GhostTrieEntry } from './ghost-trie';
 
-const RECENT_SEARCHES_STORAGE_KEY = 'sitesnap-recent-searches';
+const RECENT_SEARCHES_STORAGE_KEY = 'feldpost-recent-searches';
 const MAX_RECENT_SEARCHES = 20;
 const MAX_DB_ADDRESS_ROWS = 24;
 const MAX_DB_ADDRESS_RESULTS = 5;

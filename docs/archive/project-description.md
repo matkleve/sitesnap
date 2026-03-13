@@ -1,6 +1,6 @@
-﻿# Sitesnap - Spatial Construction Image Intelligence
+# Feldpost - Spatial Construction Image Intelligence
 
-**Who this is for:** frontend and backend engineers implementing Sitesnap.  
+**Who this is for:** frontend and backend engineers implementing Feldpost.  
 **What you'll get:** a clear picture of the problem, product vision, key use cases, invariants, and MVP scope.
 
 ---
@@ -18,7 +18,7 @@ This approach fails for spatial search, temporal exploration, and cross-project 
 
 ## 2. Product Vision
 
-Sitesnap is a geo-temporal image management system for construction companies.
+Feldpost is a geo-temporal image management system for construction companies.
 
 Users should be able to stand at a location (or choose one on a map) and quickly find relevant historical images using:
 
@@ -39,7 +39,7 @@ Detailed flows are in `use-cases/README.md`.
 - **UC2 - Clerk preparing a quote**: filter by address, time, project, metadata, and distance.
 - **UC3 - Marker correction**: correct photo position while preserving original EXIF coordinates.
 - **UC4 - Admin role management**: grant/revoke elevated access.
-- **UC13 - Folder-based bulk import**: select a local folder; Sitesnap resolves locations from folder names and filenames, surfaces conflicts, and imports the batch after a review step.
+- **UC13 - Folder-based bulk import**: select a local folder; Feldpost resolves locations from folder names and filenames, surfaces conflicts, and imports the batch after a review step.
 
 ---
 
@@ -155,7 +155,7 @@ Out of scope for the first version:
 
 ## 11. Success Criteria
 
-Sitesnap is successful for MVP when:
+Feldpost is successful for MVP when:
 
 - A technician can quickly see relevant nearby historical images on site.
 - A clerk can prepare quotes using project/time/metadata filters without folder guessing.

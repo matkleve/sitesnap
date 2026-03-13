@@ -1,4 +1,4 @@
-﻿# Sitesnap – Component: Radius Selection
+# Feldpost – Component: Radius Selection
 
 ## 5.6 Radius Selection Circle
 

@@ -1,6 +1,6 @@
-# SiteSnap — Agent Guidelines
+# Feldpost — Agent Guidelines
 
-Sitesnap is a geo-temporal image management system for construction companies.
+Feldpost is a geo-temporal image management system for construction companies.
 Angular SPA + Leaflet map + Supabase (Auth, PostgreSQL + PostGIS, Storage).
 
 ## Project Structure

@@ -1,4 +1,4 @@
-﻿# Sitesnap – Component: Workspace Pane
+# Feldpost – Component: Workspace Pane
 
 ## 5.3 Workspace Pane — Group Tabs
 

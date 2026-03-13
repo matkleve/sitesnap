@@ -1,4 +1,4 @@
-﻿# Theme Toggle
+# Theme Toggle
 
 ## What It Is
 
@@ -43,7 +43,7 @@ ThemeToggle                                ← icon button, same size as sidebar
 | `themeMode`     | `'light' \| 'dark' \| 'system'` | `'system'` | Which theme is active                  |
 | `resolvedTheme` | `'light' \| 'dark'`             | derived    | Actual applied theme (resolves system) |
 
-Persisted in `localStorage` under key `sitesnap-theme`.
+Persisted in `localStorage` under key `feldpost-theme`.
 
 ## File Map
 

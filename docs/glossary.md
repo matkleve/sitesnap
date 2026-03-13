@@ -1,17 +1,17 @@
-﻿# Glossary
+# Glossary
 
-**Who this is for:** anyone reading or writing Sitesnap code or docs.  
+**Who this is for:** anyone reading or writing Feldpost code or docs.  
 **What you’ll get:** precise definitions of domain terms and where they show up in the system.
 
 ---
 
 ## Core Domain Terms
 
-- **Sitesnap**  
+- **Feldpost**  
   The overall system: geo‑temporal image management for construction documentation.
 
 - **User**  
-  An authenticated person using Sitesnap.
+  An authenticated person using Feldpost.
   - Identity: Supabase `auth.users`.
   - Domain data: `profiles` table.
 
@@ -208,7 +208,7 @@
 
 - **AddressResolverService**  
   An Angular service (`providedIn: 'root'`) that resolves address queries to a ranked list of geographic candidates.
-  - Queries the Sitesnap database first (DB-first ranking), then calls `GeocodingAdapter` for external results.
+  - Queries the Feldpost database first (DB-first ranking), then calls `GeocodingAdapter` for external results.
   - Returns results as `AddressCandidateGroup`: `databaseCandidates` first (up to 3), then `geocoderCandidates` (up to 5), separated by a visual divider.
   - Used at every address-input point in the application: map search bar, upload panel, folder import review, marker correction.
   - See `address-resolver.md`.
@@ -475,7 +475,7 @@ Canonical names for every visible piece of the interface. Use these in code, doc
 - **No Images in Viewport:** "Nothing here yet" + "Try adjusting filters" + "Clear filters" button.
 - **Empty Group:** "This group is empty" + "Add images from the map" + "Go to map" button.
 - **No Search Results:** "No address found" + "Try a different address or pin manually" + "Drop pin" button.
-- **First Login / Welcome:** "Welcome to Sitesnap" + "Start by uploading photos" + "Upload photos" button.
+- **First Login / Welcome:** "Welcome to Feldpost" + "Start by uploading photos" + "Upload photos" button.
 
 ### Page-Level Components (placeholder)
 

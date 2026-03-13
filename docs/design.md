@@ -1,6 +1,6 @@
-﻿# Sitesnap – Product Design
+# Feldpost – Product Design
 
-**Who this is for:** designers, frontend engineers, and anyone shaping how Sitesnap looks and behaves.  
+**Who this is for:** designers, frontend engineers, and anyone shaping how Feldpost looks and behaves.  
 **What you'll get:** the always-load design context — principles, dark mode, accessibility, responsive quick reference, design debt, and links to smaller task-specific design files.
 
 See `architecture.md` for technical constraints that affect layout decisions.
@@ -70,7 +70,7 @@ Outdoor light, dark basements, OLED phones, wide-gamut monitors — the product 
 
 ### 1.5 Warmth Over Sterility
 
-_Inspired by Anthropic's design philosophy._ Cold, clinical UIs communicate distance. Sitesnap is a tool people use every day on job sites — it should feel grounded and human. Warmth is embedded in the palette (off-white rather than pure white, near-black with a warm tint rather than cold blue-black), the type system (generous line-height, readable body sizes), and the language used in labels and empty states (plain, direct, never corporate).
+_Inspired by Anthropic's design philosophy._ Cold, clinical UIs communicate distance. Feldpost is a tool people use every day on job sites — it should feel grounded and human. Warmth is embedded in the palette (off-white rather than pure white, near-black with a warm tint rather than cold blue-black), the type system (generous line-height, readable body sizes), and the language used in labels and empty states (plain, direct, never corporate).
 
 - Light-mode backgrounds use warm off-whites (`#F9F7F4`), not cold grays.
 - Dark-mode backgrounds use warm near-blacks (`#0F0E0C`), not cold blue-blacks.
@@ -113,7 +113,7 @@ _Inspired by Notion's interaction design._ Controls that are always visible crea
 
 Dark mode is first-class, not an afterthought. Every component ships with dark-mode Tailwind variants.
 
-Dark mode is inspired directly by Anthropic's approach to Claude: **warm, not cold**. Most dark UIs skew blue-black (cold, techy). Sitesnap's dark mode skews toward a warm near-black — the same instinct that makes a physical notebook feel more comfortable than a screen.
+Dark mode is inspired directly by Anthropic's approach to Claude: **warm, not cold**. Most dark UIs skew blue-black (cold, techy). Feldpost's dark mode skews toward a warm near-black — the same instinct that makes a physical notebook feel more comfortable than a screen.
 
 **Design rules for dark mode:**
 
@@ -124,7 +124,7 @@ Dark mode is inspired directly by Anthropic's approach to Claude: **warm, not co
 5. **Borders are warm and subtle.** `--color-border: #2E2B27` — a warm dark brown, barely visible but enough to delineate panels without harsh lines.
 6. **Map tile: CartoDB Dark Matter.** The dark tile URL is configured in `LeafletOSMAdapter.darkTileUrl`. The tile's dark neutral palette blends naturally with `--color-bg-base`. Markers with white outlines and shadows read clearly against it.
 7. **Image thumbnails need no special treatment.** Photos are self-contained; they do not invert or adapt.
-8. **User preference persisted to `localStorage` as `sitesnap-theme: 'dark' | 'light' | 'system'`.** Default: `'system'` (follows OS preference).
+8. **User preference persisted to `localStorage` as `feldpost-theme: 'dark' | 'light' | 'system'`.** Default: `'system'` (follows OS preference).
 9. **Theme toggle** in the top toolbar: a sun/moon icon button. Single tap cycles between `light → dark → system`. The icon itself uses `--color-clay` as a fill accent to make it visually warm and memorable.
 
 ---

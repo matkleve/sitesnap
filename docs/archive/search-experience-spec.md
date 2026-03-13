@@ -1,6 +1,6 @@
-﻿# Search Experience Specification
+# Search Experience Specification
 
-**Who this is for:** product, design, and frontend/backend engineers implementing the Sitesnap search UX end-to-end.  
+**Who this is for:** product, design, and frontend/backend engineers implementing the Feldpost search UX end-to-end.  
 **What you'll get:** a unified, expanded specification for map search behavior, ranking, interaction states, use cases, requirements, and feature scope.
 
 See also: `design.md` (always-load design context), `design/layout.md` (layout system), `element-specs/filter-panel.md` (filter behavior), `features.md` (feature inventory), `use-cases/README.md` (persona flows), `address-resolver.md` (DB-first address resolution), `decisions.md` (D6, D7, D17).
@@ -23,7 +23,7 @@ This document consolidates those ideas and extends them into one implementation-
 
 ## 2. Product intent for Search
 
-Sitesnap search is not a single geocoder input. It is a **multi-intent retrieval surface** that must support:
+Feldpost search is not a single geocoder input. It is a **multi-intent retrieval surface** that must support:
 
 1. **Place intent** — “Take me to this address/place.”
 2. **Evidence intent** — “Find photos/groups/projects matching this term.”

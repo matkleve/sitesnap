@@ -1,4 +1,4 @@
-﻿# Sitesnap – Motion & Transitions
+# Feldpost – Motion & Transitions
 
 Load this file for any task involving animation, timing, or transitions.
 

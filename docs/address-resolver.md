@@ -1,4 +1,4 @@
-﻿# Smart Address Resolver
+# Smart Address Resolver
 
 **Who this is for:** engineers implementing or integrating the address resolver, and product owners validating autocomplete and resolution behaviour.  
 **What you'll get:** the interface contract, ranking algorithm, UI presentation spec, and integration points for the `AddressResolverService`.
@@ -24,9 +24,9 @@ Because the same resolver is used everywhere, the ranking behaviour and UI prese
 
 ## 2. Core Principle: DB-First Ranking
 
-Addresses already present in the Sitesnap database represent **confirmed project locations** — real places where the organization has documented work. When a user types "Burgs", they are almost certainly looking for "Burgstraße 7" rather than some random street in another city.
+Addresses already present in the Feldpost database represent **confirmed project locations** — real places where the organization has documented work. When a user types "Burgs", they are almost certainly looking for "Burgstraße 7" rather than some random street in another city.
 
-The resolver therefore queries the Sitesnap database **first** and promotes those matches to the top of the result list, before falling back to the external geocoding provider.
+The resolver therefore queries the Feldpost database **first** and promotes those matches to the top of the result list, before falling back to the external geocoding provider.
 
 This is analogous to a search engine's "featured results" panel: the most likely correct answers — drawn from the user's own data — appear prominently, followed by broader external results when needed.
 
@@ -78,7 +78,7 @@ interface ResolverOptions {
  * so the UI can render a visual separator between the two tiers.
  */
 interface AddressCandidateGroup {
-  /** Candidates sourced from the Sitesnap database. Shown first. */
+  /** Candidates sourced from the Feldpost database. Shown first. */
   databaseCandidates: AddressCandidate[];
 
   /** Candidates sourced from the external geocoding provider. Shown after separator. */
@@ -384,7 +384,7 @@ flowchart TD
     end
 ```
 
-All error states follow the Sitesnap UI state contract (`architecture.md` §13):
+All error states follow the Feldpost UI state contract (`architecture.md` §13):
 
 | Scenario                    | Behaviour                                                                                                        |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------- |

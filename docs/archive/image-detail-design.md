@@ -1,4 +1,4 @@
-﻿# Sitesnap – Component: Image Detail View
+# Feldpost – Component: Image Detail View
 
 ## 5.4 Image Detail View
 

@@ -14,7 +14,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const NOMINATIM_REVERSE_URL = "https://nominatim.openstreetmap.org/reverse";
 const NOMINATIM_SEARCH_URL = "https://nominatim.openstreetmap.org/search";
 const MIN_INTERVAL_MS = 1100;
-const USER_AGENT = "SiteSnap/1.0 (construction image management)";
+const USER_AGENT = "Feldpost/1.0 (construction image management)";
 
 let lastRequestTime = 0;
 

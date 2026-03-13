@@ -148,7 +148,7 @@ Use cases are the source of truth. The state machine, actions table, component h
 ## UC-10: Address not in the system yet
 
 **Who:** User doing a site survey at a new address.
-**Goal:** Navigate to an address that has no photos in SiteSnap yet.
+**Goal:** Navigate to an address that has no photos in Feldpost yet.
 
 1. User types a full address: `Operngasse 4, 1010 Wien`.
 2. DB returns no matches (no images at this address).

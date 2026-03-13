@@ -1,4 +1,4 @@
-﻿# Search Bar
+# Search Bar
 
 > **Blueprint:** [implementation-blueprints/search-bar.md](../implementation-blueprints/search-bar.md)
 
@@ -750,7 +750,7 @@ export class SearchBarService {
 
 ### Recent Search Persistence & Ranking
 
-Recent searches are stored in `localStorage` key `sitesnap-recent-searches` as a JSON array:
+Recent searches are stored in `localStorage` key `feldpost-recent-searches` as a JSON array:
 
 ```typescript
 interface StoredRecentSearch {

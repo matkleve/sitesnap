@@ -2,7 +2,7 @@
 
 ## What It Is
 
-A composable CSS class system (`dd-*`) for all floating dropdown/menu surfaces in SiteSnap. Every dropdown picks the pieces it needs — search, items, drag handles, section labels, action rows — from a shared global class library in `styles.scss`. Component SCSS only contains what's truly unique to that dropdown.
+A composable CSS class system (`dd-*`) for all floating dropdown/menu surfaces in Feldpost. Every dropdown picks the pieces it needs — search, items, drag handles, section labels, action rows — from a shared global class library in `styles.scss`. Component SCSS only contains what's truly unique to that dropdown.
 
 ## What It Looks Like
 
@@ -62,7 +62,7 @@ This warm clay tint is used on **all** hover states — items, action rows, sear
 
 ## Dropdown Inventory
 
-Every floating menu surface in SiteSnap and which `dd-*` pieces it uses:
+Every floating menu surface in Feldpost and which `dd-*` pieces it uses:
 
 | #   | Surface                       | Search | Items | Section labels | Dividers | Drag | Action row | Empty | Component-specific                                 |
 | --- | ----------------------------- | ------ | ----- | -------------- | -------- | ---- | ---------- | ----- | -------------------------------------------------- |

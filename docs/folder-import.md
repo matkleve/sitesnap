@@ -1,4 +1,4 @@
-﻿# Folder-Based Bulk Import
+# Folder-Based Bulk Import
 
 **Who this is for:** engineers implementing the bulk import feature and product owners validating the flow.  
 **What you'll get:** a complete spec for folder-based batch image import — how the folder is scanned, how locations are resolved per image, how conflicts are surfaced, and what happens to unresolvable images.
@@ -29,7 +29,7 @@ flowchart TD
 
 Phases 1–3 happen entirely client-side before any data is sent to Supabase.
 
-Folder-based bulk import lets a user point Sitesnap at a local folder on their computer. Sitesnap recursively scans the folder for images, attempts to resolve a geographic location for each one, and imports the full set in one operation after the user reviews and confirms the results.
+Folder-based bulk import lets a user point Feldpost at a local folder on their computer. Feldpost recursively scans the folder for images, attempts to resolve a geographic location for each one, and imports the full set in one operation after the user reviews and confirms the results.
 
 Typical use cases:
 
@@ -41,7 +41,7 @@ Typical use cases:
 
 ## 2. Entry Point: File System Access API
 
-Sitesnap uses the browser's **File System Access API** (`showDirectoryPicker()`) to give the user a native, OS-level folder picker. No file server or special backend is needed; reads happen entirely client-side with user consent.
+Feldpost uses the browser's **File System Access API** (`showDirectoryPicker()`) to give the user a native, OS-level folder picker. No file server or special backend is needed; reads happen entirely client-side with user consent.
 
 ```typescript
 const dirHandle = await window.showDirectoryPicker({ mode: "read" });

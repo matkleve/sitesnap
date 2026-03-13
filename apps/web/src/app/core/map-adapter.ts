@@ -1,4 +1,4 @@
-// MapAdapter abstraction for map operations (Sitesnap)
+// MapAdapter abstraction for map operations (Feldpost)
 // DO NOT call Leaflet directly from components
 
 export interface LatLng {

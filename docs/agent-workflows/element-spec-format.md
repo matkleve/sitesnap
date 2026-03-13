@@ -1,6 +1,6 @@
-﻿# Element Spec Format
+# Element Spec Format
 
-Every UI element in Sitesnap must have a spec in `docs/element-specs/` before agent implementation. This is the template.
+Every UI element in Feldpost must have a spec in `docs/element-specs/` before agent implementation. This is the template.
 
 ---
 

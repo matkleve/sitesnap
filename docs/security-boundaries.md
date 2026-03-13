@@ -1,6 +1,6 @@
-﻿# Security Boundaries Documentation
+# Security Boundaries Documentation
 
-**Who this is for:** engineers and operators responsible for keeping Sitesnap data secure.  
+**Who this is for:** engineers and operators responsible for keeping Feldpost data secure.  
 **What you'll get:** the trust model, RLS boundaries, and storage rules that must never be violated.
 
 See also: `database-schema.md`, `user-lifecycle.md`, `architecture.md`.

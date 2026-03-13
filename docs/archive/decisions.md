@@ -1,6 +1,6 @@
-﻿# Decisions (ADR‑Lite)
+# Decisions (ADR‑Lite)
 
-**Who this is for:** engineers and architects modifying Sitesnap.  
+**Who this is for:** engineers and architects modifying Feldpost.  
 **What you’ll get:** a concise record of key technical decisions, so you know what can (and cannot) be changed lightly.
 
 ---
@@ -162,7 +162,7 @@ Non-goals are listed in `project-description.md` and must be treated as such.
 ## D6 – Provider‑Agnostic Geocoding Boundary
 
 **Context**  
-Sitesnap needs address search with autocomplete on the main map, but we do not want to couple the domain model to a specific geocoding vendor.
+Feldpost needs address search with autocomplete on the main map, but we do not want to couple the domain model to a specific geocoding vendor.
 
 **Decision**  
 Treat geocoding as a **provider‑agnostic service boundary**:
@@ -209,7 +209,7 @@ For MVP:
 ## D8 – Map Rendering as a Swappable Adapter
 
 **Context**  
-Sitesnap's map is a core UI surface. Leaflet + OpenStreetMap is a solid default, but tile providers, licensing constraints, and feature requirements can change. Coupling Angular components directly to Leaflet would make a future swap expensive and risky.
+Feldpost's map is a core UI surface. Leaflet + OpenStreetMap is a solid default, but tile providers, licensing constraints, and feature requirements can change. Coupling Angular components directly to Leaflet would make a future swap expensive and risky.
 
 **Decision**  
 Abstract map rendering behind a `MapAdapter` interface:
@@ -232,7 +232,7 @@ See `architecture.md` sections 3 and 6.
 ## D9 – Tailwind CSS as Styling Framework with First-Class Dark Mode
 
 **Context**  
-Sitesnap is a field-facing tool used in varied lighting conditions. Dark mode is a real ergonomic requirement for technicians working at night or in low-light environments, not a cosmetic option. Without a deliberate theming architecture, dark mode tends to be bolted on late and incompletely.
+Feldpost is a field-facing tool used in varied lighting conditions. Dark mode is a real ergonomic requirement for technicians working at night or in low-light environments, not a cosmetic option. Without a deliberate theming architecture, dark mode tends to be bolted on late and incompletely.
 
 Tailwind was specifically chosen for its utility-first approach, strong theme support, first-class dark mode support via the class strategy, and strong compatibility with AI-assisted development workflows where utilities are unambiguous and self-documenting.
 
@@ -447,12 +447,12 @@ See `folder-import.md` and `features.md` §1.14.
 ## D17 – DB-First Address Ranking in AddressResolverService
 
 **Context**  
-Sitesnap's main map search bar, upload panel, folder import review, and marker correction workflow all need address lookup with autocomplete. The underlying geocoding adapter (Nominatim by default, per D6) returns generic results from the full OpenStreetMap dataset. However, when a user at a construction company types "Burgs", they are almost certainly looking for "Burgstraße 7" — a site their organization has already documented — not a random Burgstraße in an unrelated city. Returning a neutral, alphabetically sorted list from the geocoder buries the most relevant results.
+Feldpost's main map search bar, upload panel, folder import review, and marker correction workflow all need address lookup with autocomplete. The underlying geocoding adapter (Nominatim by default, per D6) returns generic results from the full OpenStreetMap dataset. However, when a user at a construction company types "Burgs", they are almost certainly looking for "Burgstraße 7" — a site their organization has already documented — not a random Burgstraße in an unrelated city. Returning a neutral, alphabetically sorted list from the geocoder buries the most relevant results.
 
 **Decision**  
 Introduce `AddressResolverService` as an application-level service that sits on top of `GeocodingAdapter` and applies **database-first ranking**:
 
-- The service queries the Sitesnap `images` database (org-scoped) for address labels already in the system, using fuzzy trigram similarity (`pg_trgm`), weighted by image count at each address.
+- The service queries the Feldpost `images` database (org-scoped) for address labels already in the system, using fuzzy trigram similarity (`pg_trgm`), weighted by image count at each address.
 - It simultaneously calls `GeocodingAdapter.search()` for external candidates.
 - Results are returned as an `AddressCandidateGroup`: up to 3 DB candidates first, a visual separator, then up to 5 geocoder candidates.
 - Geocoder results within 30m of a DB candidate are deduplicated.

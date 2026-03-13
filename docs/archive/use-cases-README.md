@@ -1,7 +1,7 @@
-﻿# Use Cases
+# Use Cases
 
 **Who this is for:** engineers and product people implementing and validating flows.  
-**What you’ll get:** concise narratives describing how technicians and clerks actually use Sitesnap.
+**What you’ll get:** concise narratives describing how technicians and clerks actually use Feldpost.
 
 See `../project-description.md` for the high-level vision, `../features.md` for the full capability list, and `../search-experience-spec.md` for search-focused behavior and expanded search use cases.  
 See **`../implementation-readiness.md`** §2 for per-use-case readiness scores and blocking gaps.
@@ -10,7 +10,7 @@ See **`../implementation-readiness.md`** §2 for per-use-case readiness scores a
 
 ## Personas
 
-These personas describe the primary human actors in Sitesnap. Each use case references one or more of them. Personas provide realistic context for why actors behave as they do — they are not user stories.
+These personas describe the primary human actors in Feldpost. Each use case references one or more of them. Personas provide realistic context for why actors behave as they do — they are not user stories.
 
 ---
 
@@ -64,7 +64,7 @@ These personas describe the primary human actors in Sitesnap. Each use case refe
 
 ### Persona: Admin
 
-**Real-world context:** A lead engineer, IT contact, or team lead responsible for access management. Understands team structure and project boundaries but is not necessarily a database administrator. Manages who can access what, sets up new team members, and troubleshoots permission issues. May use both the Sitesnap admin UI and the Supabase dashboard depending on the task.
+**Real-world context:** A lead engineer, IT contact, or team lead responsible for access management. Understands team structure and project boundaries but is not necessarily a database administrator. Manages who can access what, sets up new team members, and troubleshoots permission issues. May use both the Feldpost admin UI and the Supabase dashboard depending on the task.
 
 **Device:** Desktop browser; may also use Supabase dashboard directly.  
 **Connectivity:** Reliable.  
@@ -98,7 +98,7 @@ These personas describe the primary human actors in Sitesnap. Each use case refe
 
 ```mermaid
 flowchart TD
-    A["Open Sitesnap on mobile"] --> B{"GPS available?"}
+    A["Open Feldpost on mobile"] --> B{"GPS available?"}
     B -->|Yes| C["Map centers on current location"]
     B -->|No| D["Search address"]
     D --> C
@@ -133,10 +133,10 @@ See relevant historical images for the exact spot the technician is currently st
 
 **Main Flow**
 
-1. Technician opens Sitesnap on a mobile device.
+1. Technician opens Feldpost on a mobile device.
 2. App centers the map on the technician’s city (from GPS) or on a searched address.
 3. Technician optionally adjusts filters (time range, project, metadata, max distance) to narrow results.
-4. Sitesnap queries the backend for images within the selected distance of the reference point.
+4. Feldpost queries the backend for images within the selected distance of the reference point.
 5. Map displays markers (and/or clusters) for all relevant images.
 6. Technician taps a marker to open the image detail:
    - Thumbnail (then full-resolution on demand).
@@ -167,7 +167,7 @@ See relevant historical images for the exact spot the technician is currently st
 
 ```mermaid
 flowchart TD
-    A["Open Sitesnap on desktop"] --> B["Search address / navigate map"]
+    A["Open Feldpost on desktop"] --> B["Search address / navigate map"]
     B --> C["Select project(s)"]
     C --> D["Set time range"]
     D --> E["Optional: metadata + distance filters"]
@@ -200,7 +200,7 @@ Use historical images to estimate work and materials for a new quote.
 
 **Main Flow**
 
-1. Clerk opens Sitesnap in a desktop browser.
+1. Clerk opens Feldpost in a desktop browser.
 2. Clerk searches for an address or navigates the map to the area of interest.
 3. Clerk selects one or more **projects** relevant to the new quote.
 4. Clerk narrows down the **time range** (e.g., last 2 years).
@@ -278,12 +278,12 @@ Upload a new photo from the field and correct its position if EXIF coordinates a
 1. Technician opens the upload screen (from the main UI or, in future, via a context action on the map).
 2. Technician selects one or more images from the device.
 3. For each image:
-   - Sitesnap validates: file size ≤25MB, accepted type (JPEG, PNG, WebP, HEIC, HEIF), dimensions within bounds.
+   - Feldpost validates: file size ≤25MB, accepted type (JPEG, PNG, WebP, HEIC, HEIF), dimensions within bounds.
    - HEIC/HEIF files are converted to JPEG client-side.
    - Images >4096px are resized client-side (JPEG 85%).
    - EXIF metadata is parsed for coordinates, timestamp, and direction (if available).
    - File + thumbnail are uploaded to Supabase Storage (max 3 parallel uploads, individual progress indicators).
-4. Sitesnap places a marker for the image on the map using EXIF coordinates.
+4. Feldpost places a marker for the image on the map using EXIF coordinates.
 5. **If EXIF coordinates are missing:** The UI shows "No location found in this photo." The user must manually place a marker (the upload cannot be saved without coordinates).
 6. Technician reviews the marker:
    - If correct, they confirm and save.
@@ -367,7 +367,7 @@ Quickly anchor a new upload or marker at an arbitrary point on the map, even if 
 1. User right-clicks on the map at the desired location.
 2. A context menu appears offering actions such as “Upload here” / “Create marker here”.
 3. User selects an action (e.g., “Upload here”).
-4. Sitesnap opens the upload UI with coordinates pre-populated from the clicked map position.
+4. Feldpost opens the upload UI with coordinates pre-populated from the clicked map position.
 5. User selects one or more files to upload and completes the normal upload flow.
 6. On save, the image record is created with those coordinates as its initial position (to be corrected later if needed).
 
@@ -399,7 +399,7 @@ Continue using the app productively after returning from an area with no network
 
 **Main Flow**
 
-1. Technician opens Sitesnap after connectivity returns.
+1. Technician opens Feldpost after connectivity returns.
 2. The app detects a restored network connection and resumes any interrupted uploads automatically.
 3. For each previously interrupted upload, the app displays a per-file retry indicator.
 4. Technician can trigger manual retry for individual failed uploads or use "Retry All".
@@ -435,14 +435,14 @@ Upload a full day's photo set (20–80 images) in one go at the end of the workd
 **Main Flow**
 
 1. Technician opens the upload screen and selects all photos from the day (multi-file select).
-2. Sitesnap validates each file (size, type, dimensions) and shows a summary: `42 of 44 files valid – 2 exceeded 25 MB limit`.
+2. Feldpost validates each file (size, type, dimensions) and shows a summary: `42 of 44 files valid – 2 exceeded 25 MB limit`.
 3. EXIF data is extracted for all valid files in the background before upload begins.
-4. Sitesnap shows a pre-upload map view with all pending markers rendered at their EXIF locations. Images missing EXIF coordinates are listed separately and shown with a "No location" badge.
+4. Feldpost shows a pre-upload map view with all pending markers rendered at their EXIF locations. Images missing EXIF coordinates are listed separately and shown with a "No location" badge.
 5. Technician assigns a **project** to all images at once (bulk project assignment dropdown before save).
 6. Technician optionally assigns shared **metadata** values (e.g., `Material: Beton`) to all selected images in one action.
 7. For images missing location, the technician either manually places them or dismisses them (they will be uploaded without coordinates and flagged for later correction).
 8. Technician confirms and upload begins (max 3 parallel uploads). A consolidated progress bar shows overall batch progress alongside per-file indicators.
-9. On completion, Sitesnap shows: `44 uploaded, 0 failed` or a per-file error summary.
+9. On completion, Feldpost shows: `44 uploaded, 0 failed` or a per-file error summary.
 
 **Postconditions**
 
@@ -478,7 +478,7 @@ A read-only team member (e.g., project owner, external auditor) reviews document
 
 **Main Flow**
 
-1. Viewer opens Sitesnap in a desktop browser and logs in.
+1. Viewer opens Feldpost in a desktop browser and logs in.
 2. Viewer navigates to the address of interest.
 3. Viewer uses time range and project filters to scope results to the relevant phase.
 4. Viewer browses image markers on the map. Upload buttons and correction actions are hidden.
@@ -515,7 +515,7 @@ Compare conditions across several geographically dispersed sites to produce a si
 
 **Main Flow**
 
-1. Clerk opens Sitesnap and navigates to the first site (address search).
+1. Clerk opens Feldpost and navigates to the first site (address search).
 2. Clerk draws a radius selection around the site and adds relevant images to a named group: "Quote 2026-03 Multi-Site".
 3. Clerk navigates to the second and third sites, repeating the radius-select-and-add pattern for each.
 4. After covering all locations, Clerk opens the group tab.
@@ -706,7 +706,7 @@ Import an entire folder of field photos in one operation, resolving their locati
 
 1. User opens the upload menu and selects "From folder…".
 2. The OS folder picker opens. User selects the root folder.
-3. Sitesnap scans the folder recursively. A live counter shows: _"Scanning… 147 images found."_
+3. Feldpost scans the folder recursively. A live counter shows: _"Scanning… 147 images found."_
 4. The **resolution phase** runs client-side:
    - For each image, `FilenameLocationParser` extracts any address hint from the folder path and filename.
    - EXIF GPS data is read from each file.

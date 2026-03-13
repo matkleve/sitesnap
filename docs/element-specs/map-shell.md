@@ -1,8 +1,8 @@
-﻿# Map Shell
+# Map Shell
 
 ## What It Is
 
-The top-level full-screen host component for the map page. It's the main screen of Sitesnap — everything the user sees after login lives inside Map Shell.
+The top-level full-screen host component for the map page. It's the main screen of Feldpost — everything the user sees after login lives inside Map Shell.
 
 **Related docs:**
 

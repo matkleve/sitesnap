@@ -1,6 +1,6 @@
-﻿# Sitesnap Project Milestones
+# Feldpost Project Milestones
 
-Purpose: project milestone plan for Sitesnap that is human-friendly and AI-readable.
+Purpose: project milestone plan for Feldpost that is human-friendly and AI-readable.
 
 ---
 

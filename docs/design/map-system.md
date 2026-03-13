@@ -1,4 +1,4 @@
-# SiteSnap – Map System
+# Feldpost – Map System
 
 Load this file for any task involving map hierarchy, marker prominence, clustering, or proximity behavior.
 

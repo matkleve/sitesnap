@@ -1,6 +1,6 @@
-﻿# Setup Guide
+# Setup Guide
 
-**Who this is for:** engineers setting up Sitesnap locally for development.  
+**Who this is for:** engineers setting up Feldpost locally for development.  
 **What you'll get:** a practical checklist to run the app with Supabase-backed services.
 
 ---
@@ -20,7 +20,7 @@
 The project is an npm monorepo:
 
 ```
-sitesnap/
+feldpost/
   package.json          ← root workspace
   apps/
     web/                ← Angular SPA (standalone components)
@@ -36,7 +36,7 @@ Install all dependencies from the **root**:
 
 ```bash
 git clone <repo-url>
-cd sitesnap
+cd feldpost
 npm install
 ```
 
@@ -162,7 +162,7 @@ supabase status  # shows local URLs and keys
 
 ## 6. Tailwind CSS & Design Tokens
 
-SiteSnap uses Tailwind CSS v3 as the styling foundation.
+Feldpost uses Tailwind CSS v3 as the styling foundation.
 The setup is already complete in the repository; this section explains how it
 works and what to do if you reinstall or encounter issues.
 

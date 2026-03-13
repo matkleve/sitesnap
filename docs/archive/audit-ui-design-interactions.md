@@ -216,7 +216,7 @@ This section replaces the old 100-item mixed registry with a focused **open issu
 | ID    | Priority | Status | Area          | Issue                                                                                                           | Milestone      |
 | ----- | -------- | ------ | ------------- | --------------------------------------------------------------------------------------------------------------- | -------------- |
 | UI-01 | P0       | Open   | Search        | Add committed-state clear `×` control in input; clear query + committed target while preserving active filters. | M-IMPL6        |
-| UI-02 | P0       | Open   | Search        | Implement per-user recent searches (`sitesnap_recent_searches_<user_id>`) with deduped MRU list.                | M-IMPL6        |
+| UI-02 | P0       | Open   | Search        | Implement per-user recent searches (`feldpost_recent_searches_<user_id>`) with deduped MRU list.                | M-IMPL6        |
 | UI-03 | P0       | Open   | Search        | Focused-empty state must render recent searches and allow one-click commit.                                     | M-IMPL6        |
 | UI-04 | P0       | Open   | Search        | Keyboard contract: arrows/Enter/Escape/Cmd(or Ctrl)+K and Backspace-on-empty committed behavior.                | M-IMPL6        |
 | UI-05 | P0       | Open   | Search        | Show explicit no-results and loading states without blocking map interaction.                                   | M-IMPL6        |

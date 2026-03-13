@@ -1,20 +1,92 @@
-﻿# Element Specs
+# Element Specs
 
-Structured implementation contracts for every UI element in Sitesnap.
+Last updated: 2026-03-13
+
+Structured implementation contracts for every UI element in Feldpost.
 These are the **source of truth** that agents implement from.
 
 See [agent-workflows/element-spec-format.md](../agent-workflows/element-spec-format.md) for the template.
 
+## See Also
+
+- [Glossary](../glossary.md)
+- [Design overview](../design.md)
+- [Design layout rules](../design/layout.md)
+- [Design tokens](../design/tokens.md)
+
 ## How To Use
 
-1. Pick an element from the list below
-2. Write its spec using the template (or ask an agent to draft it from the glossary)
-3. Check `docs/implementation-blueprints/` for a companion blueprint with exact service signatures, data-flow diagrams, and database queries
-4. Use `#plan-before-build` prompt to get an implementation plan
-5. Use `#implement-element` prompt to build it
-6. Use `#review-against-spec` prompt to verify
+### Agent Flow
 
-## Lint
+1. Resolve the target element from the list below (canonical naming from [Glossary](../glossary.md)).
+2. Open the element spec and treat it as implementation contract.
+3. Check `docs/implementation-blueprints/` for service signatures, data-flow diagrams, and query details.
+4. Use `#plan-before-build`, then `#implement-element`.
+5. Run `#review-against-spec` and update acceptance checkboxes if required.
+6. Enforce the **Spec Structure Contract** below; do not model new specs after a "best example" file.
+
+### Product Owner / Human Flow
+
+1. Confirm whether the feature already has a spec in the list below.
+2. If missing, create a new spec with the template in [agent-workflows/element-spec-format.md](../agent-workflows/element-spec-format.md).
+3. Link or request an implementation blueprint when behavior spans multiple services.
+4. Prioritize review/splitting work from the Priority section.
+5. Hand off to agent implementation only after spec acceptance criteria are clear and testable.
+
+## Spec Structure Contract
+
+All specs follow one shared core structure. This is the standard for future specs and for gradual backfills of older specs.
+
+### Core Sections (Required, exact order)
+
+1. `What It Is`
+2. `What It Looks Like`
+3. `Where It Lives`
+4. `Actions`
+5. `Component Hierarchy`
+6. `Data`
+7. `State`
+8. `File Map`
+9. `Wiring`
+10. `Acceptance Criteria`
+
+Rules:
+
+- Every spec must contain all core section headings, in this order.
+- If a core section is not applicable, keep the heading and write `Not applicable — <reason>`.
+- Place any additional sections only **after** core sections, unless they are explicitly declared as a pre-core exception (for example `Child Specs` in split parent specs).
+- This repository has no canonical reference spec file; the contract above is the canonical source.
+
+### Optional Sections (Type-Specific)
+
+Use optional sections when they materially improve implementation clarity.
+
+UI-heavy spec options:
+
+- `Responsive Layout`
+- `Design Tokens`
+- `Accessibility`
+- `Visual States`
+- `Interaction Flow`
+
+Service-heavy spec options:
+
+- `State Machine`
+- `Event Streams`
+- `Supabase Storage Calls`
+- `Cache Lifecycle`
+- `Failure Modes`
+
+Cross-cutting options:
+
+- `Use Cases`
+- `Data Pipeline`
+- `Lifecycle` flows
+- `Child Specs` (split parent specs only)
+
+Guidance: prefer one general structure with required core sections plus optional sections, rather than separate templates per element type.
+
+## Lint & CI
 
 Run `node scripts/lint-specs.mjs` from the project root to validate all specs. Rules:
 
@@ -27,15 +99,21 @@ Run `node scripts/lint-specs.mjs` from the project root to validate all specs. R
 | `what-it-looks-like-len`  | warning    | 40 lines  | Move visual detail to Actions or child specs                                                                            |
 | `has-acceptance-criteria` | error      | —         | At least one `- [ ]` checkbox in Acceptance Criteria                                                                    |
 
-Override thresholds: `node scripts/lint-specs.mjs --max-lines=300 --warn-lines=250`
+Lint is the minimum machine-enforced gate. The **Spec Structure Contract** above is the stricter authoring standard.
+
+Use threshold overrides only for temporary migration/refactor waves where many legacy specs violate limits and you need a tracked, short-lived relaxation in CI:
+
+`node scripts/lint-specs.mjs --max-lines=300 --warn-lines=250`
 
 ### Splitting Large Specs
 
-When a spec exceeds the line limit, split it into a **parent spec** (layout, navigation, cross-references) and **child specs** (focused feature areas). The parent keeps the original filename and adds a "Child Specs" section with links. See `image-detail-view.md` for an example.
+When a spec exceeds the line limit, split it into a **parent spec** (layout, navigation, cross-references) and **child specs** (focused feature areas). The parent keeps the original filename and adds a "Child Specs" section with links.
 
-## Elements (from Glossary)
+## Elements (from [Glossary](../glossary.md))
 
 Status: ✅ spec written | 🔲 needs spec
+
+Order: grouped by UI layer from shell foundations through pages and cross-cutting features.
 
 ### Shell & Layout
 
@@ -100,7 +178,24 @@ Status: ✅ spec written | 🔲 needs spec
 
 - ✅ `custom-properties.md` — Custom Properties (user-defined metadata schema)
 
+### Planned / Missing Specs
+
+- 🔲 `qr-invite-flow.md` — QR invite and join flow (invite creation, scan/join, failure states)
+- 🔲 `role-system.md` — Role and permission system UI (owner/admin/member permissions)
+- 🔲 `slash-commands.md` — Slash command palette and action execution UX
+
 ## Priority
 
-All specs are written. Use the search bar spec as the format reference.
-Pick the spec for whatever you're building and follow the `#implement-element` prompt workflow.
+Priority is review-first, not "all done." Work the queue top-to-bottom unless product direction changes.
+
+### Next Review Targets
+
+1. `search-bar.md` — align section naming and ordering with the contract where needed
+2. `filter-panel.md` — verify action table completeness and state naming consistency
+3. `workspace-view-system.md` — validate data-flow clarity and service boundary wording
+
+### Next Split Candidates
+
+1. Any spec above 400 lines (warning) should be reviewed for optional split.
+2. Any spec above 600 lines (error) must be split before implementation changes continue.
+3. Split by concern area, then add a "Child Specs" section in the parent with explicit links.

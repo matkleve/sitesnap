@@ -1,4 +1,4 @@
-﻿# Sitesnap – Design Constitution
+# Feldpost – Design Constitution
 
 Load this file for every visual or product implementation task. These rules are non-negotiable.
 

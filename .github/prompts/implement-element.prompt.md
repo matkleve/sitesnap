@@ -1,10 +1,10 @@
-﻿---
+---
 agent: implementer
 tools: [read, edit, search, execute, todo]
 description: "Implement a UI element from its element spec. Specs are contracts — follow diagrams literally."
 ---
 
-You are implementing a UI element for Sitesnap (Angular + Leaflet + Supabase).
+You are implementing a UI element for Feldpost (Angular + Leaflet + Supabase).
 
 ## Rules
 

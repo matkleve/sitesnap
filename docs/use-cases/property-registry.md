@@ -7,7 +7,7 @@
 
 ## Overview
 
-SiteSnap has four operators that act on image properties: **Sort**, **Grouping**, **Filter**, and **Search**. Each operator currently maintains its own hardcoded list of available properties. This leads to inconsistency — a property available for grouping may not appear in sort or filter.
+Feldpost has four operators that act on image properties: **Sort**, **Grouping**, **Filter**, and **Search**. Each operator currently maintains its own hardcoded list of available properties. This leads to inconsistency — a property available for grouping may not appear in sort or filter.
 
 The **Property Registry** is a shared service that owns the canonical list of available properties (built-in + custom). All operators consume from this single source. When a user creates a custom property (e.g., "Chimney Number"), it automatically appears in all four operators.
 

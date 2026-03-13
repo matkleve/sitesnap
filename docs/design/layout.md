@@ -1,4 +1,4 @@
-﻿# Sitesnap – Layout System
+# Feldpost – Layout System
 
 Load this file for any task involving breakpoints, panel dimensions, or responsive behavior.
 

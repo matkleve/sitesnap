@@ -1,7 +1,7 @@
-﻿# Features (MVP and Beyond)
+# Features (MVP and Beyond)
 
 **Who this is for:** engineers and product owners deciding what to implement.  
-**What you'll get:** a numbered list of capabilities and constraints for SiteSnap.
+**What you'll get:** a numbered list of capabilities and constraints for Feldpost.
 
 See `search-experience-spec.md` for the detailed search UX, ranking, use-case expansion, and requirements breakdown.  
 See **`implementation-readiness.md`** for current implementation scores, gap analysis, and prioritized work items per feature group.
@@ -77,7 +77,7 @@ flowchart LR
 
 ## 1. MVP Features
 
-These features define the first shippable version of Sitesnap and map to `use-cases/README.md`.
+These features define the first shippable version of Feldpost and map to `use-cases/README.md`.
 
 ### 1.1 Authentication and User Management
 
@@ -336,7 +336,7 @@ MVP use cases are UC1-UC4. UC5 is post-MVP and does not gate MVP release. UC13 (
 39. **First-class dark mode**
     - Tailwind configured with `darkMode: 'class'`; the `dark` class is applied on `<html>` by a `ThemeService`.
     - Every component ships with both light and `dark:` Tailwind variants. Shipping without dark mode is a defect, not a deferral.
-    - User preference is persisted to `localStorage` key `sitesnap-theme`.
+    - User preference is persisted to `localStorage` key `feldpost-theme`.
     - Default dark tile provider for map: CartoDB Dark Matter or Stadia Alidade Smooth Dark (configured in `LeafletOSMAdapter`).
 40. **Theme token system**
     - Design tokens are CSS custom properties, enabling runtime theme switching without a rebuild.
@@ -352,10 +352,10 @@ MVP use cases are UC1-UC4. UC5 is post-MVP and does not gate MVP release. UC13 (
     - Supported in Chromium-based browsers (Chrome, Edge). Unsupported browsers receive a graceful fallback message and fall back to standard multi-file select.
     - See `architecture.md` §5, `folder-import.md`, and `decisions.md` (D10, D16).
 42. **Recursive scan and location resolution**
-    - Sitesnap recursively scans the selected folder for all supported image types (JPEG, PNG, WebP, HEIC, HEIF), without depth limit.
+    - Feldpost recursively scans the selected folder for all supported image types (JPEG, PNG, WebP, HEIC, HEIF), without depth limit.
     - Each image goes through the **location resolution algorithm**: (1) filename and folder-path parsing (`FilenameLocationParser`) to extract an address hint; (2) EXIF GPS extraction; (3) comparison and decision (concordant, conflict, filename-only, EXIF-only, or unresolved).
     - Filename data is preferred over EXIF as the primary source — it is human-entered, intentional data. EXIF complements and can confirm the filename-derived location.
-    - When filename and EXIF coordinates differ by more than 50m, the **conflict is surfaced to the user** — Sitesnap never resolves a conflict silently.
+    - When filename and EXIF coordinates differ by more than 50m, the **conflict is surfaced to the user** — Feldpost never resolves a conflict silently.
     - Address hints extracted from filenames are resolved via `AddressResolverService` (Feature 44).
     - See `folder-import.md` §4 for the full decision matrix and `decisions.md` (D16) for the rationale.
 43. **Manual review queue for unresolved imports**
@@ -372,7 +372,7 @@ MVP use cases are UC1-UC4. UC5 is post-MVP and does not gate MVP release. UC13 (
 
 44. **`AddressResolverService` — application-wide, DB-first address resolver**
     - A single, reusable Angular service used everywhere an address is searched or entered: the main map search bar, the upload panel (manual placement), the folder import review, and the marker correction workflow.
-    - **DB-first ranking:** the resolver queries Sitesnap's own `images` database first for addresses already documented by the organization, and presents those results prominently before falling back to the external geocoding provider.
+    - **DB-first ranking:** the resolver queries Feldpost's own `images` database first for addresses already documented by the organization, and presents those results prominently before falling back to the external geocoding provider.
     - Results are returned as an `AddressCandidateGroup`: `databaseCandidates` (up to 3 by default) followed by `geocoderCandidates` (up to 5), separated by a visual divider in the UI.
     - DB candidates are ranked by fuzzy trigram similarity to the query and weighted by image count ("12 photos here").
     - Geocoder candidates that are within 30m of an existing DB candidate are deduplicated (removed from the geocoder tier).

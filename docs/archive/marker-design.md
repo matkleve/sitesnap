@@ -1,4 +1,4 @@
-﻿# Sitesnap – Component: Map Marker
+# Feldpost – Component: Map Marker
 
 ## Marker State Diagram
 

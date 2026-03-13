@@ -1,5 +1,5 @@
 /**
- * Tailwind CSS configuration — SiteSnap Angular app.
+ * Tailwind CSS configuration — Feldpost Angular app.
  *
  * Design token source of truth. All tokens defined here become the
  * canonical reference for every component; arbitrary values are only
