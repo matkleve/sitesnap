@@ -10,9 +10,9 @@ A search surface floating over the map that lets users find places, photos, grou
 
 This parent spec defines the implementation contract for the search surface UI and primary interactions. Deep technical behavior is split into child specs:
 
-| Child Spec | Covers |
-| --- | --- |
-| [search-bar-query-behavior](search-bar-query-behavior.md) | Address label formatting, ghost completion, forgiving matching, search/filter integration rules |
+| Child Spec                                                    | Covers                                                                                            |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| [search-bar-query-behavior](search-bar-query-behavior.md)     | Address label formatting, ghost completion, forgiving matching, search/filter integration rules   |
 | [search-bar-data-and-service](search-bar-data-and-service.md) | Data pipeline phases, geocoder biasing, ranking formulas, service responsibilities and interfaces |
 
 ## What It Looks Like
@@ -52,6 +52,29 @@ Derived from the use cases. Each row maps to specific UC scenarios.
 | 16  | Geocoder slow/fails                        | DB results render immediately, geocoder section shows skeleton then hides | UC-7              | Graceful degradation                                      |
 | 17  | Pastes coordinates or Google Maps URL      | Detects coordinate format, centers map, reverse-geocodes label            | UC-5              | `commit` type `map-center`                                |
 | 18  | "Did you mean?" suggestion clicked         | Replaces query with corrected text, reruns search                         | UC-16             | Query updated, new search triggered                       |
+
+### Interaction Flowchart
+
+```mermaid
+flowchart TD
+    A[Input focused] --> B{query is empty}
+    B -- yes --> C[Show recent searches]
+    B -- no --> D[Debounce and run search]
+
+    D --> E{DB results found}
+    E -- yes --> F[Render Addresses and Projects & Groups]
+    E -- no --> G[Keep empty-state candidate]
+
+    D --> H{Geocoder returns in time}
+    H -- yes --> I[Append Places section]
+    H -- no --> J[Hide geocoder skeleton and continue]
+
+    I --> K{user commits map-center result}
+    K -- yes --> L[Center map and place marker]
+    K -- no --> M{user commits open-content result}
+    M -- yes --> N[Navigate with router]
+    M -- no --> O[Keep selection state]
+```
 
 ## Component Hierarchy
 
@@ -149,15 +172,53 @@ Types are defined in `core/search/search.models.ts` (already exists).
 
 ## Wiring
 
-- Import `SearchBarComponent` in `MapShellComponent`'s template
-- Place `<search-bar />` inside the Map Zone area of `map-shell.component.html`
-- Global `Cmd/Ctrl+K` listener registered in `SearchBarComponent.ngOnInit()` via `@HostListener`
-- Click-outside detection via a `(document:click)` check or CDK overlay backdrop
-- On commit type `map-center`: call `MapAdapter` to center map + place Search Location Marker
-- On commit type `open-content`: use Angular Router to navigate
-- `SearchBarService` injected by the component — owns recent searches, geocoder resolution, and fallback logic
-- `SearchBarService` injects `GeocodingService` for all external geocoding (never calls Nominatim directly)
-- Component emits `SearchQueryContext` changes when active project changes (listens to project selection service)
+### Injected Services
+
+- `SearchBarService` — orchestrates search logic, recents, and geocoder resolution delegation.
+- `MapAdapter` — centers map and manages Search Location Marker placement on map-center commits.
+- `Router` — navigates for open-content commits.
+- `ProjectsDropdownService` (or equivalent project selection source) — emits active-project context changes.
+
+### Inputs / Outputs
+
+None.
+
+### Subscriptions
+
+- Query input stream (`valueChanges`/signal equivalent) — debounced and torn down in component destroy lifecycle.
+- Active project selection stream — updates `SearchQueryContext`; torn down in component destroy lifecycle.
+- Keyboard shortcut/click-outside listeners — registered on init and removed on destroy.
+
+### Supabase Calls
+
+None — delegated to `SearchBarService`.
+
+```mermaid
+sequenceDiagram
+    participant UI as SearchBarComponent
+    participant Search as SearchBarService
+    participant Map as MapAdapter
+    participant Router as Angular Router
+    participant Geo as GeocodingService
+
+    UI->>Search: submitQuery(query, context)
+    Search->>Geo: search(query, options)
+    Geo-->>Search: candidates or error
+    alt geocoder error/timeout
+        Search-->>UI: partial results (DB/recents only)
+    else geocoder success
+        Search-->>UI: complete results (DB + geocoder)
+    end
+
+    UI->>UI: user commits result
+    alt commit type = map-center
+        UI->>Map: centerTo(lat, lng)
+        Map-->>UI: marker placed or map error
+    else commit type = open-content
+        UI->>Router: navigate(route)
+        Router-->>UI: navigation success or error
+    end
+```
 
 ## Acceptance Criteria
 

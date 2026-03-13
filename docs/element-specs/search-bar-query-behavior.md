@@ -18,14 +18,38 @@ Address results show concise labels in `Street Number, Postcode City` form. Name
 
 ## Actions
 
-| # | User Action | System Response | Triggers |
-| --- | --- | --- | --- |
-| 1 | Types text prefix | Compute ghost completion from local sources | Debounced input event |
-| 2 | Presses `Tab` with ghost text | Accept ghost text and rerun search | Query update |
-| 3 | Presses `Tab` without ghost text | Preserve default focus behavior | Browser default |
-| 4 | Selects correction suggestion | Replace input with corrected query and rerun | Suggestion row click |
-| 5 | Commits geocoder or DB address | Render normalized display label format | Commit event |
-| 6 | Runs search while filters active | Keep filter chips and filter state intact | Query commit |
+| #   | User Action                      | System Response                              | Triggers              |
+| --- | -------------------------------- | -------------------------------------------- | --------------------- |
+| 1   | Types text prefix                | Compute ghost completion from local sources  | Debounced input event |
+| 2   | Presses `Tab` with ghost text    | Accept ghost text and rerun search           | Query update          |
+| 3   | Presses `Tab` without ghost text | Preserve default focus behavior              | Browser default       |
+| 4   | Selects correction suggestion    | Replace input with corrected query and rerun | Suggestion row click  |
+| 5   | Commits geocoder or DB address   | Render normalized display label format       | Commit event          |
+| 6   | Runs search while filters active | Keep filter chips and filter state intact    | Query commit          |
+
+### Decision Flowchart
+
+```mermaid
+flowchart TD
+    A[User types query] --> B{ghost text exists}
+    B -- yes --> C[Tab accepts ghost]
+    B -- no --> D[Tab keeps default focus behavior]
+
+    C --> E{strict match confident}
+    D --> E
+    E -- yes --> F[Render strict result]
+    E -- no --> G[Run fallback variants]
+
+    G --> H{fallback winner exists}
+    H -- yes --> I[Show Did-you-mean row]
+    H -- no --> J[Show no-result path]
+
+    F --> K{active filters present}
+    I --> K
+    J --> K
+    K -- yes --> L[Preserve filter chips and filter state]
+    K -- no --> M[Normal commit path]
+```
 
 ## Component Hierarchy
 
@@ -48,32 +72,75 @@ SearchBar Query Layer
 
 ## Data
 
-| Field | Source | Type |
-| --- | --- | --- |
-| Ghost candidates | Recents + cached DB labels + cached content names | `string[]` |
-| Nominatim structured address | `GeocodingService.search()` result | `Record<string, string>` |
-| Query normalization dictionary | Static normalization rules | `Record<string, string>` |
-| Active filters snapshot | Search/filter integration context | `number` + filter payload |
+| Field                          | Source                                            | Type                      |
+| ------------------------------ | ------------------------------------------------- | ------------------------- |
+| Ghost candidates               | Recents + cached DB labels + cached content names | `string[]`                |
+| Nominatim structured address   | `GeocodingService.search()` result                | `Record<string, string>`  |
+| Query normalization dictionary | Static normalization rules                        | `Record<string, string>`  |
+| Active filters snapshot        | Search/filter integration context                 | `number` + filter payload |
 
 ## State
 
-| Name | Type | Default | Controls |
-| --- | --- | --- | --- |
-| `normalizedQuery` | `string` | `''` | Matching and fallback query generation |
-| `ghostText` | `string \| null` | `null` | Inline completion rendering |
-| `suggestionText` | `string \| null` | `null` | "Did you mean" suggestion visibility |
-| `hasActiveFilters` | `boolean` | `false` | Search/filter integration behavior |
+| Name               | Type             | Default | Controls                               |
+| ------------------ | ---------------- | ------- | -------------------------------------- |
+| `normalizedQuery`  | `string`         | `''`    | Matching and fallback query generation |
+| `ghostText`        | `string \| null` | `null`  | Inline completion rendering            |
+| `suggestionText`   | `string \| null` | `null`  | "Did you mean" suggestion visibility   |
+| `hasActiveFilters` | `boolean`        | `false` | Search/filter integration behavior     |
 
 ## File Map
 
-| File | Purpose |
-| --- | --- |
+| File                                              | Purpose                                |
+| ------------------------------------------------- | -------------------------------------- |
 | `docs/element-specs/search-bar-query-behavior.md` | Query behavior contract for Search Bar |
 
 ## Wiring
 
-- Referenced from parent spec [search-bar](search-bar.md) under Child Specs.
-- Implemented by `SearchBarService`/`SearchOrchestratorService` and consumed by `SearchBarComponent`.
+### Injected Services
+
+- `SearchBarService` — owns normalization, formatting, and recent-search behavior contracts.
+- `SearchOrchestratorService` — executes query orchestration and candidate composition.
+
+### Inputs / Outputs
+
+None.
+
+### Subscriptions
+
+- Query text stream — used to recompute ghost text and fallback decisions; torn down with owning component/service lifecycle.
+- Active filter state stream — used to enforce filter-preservation rules; torn down with owning component/service lifecycle.
+
+### Supabase Calls
+
+None — delegated to `SearchBarService`.
+
+```mermaid
+sequenceDiagram
+    participant UI as SearchBarComponent
+    participant SB as SearchBarService
+    participant ORCH as SearchOrchestratorService
+
+    UI->>SB: normalizeQuery(rawInput)
+    SB-->>UI: normalizedQuery
+    UI->>ORCH: searchInput(normalizedQuery, context)
+    ORCH-->>UI: strict candidates or empty
+
+    alt strict path found
+        UI-->>UI: render strict candidates
+    else strict path empty/low confidence
+        UI->>SB: buildFallbackQueries(normalizedQuery)
+        SB-->>UI: fallback variants
+        UI->>ORCH: searchInput(fallbackVariant, context)
+        ORCH-->>UI: fallback candidates or empty
+    end
+
+    alt suggestion selected
+        UI->>ORCH: searchInput(correctedQuery, context)
+        ORCH-->>UI: corrected result set
+    else no suggestion
+        UI-->>UI: retain no-result state
+    end
+```
 
 ## Acceptance Criteria
 
@@ -105,13 +172,13 @@ Primary format: `Street Number, Postcode City`
 
 Fallback cascade:
 
-| Available fields | Display format |
-| --- | --- |
-| street + number + postcode + city | `Schleiergasse 18, 1100 Wien` |
-| street + postcode + city (no number) | `Schleiergasse, 1100 Wien` |
-| street + city (no postcode) | `Schleiergasse, Wien` |
-| city only | `Wien` |
-| none | Truncated `display_name` |
+| Available fields                     | Display format                |
+| ------------------------------------ | ----------------------------- |
+| street + number + postcode + city    | `Schleiergasse 18, 1100 Wien` |
+| street + postcode + city (no number) | `Schleiergasse, 1100 Wien`    |
+| street + city (no postcode)          | `Schleiergasse, Wien`         |
+| city only                            | `Wien`                        |
+| none                                 | Truncated `display_name`      |
 
 For POI/name matches where `name` differs from road name, use two-line display:
 

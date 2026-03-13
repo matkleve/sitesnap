@@ -18,13 +18,37 @@ Results appear in progressive phases: instant local signals, fast DB sections, t
 
 ## Actions
 
-| # | User Action | System Response | Triggers |
-| --- | --- | --- | --- |
-| 1 | Types query | Start phased orchestration (`typing` -> `partial` -> `complete`) | Debounced query stream |
-| 2 | Geocoder timeout/failure | Hide geocoder section; keep DB results visible | Non-blocking error path |
-| 3 | Changes active project | Re-emit `SearchQueryContext`, re-rank project-sensitive results | Project context update |
-| 4 | Repeats recent query | Serve cached results when valid | Cache hit |
-| 5 | Commits result | Persist recent search and update ranking signals | Commit event |
+| #   | User Action              | System Response                                                  | Triggers                |
+| --- | ------------------------ | ---------------------------------------------------------------- | ----------------------- |
+| 1   | Types query              | Start phased orchestration (`typing` -> `partial` -> `complete`) | Debounced query stream  |
+| 2   | Geocoder timeout/failure | Hide geocoder section; keep DB results visible                   | Non-blocking error path |
+| 3   | Changes active project   | Re-emit `SearchQueryContext`, re-rank project-sensitive results  | Project context update  |
+| 4   | Repeats recent query     | Serve cached results when valid                                  | Cache hit               |
+| 5   | Commits result           | Persist recent search and update ranking signals                 | Commit event            |
+
+### Decision Flowchart
+
+```mermaid
+flowchart TD
+  A[Debounced query starts] --> B{cache hit valid}
+  B -- yes --> C[Return cached result set]
+  B -- no --> D[Run phase 1 typing state]
+
+  D --> E[Run DB and recents]
+  E --> F{DB returned candidates}
+  F -- yes --> G[Emit partial with DB sections]
+  F -- no --> H[Emit partial with empty DB sections]
+
+  G --> I{geocoder success before timeout}
+  H --> I
+  I -- yes --> J[Append geocoder section and emit complete]
+  I -- no --> K[Suppress geocoder section and keep partial]
+
+  J --> L{activeProjectId present}
+  K --> L
+  L -- yes --> M[Apply project boost and rerank]
+  L -- no --> N[Use base ranking]
+```
 
 ## Component Hierarchy
 
@@ -48,36 +72,91 @@ Search Data Orchestration
 
 ## Data
 
-| Field | Source | Type |
-| --- | --- | --- |
-| DB address candidates | `SearchOrchestratorService -> dbAddressResolver` | `SearchAddressCandidate[]` |
-| DB content candidates | `SearchOrchestratorService -> dbContentResolver` | `SearchContentCandidate[]` |
-| Geocoder candidates | `SearchOrchestratorService -> geocoderResolver` | `SearchAddressCandidate[]` |
-| Recent searches | `SearchBarService -> localStorage` | `SearchRecentCandidate[]` |
-| Search result set | `SearchOrchestratorService.searchInput()` | `Observable<SearchResultSet>` |
-| Query context | Project/map/org context providers | `SearchQueryContext` |
+| Field                 | Source                                           | Type                          |
+| --------------------- | ------------------------------------------------ | ----------------------------- |
+| DB address candidates | `SearchOrchestratorService -> dbAddressResolver` | `SearchAddressCandidate[]`    |
+| DB content candidates | `SearchOrchestratorService -> dbContentResolver` | `SearchContentCandidate[]`    |
+| Geocoder candidates   | `SearchOrchestratorService -> geocoderResolver`  | `SearchAddressCandidate[]`    |
+| Recent searches       | `SearchBarService -> localStorage`               | `SearchRecentCandidate[]`     |
+| Search result set     | `SearchOrchestratorService.searchInput()`        | `Observable<SearchResultSet>` |
+| Query context         | Project/map/org context providers                | `SearchQueryContext`          |
 
 ## State
 
-| Name | Type | Default | Controls |
-| --- | --- | --- | --- |
-| `phase` | `'typing' \| 'partial' \| 'complete'` | `'typing'` | Progressive rendering stage |
-| `geoStatus` | `'loading' \| 'loaded' \| 'error'` | `'loading'` | Geocoder section visibility/skeleton |
-| `countryCodes` | `string[]` | `[]` | Country bias for geocoder queries |
-| `dataCentroid` | `{ lat: number; lng: number } \| null` | `null` | Proximity-decay scoring |
-| `cacheTtlMs` | `number` | `300000` | Search cache lifetime |
+| Name           | Type                                   | Default     | Controls                             |
+| -------------- | -------------------------------------- | ----------- | ------------------------------------ |
+| `phase`        | `'typing' \| 'partial' \| 'complete'`  | `'typing'`  | Progressive rendering stage          |
+| `geoStatus`    | `'loading' \| 'loaded' \| 'error'`     | `'loading'` | Geocoder section visibility/skeleton |
+| `countryCodes` | `string[]`                             | `[]`        | Country bias for geocoder queries    |
+| `dataCentroid` | `{ lat: number; lng: number } \| null` | `null`      | Proximity-decay scoring              |
+| `cacheTtlMs`   | `number`                               | `300000`    | Search cache lifetime                |
 
 ## File Map
 
-| File | Purpose |
-| --- | --- |
+| File                                                | Purpose                                  |
+| --------------------------------------------------- | ---------------------------------------- |
 | `docs/element-specs/search-bar-data-and-service.md` | Data and service contract for Search Bar |
 
 ## Wiring
 
-- Referenced from parent spec [search-bar](search-bar.md) under Child Specs.
-- Consumed by `SearchBarService`, `SearchOrchestratorService`, and `GeocodingService` implementations.
-- `SearchQueryContext` must be emitted by search UI whenever active project or map bounds change.
+### Injected Services
+
+- `SearchBarService` — coordinates query lifecycle, recents, fallback, and ranking orchestration.
+- `SearchOrchestratorService` — emits phased result sets and handles dedup pipeline behavior.
+- `GeocodingService` — proxies external geocoder calls via Supabase Edge Function.
+
+### Inputs / Outputs
+
+None.
+
+### Subscriptions
+
+- Query input stream — debounced phase trigger; torn down with owning lifecycle.
+- Project selection/context stream — updates `SearchQueryContext` and ranking; torn down with owning lifecycle.
+- Geocoder response stream — merged into complete phase and canceled on query changes.
+
+### Supabase Calls
+
+- `images` table, `select` (address candidate lookup) — triggered on non-empty query in DB address resolver.
+- `projects` table, `select` (project content candidates) — triggered on non-empty query in DB content resolver.
+- `saved_groups` table, `select` (group content candidates) — triggered on non-empty query in DB content resolver.
+- Edge Function `/functions/v1/geocode`, `invoke` (forward geocoder query) — triggered after debounce for geocoder phase.
+
+```mermaid
+sequenceDiagram
+  participant UI as SearchBarComponent
+  participant SB as SearchBarService
+  participant ORCH as SearchOrchestratorService
+  participant DB as Supabase DB
+  participant FX as Supabase Edge Function (geocode)
+
+  UI->>SB: search(query, context)
+  SB->>ORCH: searchInput(query, context)
+  ORCH-->>UI: phase 1 typing
+
+  par phase 2 DB
+    ORCH->>DB: select images.address_label
+    ORCH->>DB: select projects.name
+    ORCH->>DB: select saved_groups.name
+  and phase 3 geocoder
+    ORCH->>FX: invoke geocode(query, viewbox, countrycodes, limit)
+  end
+
+  DB-->>ORCH: DB results or DB error
+  alt DB error
+    ORCH-->>UI: partial with available sources + error-safe fallback
+  else DB success
+    ORCH-->>UI: partial (DB sections)
+  end
+
+  FX-->>ORCH: geocoder results or timeout/error
+  alt geocoder timeout/error
+    ORCH-->>UI: keep partial; suppress geocoder section
+  else geocoder success
+    ORCH->>ORCH: dedup + geo-bias rerank
+    ORCH-->>UI: complete (DB + geocoder)
+  end
+```
 
 ## Acceptance Criteria
 
@@ -109,13 +188,13 @@ Search Data Orchestration
 
 ### Search Source Tiers
 
-| Tier | Source | Latency | Table / API | Section |
-| --- | --- | --- | --- | --- |
-| Instant | Recent searches | 0ms | localStorage | Recent searches |
-| Instant | Ghost completion | <1ms | in-memory trie | inline ghost |
-| Fast | DB addresses | ~50-200ms | `images.address_label` | Addresses |
-| Fast | DB projects/groups | ~50-200ms | `projects.name`, `saved_groups.name` | Projects & Groups |
-| Slow | Geocoder | ~1-2s | Edge Function -> Nominatim | Places |
+| Tier    | Source             | Latency   | Table / API                          | Section           |
+| ------- | ------------------ | --------- | ------------------------------------ | ----------------- |
+| Instant | Recent searches    | 0ms       | localStorage                         | Recent searches   |
+| Instant | Ghost completion   | <1ms      | in-memory trie                       | inline ghost      |
+| Fast    | DB addresses       | ~50-200ms | `images.address_label`               | Addresses         |
+| Fast    | DB projects/groups | ~50-200ms | `projects.name`, `saved_groups.name` | Projects & Groups |
+| Slow    | Geocoder           | ~1-2s     | Edge Function -> Nominatim           | Places            |
 
 Phases:
 
@@ -179,12 +258,12 @@ WHERE organization_id = :org_id
 
 ### Edge Function Parameters
 
-| Parameter | Type | Description |
-| --- | --- | --- |
-| `viewbox` | `string` | `west,north,east,south` map viewport |
-| `bounded` | `0 \| 1` | Restrict-to-viewbox toggle |
-| `countrycodes` | `string` | ISO 3166-1 comma list |
-| `limit` | `number` | Result cap (default `5` for Search Bar) |
+| Parameter      | Type     | Description                             |
+| -------------- | -------- | --------------------------------------- |
+| `viewbox`      | `string` | `west,north,east,south` map viewport    |
+| `bounded`      | `0 \| 1` | Restrict-to-viewbox toggle              |
+| `countrycodes` | `string` | ISO 3166-1 comma list                   |
+| `limit`        | `number` | Result cap (default `5` for Search Bar) |
 
 ## SearchBarService Contract
 
@@ -198,11 +277,20 @@ Responsibilities:
 Interface:
 
 ```typescript
-@Injectable({ providedIn: 'root' })
+@Injectable({ providedIn: "root" })
 export class SearchBarService {
-  resolveGeocoderCandidates(query: string, context: SearchQueryContext): Observable<SearchAddressCandidate[]>;
-  resolveDbAddressCandidates(query: string, context: SearchQueryContext): Observable<SearchAddressCandidate[]>;
-  resolveDbContentCandidates(query: string, context: SearchQueryContext): Observable<SearchContentCandidate[]>;
+  resolveGeocoderCandidates(
+    query: string,
+    context: SearchQueryContext,
+  ): Observable<SearchAddressCandidate[]>;
+  resolveDbAddressCandidates(
+    query: string,
+    context: SearchQueryContext,
+  ): Observable<SearchAddressCandidate[]>;
+  resolveDbContentCandidates(
+    query: string,
+    context: SearchQueryContext,
+  ): Observable<SearchContentCandidate[]>;
   getRecentSearches(activeProjectId?: string): SearchRecentCandidate[];
   addRecentSearch(label: string, activeProjectId?: string): void;
   clearRecentSearches(): void;

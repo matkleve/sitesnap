@@ -31,7 +31,7 @@
   --search-dropdown-item-radius: var(--container-radius-control);
 
   display: grid;
-  grid-template-rows: auto 0fr;
+  grid-template-rows: var(--search-bar-row-height) minmax(0, 0fr);
   row-gap: 0;
   width: 100%;
   border: 1px solid var(--color-border);
@@ -45,7 +45,7 @@
 }
 
 .search-bar--expanded {
-  grid-template-rows: auto 1fr;
+  grid-template-rows: var(--search-bar-row-height) minmax(0, 1fr);
 }
 
 .search-bar__input-row {
@@ -53,6 +53,7 @@
   display: grid;
   grid-template-columns: var(--search-bar-row-height) minmax(0, 1fr) auto;
   width: 100%;
+  height: var(--search-bar-row-height);
   min-height: var(--search-bar-row-height);
   align-items: center;
   column-gap: var(--search-bar-gap);

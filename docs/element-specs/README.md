@@ -66,6 +66,7 @@ All specs follow one shared core structure. This is the standard for future spec
    whenever there are 2 or more Supabase calls OR the component
    coordinates across 2 or more services. The diagram must show
    the full request/response flow including error branches.
+
 10. `Acceptance Criteria`
 
 Rules:
