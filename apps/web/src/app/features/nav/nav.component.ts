@@ -61,7 +61,7 @@ export class NavComponent {
             return email.split('@')[0];
         }
 
-        return 'Account';
+        return 'Settings';
     });
 
     readonly avatarUrl = computed<string | null>(() => {
@@ -73,6 +73,6 @@ export class NavComponent {
      *  Falls back to '?' if no user is signed in. */
     readonly avatarInitial = computed<string>(() => {
         const name = this.displayName();
-        return name === 'Account' ? '?' : name[0].toUpperCase();
+        return name === 'Settings' ? '?' : name[0].toUpperCase();
     });
 }
