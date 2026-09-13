@@ -106,6 +106,8 @@ export function renderScenarioTimeline(
   const outcome = job
     ? [
         `  outcome: phase=${job.phase} issueKind=${job.issueKind ?? '—'} lane=${laneOf(job)}`,
+        // A failed job without its message is a dead end for whoever reads this report.
+        ...(job.error ? [`           error=${job.error}`] : []),
         `           titleAddress=${job.titleAddress ?? '—'} (source=${job.titleAddressSource ?? '—'})`,
         `           coords=${job.coords ? `${job.coords.lat}, ${job.coords.lng}` : '—'} via ${job.locationSourceUsed ?? '—'}  mismatch=${job.locationMismatchMeters ?? '—'}m`,
         `           groupingKey=${short(job.groupingKey)}  hash=${short(job.contentHash, HASH_PREVIEW_LEN)} (${job.contentHashAlgo ?? '—'})`,

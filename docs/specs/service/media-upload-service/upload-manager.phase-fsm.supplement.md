@@ -61,6 +61,34 @@ This is deliberate, and the reason is measured: the map shipped wrong on **eight
 
 After `finishPreResolveDedup`, jobs stay in `dedup_check` until location routing advances them. Required: `dedup_check → { resolving_location, awaiting_disambiguation, conflict_check, missing_data }`.
 
+### Disambiguation hold (F-14)
+
+A job waiting for a resolver tray is identified by its **hold**, not by its phase label:
+
+| | |
+| --- | --- |
+| The hold | `disambiguationGroupId` set **and** `resolutionStatus === 'pending'` |
+| The label | `phase = 'awaiting_disambiguation'` — a consequence of the hold, not the hold itself |
+
+Group registration is **asynchronous** (`registerSourceConflictGroupAsync`), so it can land while the
+job is mid-pipeline — typically inside the `await` in the hashing step. The next pipeline step then
+writes its own phase (`dedup_check`) and the label is gone while the tray still waits. Therefore:
+
+1. A pipeline step that would continue past a location gate **MUST** test the hold, never the label.
+2. When it finds the hold, it parks the job: re-assert `phase = 'awaiting_disambiguation'`, mark the
+   queue slot done, emit batch progress, drain. Re-asserting is what keeps the label true after
+   another step has overwritten it.
+3. Work skipped by parking (content hashing, dedup) is not lost: answering the tray re-queues the job
+   and pre-resolve runs again, with the hold cleared to `resolved`.
+4. Because registration lands mid-step, `hashing → awaiting_disambiguation` is a **legal** pipeline
+   edge, not a map gap. It was left out of the map on purpose until the hold became authoritative, so
+   that the violation report kept pointing at the stranding; with rule 1 in place the report would
+   only hide a race that no longer strands anything. `hashing → conflict_check` stays unmapped — it
+   is the example the FSM's own specs use for an unmapped edge, and no pipeline run produces it.
+
+`locationRequirementMode: 'optional'` is unchanged by this: it skips address resolution before the
+hold is tested (see [D-05](../../../study/006-upload-pipeline-correction-plan.md), open).
+
 ### Conflict resume edge
 
 `awaiting_conflict_resolution` is **non-terminal**, so `USER_TERMINAL_RESURRECTIONS` never covered it and `resolveUploadManagerConflict` could not requeue a job. `awaiting_conflict_resolution → queued` lives in the pipeline edge set, which the user channel falls through to for non-terminal sources.

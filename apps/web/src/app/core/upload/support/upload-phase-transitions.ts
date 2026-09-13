@@ -69,6 +69,10 @@ const PIPELINE_TRANSITIONS: ReadonlySet<string> = new Set([
   edge('converting_format', 'uploading'),
   edge('hashing', 'dedup_check'),
   edge('hashing', 'resolving_location'),
+  // F-14: a tray group is registered asynchronously, so it can land while the job is inside the
+  // hashing await. The hold, not the label, is what keeps the job parked (see the FSM supplement),
+  // so this edge is pipeline structure rather than the map gap it used to stand in for.
+  edge('hashing', 'awaiting_disambiguation'),
   edge('dedup_check', 'hashing'),
   edge('dedup_check', 'converting_format'),
   edge('dedup_check', 'uploading'),

@@ -45,6 +45,7 @@ Entries are numbered, never renumbered, and never deleted. Order is by cost, not
 | [TRAP-015](#trap-015--a-gate-that-passes-because-nothing-ran) | A gate that passes because nothing ran | `open` |
 | [TRAP-016](#trap-016--only-half-the-search-object-is-level-mapped) | Only four of the Search Object's fields are level-mapped; street-level ones are concatenated | `open` |
 | [TRAP-017](#trap-017--a-country-can-appear-in-the-search-object-that-never-appears-in-the-path) | A country can appear in the Search Object that never appears in the path | `open` |
+| [TRAP-018](#trap-018--a-group-level-loop-returns-one-jobs-verdict) | A group-level loop returns one job's verdict | `open` |
 
 ---
 
@@ -341,6 +342,22 @@ Better: end the migration with a `DO` block that raises when any touched functio
 **Detect** — read `countryProvenance` before reasoning about `country`, and remember the order dependency: derivation only fires while `country` is unset, so `AT/Mödling/…` marks it `parsed` and `Mödling/AT/…` also ends `parsed` (the token overwrites the derivation within the segment it appears in). When a postcode appears "out of nowhere", look for a city name, not a country token. Contract: [`upload-search-object.country-derivation.md`](./specs/service/media-upload-service/upload-search-object.country-derivation.md).
 
 **Source** — [`STUDY-005`](./study/005-upload-pipeline-trace-findings.md) F-03 and F-15; [`STUDY-006`](./study/006-upload-pipeline-correction-plan.md) D-03 and Phase 2.1; [`2026-09-12`](./ai-diary/2026-09-12.md). Code at `apps/web/src/app/core/location-path-parser/path-token-classifier.ts` (`classifyPlaceToken`).
+
+**Status** — `open`.
+
+---
+
+## TRAP-018 — A group-level loop returns one job's verdict
+
+**Surface** — the upload pipeline batches by `groupingKey`: one geocode covers every file of one building, and the pre-resolve helpers take a group state and loop over `groupState.jobIds`. Their return type is `'continue' | 'held' | 'partial'`, and the caller is one job's pipeline run.
+
+**Assumption** — a loop over the group that returns early on `held` is describing the group ("this group is held"). It reads that way, and `finalizePlacementForJob` returning `true` for any member looks like grounds to stop.
+
+**Truth** — the verdict is consumed as *the asking job's* outcome, and several holds are per job, not per group: a source-conflict tray only contains jobs carrying **both** a text pin and an EXIF pin (`isJobEligibleForSourceConflictGroup`). An early `return 'held'` therefore parks a job that has no `disambiguationGroupId` of its own — so nothing can resume it, ever — and skips the remaining jobs in the loop, which never receive the group's placement. Both halves were live: one file per curated run was stranded in `dedup_check` by exactly this ([F-16](./study/005-upload-pipeline-trace-findings.md#f-16)).
+
+**Detect** — in any helper that takes a group and returns a per-job verdict, ask which job the value is about. If the loop can `return` from inside, it is answering for whichever member it happened to reach. The shape to keep: record the asking job's own result, run the loop to the end. A parked job whose `disambiguationGroupId` is unset is the symptom to grep for — it is waiting for an answer nobody can give it.
+
+**Source** — [`STUDY-005`](./study/005-upload-pipeline-trace-findings.md) F-16 (and F-14, which it was hiding behind); [`2026-09-12`](./ai-diary/2026-09-12.md). Code at `apps/web/src/app/core/upload/location/upload-location-pre-resolve-orchestrator.service.ts`.
 
 **Status** — `open`.
 

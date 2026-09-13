@@ -11,6 +11,7 @@ import {
   lookupInflightDedupHash,
   tryRegisterInflightDedupHash,
 } from './upload-inflight-dedup.registry';
+import { isHeldForDisambiguation } from './upload-disambiguation-hold.util';
 
 export type UploadDedupCheckOutcome = 'ineligible' | 'no_match' | 'skipped' | 'issue';
 
@@ -110,7 +111,12 @@ export async function runUploadDedupCheck(
     deps.jobState.updateJob(jobId, { contentHash, contentHashAlgo: hashAlgo });
   }
 
-  deps.jobState.setPhase(jobId, 'dedup_check');
+  // A tray group can be registered while the hash was being computed, which parks the job. Dedup
+  // still runs, but relabelling a held job is what erased the gate and stranded it (F-14).
+  const afterHash = deps.jobState.findJob(jobId);
+  if (!afterHash || !isHeldForDisambiguation(afterHash)) {
+    deps.jobState.setPhase(jobId, 'dedup_check');
+  }
   const currentUserId = ctx.getCurrentUserId();
 
   const inflightBeforeDb = handleInflightDedupMatch(

@@ -246,6 +246,15 @@ suite actually ran.
 | 1.7 | **[F-14](./005-upload-pipeline-trace-findings.md#f-14)** — an async source-conflict registration writes `awaiting_disambiguation` while the job is in `hashing`; hashing's completion then overwrites it and the job strands in `dedup_check`. Pre-existing (13 stranded in the 5 000-file run before any fix), now reachable in the 17-file corpus. Make the gate authoritative rather than a phase label a later step can erase, and only then reconcile the FSM map. Sensitive: needs the FSM/transition table and its own red test. | A full curated run leaves **0** jobs in an active phase, and no illegal-transition report. |
 | 1.5 | Re-run the harness and record the new baseline in the playbook. | `GROUP-SPLIT-WITHIN-FOLDER` and `SO-CITY-NOT-IN-PATH` report zero findings on the curated corpus. |
 
+**Status, 2026-09-13:** 1.1-1.4 and **1.7** are done. 1.7 took three code changes rather than one —
+the hold predicate and one park exit, pre-resolve testing the hold at entry and after dedup, and the
+dedup step no longer relabelling a held job — and then a fourth defect had to be fixed before the
+stranding actually went away: [F-16](./005-upload-pipeline-trace-findings.md#f-16), a group-level loop
+returning one job's hold as every job's verdict. Run A of the curated corpus now settles with **0** jobs
+in an active phase and no illegal-transition report, which is this phase's acceptance criterion. It also
+surfaced [F-17](./005-upload-pipeline-trace-findings.md#f-17) (a parked job keeps its content-hash
+reservation), which is **open** and needs its own decision. 1.5 and 1.6 remain open.
+
 **Class:** Sensitive. **Ordering notes:** 1.4's exact map is also ~30 % of F-06's cost, so Phase 1
 pays part of Phase 3 forward. `[B]` And D-03's step 1 (exact, country-carrying lookup first) makes the
 `Wien` → `Schottwien` substitution unreachable, so 1.3/1.4 and 2.1 overlap — decide during

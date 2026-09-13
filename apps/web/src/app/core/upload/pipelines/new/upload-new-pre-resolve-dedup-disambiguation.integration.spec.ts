@@ -168,4 +168,48 @@ describe('runPreUploadLocationResolve — post-dedup ambiguous geocode (real job
       areAllJobsReadyForTrayResolution([job.id], (id) => jobState.findJob(id)),
     ).toBe(true);
   });
+
+  // F-14: the async source-conflict registration parks the job while it is still hashing, so the
+  // dedup step's own `setPhase('dedup_check')` overwrites the gate. The hold is the job's
+  // disambiguation group, not the phase label — a job holding one must never leave pre-resolve
+  // running, whatever its phase says when the label is read.
+  // @see docs/study/005-upload-pipeline-trace-findings.md#f-14
+  it('keeps a job parked when it was registered for a tray before dedup ran', async () => {
+    geocodingSearch.mockResolvedValue([
+      {
+        lat: 48.2,
+        lng: 16.37,
+        displayName: 'Thaliastraße A, Wien',
+        name: 'Thaliastraße A',
+        importance: 0.9,
+        address: { city: 'Wien', road: 'Thaliastraße' },
+      },
+    ]);
+    const job = createJob({
+      phase: 'awaiting_disambiguation',
+      disambiguationGroupId: 'group-registered-during-hashing',
+      resolutionStatus: 'pending',
+    });
+    jobState.addJobs([job]);
+
+    const outcome = await runPreUploadLocationResolve(
+      {
+        jobState,
+        queue: { markDone: vi.fn() },
+        uploadService: { resolveMediaType: vi.fn().mockReturnValue('photo') },
+        filenameParser: TestBed.inject(FilenameParserService),
+        locationConfig: TestBed.inject(UploadLocationConfigService),
+        locationResolution,
+        addressOrchestrator: TestBed.inject(UploadAddressResolutionOrchestrator),
+      },
+      job.id,
+      job.parsedExif as ParsedExif,
+      buildPipelineContext(),
+    );
+
+    expect(outcome).toBe('held');
+    const updated = jobState.findJob(job.id)!;
+    expect(updated.disambiguationGroupId).toBe('group-registered-during-hashing');
+    expect(updated.phase).toBe('awaiting_disambiguation');
+  });
 });

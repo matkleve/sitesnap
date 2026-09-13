@@ -22,6 +22,10 @@ import { formatSearchObjectLabel } from '../../../location-path-parser/upload-se
 import { isExifAuthoritativeOverWeakFilenameStreet } from '../../location/upload-location-resolution.helpers';
 import { routeJobToMissingData } from './upload-new-prepare-route.util';
 import { runUploadDedupCheck } from '../../support/upload-dedup-check.util';
+import {
+  isHeldForDisambiguation,
+  parkJobForDisambiguation,
+} from '../../support/upload-disambiguation-hold.util';
 import type { UploadJobStateService } from '../../support/upload-job-state.service';
 import type { PipelineContext, UploadJob } from '../../upload-manager.types';
 import type { UploadLocationConfigService } from '../../location/upload-location-config.service';
@@ -148,6 +152,27 @@ export function mergeTitleCandidateOnJob(
   };
 }
 
+/**
+ * Every "stop here" exit in pre-resolve: release the queue slot, and — when the job holds a tray
+ * group — re-assert the label a later step may have overwritten (F-14).
+ */
+function holdJob(
+  deps: PreResolveDeps,
+  jobId: string,
+  batchId: string,
+  ctx: PipelineContext,
+): 'held' {
+  const current = deps.jobState.findJob(jobId);
+  if (current && isHeldForDisambiguation(current)) {
+    parkJobForDisambiguation(deps, jobId, batchId, ctx);
+    return 'held';
+  }
+  deps.queue.markDone(jobId);
+  ctx.emitBatchProgress(batchId);
+  ctx.drainQueue();
+  return 'held';
+}
+
 /** Step 3: org dedup before geocode — same-user skip or colleague issue. */
 async function finishPreResolveDedup(
   deps: PreResolveDeps,
@@ -208,11 +233,8 @@ async function completePlacementAfterLocationResolve(
     return null;
   }
 
-  if (current.phase === 'awaiting_disambiguation') {
-    deps.queue.markDone(jobId);
-    ctx.emitBatchProgress(job.batchId);
-    ctx.drainQueue();
-    return 'held';
+  if (isHeldForDisambiguation(current) || current.phase === 'awaiting_disambiguation') {
+    return holdJob(deps, jobId, job.batchId, ctx);
   }
 
   if (current.titleAddressCoords) {
@@ -228,10 +250,7 @@ async function completePlacementAfterLocationResolve(
       });
     }
     if (held) {
-      deps.queue.markDone(jobId);
-      ctx.emitBatchProgress(job.batchId);
-      ctx.drainQueue();
-      return 'held';
+      return holdJob(deps, jobId, job.batchId, ctx);
     }
     return null;
   }
@@ -246,19 +265,17 @@ async function completePlacementAfterLocationResolve(
     if (!current) {
       return null;
     }
-    if (resolveOutcome === 'held' || current.phase === 'awaiting_disambiguation') {
-      deps.queue.markDone(jobId);
-      ctx.emitBatchProgress(job.batchId);
-      ctx.drainQueue();
-      return 'held';
+    if (
+      resolveOutcome === 'held' ||
+      isHeldForDisambiguation(current) ||
+      current.phase === 'awaiting_disambiguation'
+    ) {
+      return holdJob(deps, jobId, job.batchId, ctx);
     }
     if (current.titleAddressCoords) {
       const held = deps.locationResolution.finalizePlacementForJob(jobId);
       if (held) {
-        deps.queue.markDone(jobId);
-        ctx.emitBatchProgress(job.batchId);
-        ctx.drainQueue();
-        return 'held';
+        return holdJob(deps, jobId, job.batchId, ctx);
       }
       return null;
     }
@@ -325,6 +342,14 @@ async function runPreUploadLocationResolveInner(
     return finishPreResolveDedup(deps, jobId, parsedExif, ctx);
   }
 
+  // Already waiting for a tray (registration can land before this job is picked up again): the hold
+  // decides, not the phase label another step may have overwritten.
+  if (isHeldForDisambiguation(job)) {
+    uploadTraceDecision('pipeline', 'held — job already registered for a tray');
+    uploadTraceExit('pipeline', 'runPreUploadLocationResolve', 'held (pre-existing hold)');
+    return holdJob(deps, jobId, job.batchId, ctx);
+  }
+
   deps.jobState.setPhase(jobId, 'extracting_title');
 
   const { highConfidence } = mergeTitleCandidateOnJob(deps, jobId, job);
@@ -341,15 +366,21 @@ async function runPreUploadLocationResolveInner(
     return 'dedup_skip';
   }
 
+  // A tray can be registered while hashing awaited, and the dedup step's own phase write erased the
+  // label. F-14: without this the job runs on with an open tray and strands in `dedup_check`.
+  const afterDedup = deps.jobState.findJob(jobId);
+  if (afterDedup && isHeldForDisambiguation(afterDedup)) {
+    uploadTraceDecision('pipeline', 'held — tray registered while hashing');
+    uploadTraceExit('pipeline', 'runPreUploadLocationResolve', 'held (registered during dedup)');
+    return holdJob(deps, jobId, job.batchId, ctx);
+  }
+
   if (highConfidence && jobAfterMerge.groupingKey) {
     uploadTraceDecision('pipeline', 'path — orchestrator pre-resolve (groupingKey)');
     const orchestrated = await deps.locationResolution.applyPreResolveFromOrchestrator(jobId);
     if (orchestrated === 'held') {
       uploadTraceExit('pipeline', 'runPreUploadLocationResolve', 'held (orchestrator)');
-      deps.queue.markDone(jobId);
-      ctx.emitBatchProgress(job.batchId);
-      ctx.drainQueue();
-      return 'held';
+      return holdJob(deps, jobId, job.batchId, ctx);
     }
     const placementHeld = await completePlacementAfterLocationResolve(
       deps,

@@ -120,7 +120,7 @@ export class UploadLocationPreResolveOrchestratorService {
       return this.handleNeedsTrayPreResolve(job.batchId, groupState);
     }
     if (groupState.status === 'resolved' && groupState.candidate) {
-      return this.handleResolvedPreResolve(groupState);
+      return this.handleResolvedPreResolve(job.id, groupState);
     }
     if (groupState.status === 'partial') {
       return this.handlePartialPreResolve(groupState);
@@ -159,27 +159,39 @@ export class UploadLocationPreResolveOrchestratorService {
     return 'held';
   }
 
+  /**
+   * One geocode covers the whole group, so the candidate is applied to every job in it. A source
+   * conflict is per job, though — only a job carrying both a text and an EXIF pin is in that tray —
+   * so a sibling's hold must neither become the asking job's verdict nor stop the loop before the
+   * remaining jobs get their placement.
+   * @see docs/study/005-upload-pipeline-trace-findings.md#f-16
+   */
   private handleResolvedPreResolve(
+    jobId: string,
     groupState: UploadGroupResolutionState,
   ): 'continue' | 'held' {
     uploadTraceDecision('ulr', 'resolved — apply candidate to jobs', {
       candidateId: groupState.candidate!.id,
       addressLabel: groupState.candidate!.addressLabel,
     });
+    let askingJobHeld = false;
     for (const id of groupState.jobIds) {
       const j = this.jobState.findJob(id);
       if (!j) {
         continue;
       }
       this.placement.applyGeocodeCandidateToJob(id, j, groupState.candidate!, groupState.folderDisplayPath);
-      const held = this.placement.finalizePlacementForJob(id);
-      if (held) {
-        uploadTraceExit('ulr', 'applyPreResolveFromOrchestrator', 'held (source conflict)');
-        return 'held';
+      if (this.placement.finalizePlacementForJob(id) && id === jobId) {
+        askingJobHeld = true;
       }
     }
-    uploadTraceExit('ulr', 'applyPreResolveFromOrchestrator', 'continue');
-    return 'continue';
+    const outcome = askingJobHeld ? 'held' : 'continue';
+    uploadTraceExit(
+      'ulr',
+      'applyPreResolveFromOrchestrator',
+      askingJobHeld ? 'held (source conflict)' : 'continue',
+    );
+    return outcome;
   }
 
   private handlePartialPreResolve(groupState: UploadGroupResolutionState): 'partial' {

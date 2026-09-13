@@ -30,8 +30,13 @@ npm run trace:upload -- --out=trace.txt                  # keep the report
 150 files take about 8 seconds. No network, no Supabase, no browser.
 
 **A non-zero exit with every test passing** means an unhandled rejection during the run, not a failed
-assertion. Today that is F-14: an async tray registration writes a phase while the job is hashing, the
-FSM assertion fires, and one job strands in `dedup_check`. The report above it is still valid.
+assertion — usually an FSM transition the map does not list, which the Vitest reporter throws on after
+the test has already passed. The report above it is still valid. As of 2026-09-13 the curated run has
+none: run A settles with every job in a terminal or waiting phase.
+
+**Run B's skip count** is 1 when that test runs alone and 2 in a full run. The second skip is
+[F-17](../study/005-upload-pipeline-trace-findings.md#f-17) — a content-hash reservation held by a job
+run A parked in a tray — not a second duplicate in the corpus.
 
 | Flag | Meaning |
 | --- | --- |

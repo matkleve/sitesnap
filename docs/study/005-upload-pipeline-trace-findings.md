@@ -50,8 +50,10 @@ spec-level — the spec says what the code does, so a fix needs a contract decis
 | [F-11](#f-11) | A meaningless folder segment outranks a valid address in the file name | High | Code |
 | [F-12](#f-12) | The unit suite is order-dependent; the count depends on a build cache | Medium | Repo |
 | [F-13](#f-13) | `ng test` never loads `vitest.config.ts`, so its aliases are inert in CI | Medium | Repo |
-| [F-14](#f-14) | An async tray gate is overwritten by the hashing step, stranding the job | High | Code |
+| [F-14](#f-14) | ~~An async tray gate is overwritten by the hashing step, stranding the job~~ **fixed** | High | Code |
 | [F-15](#f-15) | ~~A path carrying a complete address **twice** can yield an empty Search Object~~ **fixed** | High | **Spec** |
+| [F-16](#f-16) | ~~One held job in a resolved group holds every job in it, and stops the rest being placed~~ **fixed** | High | Code |
+| [F-17](#f-17) | A parked job keeps its content-hash reservation, so a later identical file is skipped as a duplicate of a file that was never uploaded | High | Code |
 
 ---
 
@@ -503,14 +505,39 @@ study, ended with `phases: awaiting_disambiguation=4636 complete=350 dedup_check
 **13 stranded jobs**. `[A]` [F-02](#f-02)'s fix made it reachable in the 17-file curated corpus (one
 stranded job), which is how it was finally characterised. `[A]`
 
-**Related.** The same map gap was already visible for a sibling edge before any of this work:
-`illegal transition hashing → conflict_check` appears in a full suite run on the unmodified tree.
-`[A]` So the family is "an async location step writes a phase while the job is mid-hashing".
+**Related — retracted.** This finding first cited `illegal transition hashing → conflict_check` from a
+full suite run as a sibling of the same defect. It is not: that line comes from
+`upload-phase-transitions.spec.ts` and `upload-job-state.service.transition.spec.ts`, which use that
+exact edge as their *example* of an unmapped one. `[A]` No pipeline run produces it, so the family has
+one member, and the edge stays out of the map — adding it broke both specs, which is how the mistake
+surfaced.
 
 **Why the map edge was not simply added.** Adding `hashing → awaiting_disambiguation` to
 `PIPELINE_TRANSITIONS` would silence the assertion without stopping the overwrite — the job would
 still strand, and the one signal that found this would be gone. The assertion is telling the truth.
 `[D]`
+
+**Fix, 2026-09-13** ([STUDY-006](./006-upload-pipeline-correction-plan.md) Phase 1.7). The hold is now
+the job's `disambiguationGroupId` + `resolutionStatus: 'pending'` — never the phase label — per the
+[FSM supplement's § Disambiguation hold](../specs/service/media-upload-service/upload-manager.phase-fsm.supplement.md).
+Three changes, smallest first:
+
+1. `isHeldForDisambiguation(job)` in `upload-disambiguation-hold.util.ts`, and one `holdJob` exit in
+   pre-resolve that re-asserts `awaiting_disambiguation` whenever the hold is set, so a label another
+   step overwrote is restored at the park point.
+2. Pre-resolve tests the hold at entry and again after the dedup step — the window the registration
+   actually lands in.
+3. The dedup step no longer relabels a held job (`setPhase('dedup_check')` is skipped; the dedup work
+   still runs). Without this the park produced the *reverse* illegal edge,
+   `awaiting_disambiguation → dedup_check`, which the Vitest reporter throws on — so the job failed
+   with `upload_error` instead of stranding. `[A]` That is what made the edge visible at all.
+
+Only then was `hashing → awaiting_disambiguation` added to the map, as this finding required.
+
+Measured: run A of the curated corpus settles with **0** jobs in an active phase and no
+illegal-transition report, where before it spent its full 180 s settle budget with one job stranded in
+`dedup_check`. `[A]` Fixing it uncovered [F-16](#f-16), which had to be fixed before the stranding
+actually went away.
 
 ---
 
@@ -572,6 +599,56 @@ distinct folder/file-name pair. `[A]`
 **Relation to [F-04](#f-04).** Same mechanism, worse consequence, and the reason F-04's severity is
 understated: F-04 records the extra question, F-11 records that the correct answer is dropped from
 the object in the meantime.
+
+---
+
+### F-16 · One held job in a resolved group holds every job in it {#f-16}
+
+**What happens.** `AT/Wien/1010/Kärntner Straße 4/Top 3/IMG_6001.jpg` (S09) never uploads. It sits in
+`dedup_check` forever with coordinates already resolved, a full Search Object, and no tray of its own.
+`[A]` It is the job [F-14](#f-14) was chasing, and it survived F-14's fix.
+
+**Why.** One geocode serves a whole group, so `handleResolvedPreResolve`
+(`upload-location-pre-resolve-orchestrator.service.ts`) loops over `groupState.jobIds` applying the
+candidate. The loop returned `'held'` to its caller **the moment any job in the group was held** by
+`finalizePlacementForJob` — and the caller is one specific job's pipeline run. `[A]` So S09 inherited
+the verdict of its sibling S13, whose EXIF is 200 km from its folder address and which therefore *does*
+belong in a source-conflict tray. Two consequences from the one `return`: the asking job is parked
+without a hold of its own (nothing will ever resume it — its `disambiguationGroupId` is unset), and the
+loop exits early, so jobs after the held one never get the group's placement at all. `[A]`
+
+Source conflicts are per job by construction: `isJobEligibleForSourceConflictGroup` requires **both** a
+text pin and an EXIF pin (`upload-location-precedence.helpers.ts:130`). `[A]` S09 has no EXIF, so it was
+never in that tray's scope — `collectSourceConflictJobIds` had already excluded it.
+
+**Fix, 2026-09-13.** The loop records whether the **asking** job was held and runs to the end
+regardless; every job in the group gets the candidate, and the verdict belongs to the caller.
+Red-first, three cases in `upload-location-pre-resolve-orchestrator.service.spec.ts`: the unheld job
+reports `continue`, the held job reports `held`, and the candidate reaches both jobs. Two of the three
+were red. `[A]` Run A then settled with 0 jobs in an active phase and S09 uploaded. `[A]`
+
+---
+
+### F-17 · A parked job keeps its content-hash reservation {#f-17}
+
+**What happens.** A job parked in a resolver tray has already computed and **reserved** its content
+hash in the in-flight dedup registry. The reservation is released only when the job reaches a terminal
+phase (`upload-job-state.service.ts` — `transitionTo` unregisters on `TERMINAL_PHASES`). `[A]`
+`awaiting_disambiguation` is not terminal, so while the user thinks about one tray, a *different* file
+with the same bytes is auto-skipped as a duplicate — of a file that was never uploaded. `[C]`
+
+**Evidence.** `[A]` Run B of the trace (18 flat files, one deliberate duplicate pair) skips **1** file
+when run alone and **2** when it runs after run A, and the second skip is S13 — whose hash is unique in
+the corpus. S13 is the file run A parks in a source-conflict tray. The hashes are identical in both
+orderings, so the extra skip is the reservation, not the content.
+
+**What is not settled.** `[C]` Whether the leak in the harness is exactly the production mechanism. The
+registry is module-global and the trace spec clears it per test, so run A's reservation must be landing
+after run B cleared it — i.e. the dedup step keeps running after the job is parked, which the harness's
+settle check does not wait for (it watches phases, and a parked job looks settled). Fixing this needs
+its own change: decide whether parking releases the reservation, or whether the reservation is what
+resumes the duplicate later. Until then, **read run B's second skip as this artifact**, not as a second
+duplicate in the corpus.
 
 ---
 
