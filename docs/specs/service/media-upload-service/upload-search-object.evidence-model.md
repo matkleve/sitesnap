@@ -90,7 +90,8 @@ without a street, and never a fuzzy substitution
 
 | Symbol | File |
 | --- | --- |
-| `AreaFieldKey`, `FieldLevelEntry.origin` | `apps/web/src/app/core/upload/address-resolution/upload-address-level-map.types.ts` |
+| `AreaFieldKey`, `ValueOrigin`, `FieldLevelEntry.origin` | `apps/web/src/app/core/upload/address-resolution/upload-area-evidence.types.ts` |
+| `detectAreaConflicts`, `collapseAreaFlatFields` | `apps/web/src/app/core/location-path-parser/upload-area-evidence.helpers.ts` |
 | Evidence writes, flat projection, grouping key | `apps/web/src/app/core/location-path-parser/upload-search-object.builder.ts` |
 | Strong / weak street evidence | `apps/web/src/app/core/location-path-parser/path-token-classifier.ts` |
 | Package formation and folding | `apps/web/src/app/core/location-path-parser/upload-search-object.layer-map.ts` |

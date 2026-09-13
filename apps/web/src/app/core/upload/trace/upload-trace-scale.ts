@@ -90,9 +90,9 @@ export function measureClassifyAtScale(
 
     let outcome: ClassifyOutcome;
     let conflictKey: string | undefined;
-    if (so.adminLevelConflicts?.length) {
+    if (so.areaConflicts?.length) {
       outcome = 'admin_conflict';
-      conflictKey = so.adminLevelConflicts.map((conflict) => conflict.field).join(',');
+      conflictKey = so.areaConflicts.map((conflict) => conflict.field).join(',');
     } else if (layers.packageConflict) {
       outcome = 'layer_conflict';
       conflictKey = layers.packageConflict.layerConflictQueryKey;

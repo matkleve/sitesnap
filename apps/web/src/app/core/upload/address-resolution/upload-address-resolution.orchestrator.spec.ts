@@ -76,15 +76,15 @@ describe('UploadAddressResolutionOrchestrator — admin level conflicts', () => 
     orchestrator.clearBatch('batch-split');
   });
 
-  it('classifyBatch marks Wien/Innsbruck jobs as needsAdminLevelResolution', async () => {
+  it('classifyBatch marks Wien/Innsbruck jobs as needsAreaResolution', async () => {
     jobState.addJobs([buildJob()]);
     await orchestrator.classifyBatch('batch-admin');
 
     const states = orchestrator.listGroupStates('batch-admin');
-    expect(states.some((s) => s.status === 'needsAdminLevelResolution')).toBe(true);
-    const adminState = states.find((s) => s.status === 'needsAdminLevelResolution')!;
-    expect(adminState.adminLevelConflicts?.length).toBeGreaterThan(0);
-    expect(adminState.adminConflictQueryKey?.startsWith('adminConflict|')).toBe(true);
+    expect(states.some((s) => s.status === 'needsAreaResolution')).toBe(true);
+    const adminState = states.find((s) => s.status === 'needsAreaResolution')!;
+    expect(adminState.areaConflicts?.length).toBeGreaterThan(0);
+    expect(adminState.areaConflictQueryKey?.startsWith('adminConflict|')).toBe(true);
   });
 
   it('merges jobs with the same admin conflict signature', async () => {
@@ -104,7 +104,7 @@ describe('UploadAddressResolutionOrchestrator — admin level conflicts', () => 
 
     const adminStates = orchestrator
       .listGroupStates('batch-admin')
-      .filter((s) => s.status === 'needsAdminLevelResolution');
+      .filter((s) => s.status === 'needsAreaResolution');
     expect(adminStates).toHaveLength(1);
     expect(adminStates[0].jobIds).toEqual(expect.arrayContaining(['job-a', 'job-b']));
   });
@@ -122,7 +122,7 @@ describe('UploadAddressResolutionOrchestrator — admin level conflicts', () => 
     await orchestrator.classifyBatch('batch-plz');
 
     const states = orchestrator.listGroupStates('batch-plz');
-    expect(states.some((s) => s.status === 'needsAdminLevelResolution')).toBe(false);
+    expect(states.some((s) => s.status === 'needsAreaResolution')).toBe(false);
     expect(states.some((s) => s.status === 'needsGeocode' || s.status === 'partial')).toBe(true);
   });
 
@@ -137,7 +137,7 @@ describe('UploadAddressResolutionOrchestrator — admin level conflicts', () => 
     await orchestrator.classifyBatch('batch-admin');
 
     const states = orchestrator.listGroupStates('batch-admin');
-    expect(states.some((s) => s.status === 'needsAdminLevelResolution')).toBe(true);
+    expect(states.some((s) => s.status === 'needsAreaResolution')).toBe(true);
     expect(states.some((s) => s.status === 'needsLayerResolution')).toBe(false);
   });
 
@@ -161,9 +161,9 @@ describe('UploadAddressResolutionOrchestrator — admin level conflicts', () => 
 
     const adminStates = orchestrator
       .listGroupStates('batch-split')
-      .filter((s) => s.status === 'needsAdminLevelResolution');
+      .filter((s) => s.status === 'needsAreaResolution');
     expect(adminStates).toHaveLength(2);
-    expect(adminStates[0].adminConflictQueryKey).not.toBe(adminStates[1].adminConflictQueryKey);
+    expect(adminStates[0].areaConflictQueryKey).not.toBe(adminStates[1].areaConflictQueryKey);
   });
 
   it('integrateResolvedAdminGroups reclassifies into needsGeocode', async () => {
@@ -177,13 +177,13 @@ describe('UploadAddressResolutionOrchestrator — admin level conflicts', () => 
 
     const adminState = orchestrator
       .listGroupStates('batch-admin')
-      .find((s) => s.status === 'needsAdminLevelResolution')!;
-    const oldKey = adminState.adminConflictQueryKey ?? adminState.groupingKey;
+      .find((s) => s.status === 'needsAreaResolution')!;
+    const oldKey = adminState.areaConflictQueryKey ?? adminState.groupingKey;
     const resolvedSo = {
       ...adminState.searchObject,
       city: 'Wien',
       state: 'Wien',
-      adminLevelConflicts: [],
+      areaConflicts: [],
       groupingKey: 'at|wien||wien||',
     };
 
@@ -198,7 +198,7 @@ describe('UploadAddressResolutionOrchestrator — admin level conflicts', () => 
     ]);
 
     const after = orchestrator.listGroupStates('batch-admin');
-    expect(after.some((s) => s.status === 'needsAdminLevelResolution')).toBe(false);
+    expect(after.some((s) => s.status === 'needsAreaResolution')).toBe(false);
     expect(after.some((s) => s.status === 'needsGeocode' || s.status === 'partial')).toBe(true);
     const geocodeState = after.find((s) => s.status === 'needsGeocode');
     expect(geocodeState?.resolvedFromAdminConflict).toBe(true);
@@ -210,15 +210,15 @@ describe('UploadAddressResolutionOrchestrator — admin level conflicts', () => 
 
     const adminState = orchestrator
       .listGroupStates('batch-admin')
-      .find((s) => s.status === 'needsAdminLevelResolution')!;
-    const oldKey = adminState.adminConflictQueryKey ?? adminState.groupingKey;
+      .find((s) => s.status === 'needsAreaResolution')!;
+    const oldKey = adminState.areaConflictQueryKey ?? adminState.groupingKey;
     const resolvedSo = {
       ...adminState.searchObject,
       city: 'Wien',
       state: 'Wien',
       street: null,
       houseNumber: null,
-      adminLevelConflicts: [],
+      areaConflicts: [],
       groupingKey: 'at|wien||wien||',
     };
 
@@ -266,8 +266,8 @@ describe('UploadAddressResolutionOrchestrator — admin level conflicts', () => 
 
     const adminState = orchestrator
       .listGroupStates('batch-admin')
-      .find((s) => s.status === 'needsAdminLevelResolution')!;
-    const key = adminState.adminConflictQueryKey!;
+      .find((s) => s.status === 'needsAreaResolution')!;
+    const key = adminState.areaConflictQueryKey!;
     expect(key).toMatch(/^adminConflict\|city\|/);
     const valuePart = key.replace('adminConflict|city|', '');
     const values = valuePart.split(',');

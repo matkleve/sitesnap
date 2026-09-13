@@ -28,7 +28,7 @@ function baseGroup(overrides: Partial<UploadDisambiguationGroup> = {}): UploadDi
     resolutionStatus: 'pending',
     resolutionGateOpen: true,
     disambiguationKind: 'admin_level_conflict',
-    adminLevelConflicts: adminConflicts,
+    areaConflicts: adminConflicts,
     ...overrides,
   };
 }
@@ -43,12 +43,12 @@ describe('mergeDisambiguationGroupPatch', () => {
       jobIds: ['job-b'],
       candidates: [],
       disambiguationKind: 'admin_level_conflict',
-      adminLevelConflicts: adminConflicts,
+      areaConflicts: adminConflicts,
     });
 
     expect(merged.jobIds.sort()).toEqual(['job-a', 'job-b']);
     expect(merged.disambiguationKind).toBe('admin_level_conflict');
-    expect(merged.adminLevelConflicts).toEqual(adminConflicts);
+    expect(merged.areaConflicts).toEqual(adminConflicts);
   });
 
   it('deduplicates jobIds when the same job registers twice', () => {
@@ -78,7 +78,7 @@ describe('mergeDisambiguationGroupPatch', () => {
     expect(merged.candidates[0]!.id).toBe('c-1');
   });
 
-  it('preserves adminLevelConflicts when the patch omits them', () => {
+  it('preserves areaConflicts when the patch omits them', () => {
     const merged = mergeDisambiguationGroupPatch(baseGroup(), {
       batchId: 'batch-1',
       queryKey: baseGroup().queryKey,
@@ -88,7 +88,7 @@ describe('mergeDisambiguationGroupPatch', () => {
       candidates: [],
     });
 
-    expect(merged.adminLevelConflicts).toEqual(adminConflicts);
+    expect(merged.areaConflicts).toEqual(adminConflicts);
   });
 });
 

@@ -1,16 +1,16 @@
 /**
  * Admin level-map conflict detection and flat-field collapse.
- * @see docs/specs/service/media-upload-service/upload-search-object.md#admin-level-map
+ * @see docs/specs/service/media-upload-service/upload-search-object.md#area-evidence
  */
 
 import type { GemeindeRecord, PlzMap } from './local-geo-data.adapter';
 import type {
-  AdminFieldKey,
-  AdminLevelConflict,
+  AreaFieldKey,
+  AreaConflict,
   FieldLevelEntry,
-} from '../upload/address-resolution/upload-address-level-map.types';
+} from '../upload/address-resolution/upload-area-evidence.types';
 
-const ADMIN_FIELDS: AdminFieldKey[] = ['country', 'state', 'city', 'postcode'];
+const ADMIN_FIELDS: AreaFieldKey[] = ['country', 'state', 'city', 'postcode'];
 
 export function normalizeAdminValue(value: string): string {
   return value
@@ -29,7 +29,7 @@ function expandPostcodeCities(postcode: string, postcodeMap?: PlzMap): string[] 
 }
 
 function expandedValuesForField(
-  field: AdminFieldKey,
+  field: AreaFieldKey,
   value: string,
   postcodeMap?: PlzMap,
 ): string[] {
@@ -41,9 +41,9 @@ function expandedValuesForField(
 }
 
 function valuesAreEquivalent(
-  fieldA: AdminFieldKey,
+  fieldA: AreaFieldKey,
   valueA: string,
-  fieldB: AdminFieldKey,
+  fieldB: AreaFieldKey,
   valueB: string,
   postcodeMap?: PlzMap,
 ): boolean {
@@ -123,7 +123,7 @@ function uniqueEntries(entries: FieldLevelEntry[]): FieldLevelEntry[] {
 
 function entriesHaveDistinctValues(
   entries: FieldLevelEntry[],
-  field: AdminFieldKey,
+  field: AreaFieldKey,
   postcodeMap?: PlzMap,
 ): boolean {
   for (let i = 0; i < entries.length; i++) {
@@ -136,17 +136,17 @@ function entriesHaveDistinctValues(
   return false;
 }
 
-export function collapseAdminFlatFields(
+export function collapseAreaFlatFields(
   fields: {
     country: string | null;
     state: string | null;
     postcode: string | null;
     city: string | null;
   },
-  adminLevelMap: Partial<Record<AdminFieldKey, FieldLevelEntry[]>>,
+  areaEvidence: Partial<Record<AreaFieldKey, FieldLevelEntry[]>>,
 ): void {
   for (const field of ADMIN_FIELDS) {
-    const entries = adminLevelMap[field];
+    const entries = areaEvidence[field];
     if (!entries?.length) {
       continue;
     }
@@ -155,7 +155,7 @@ export function collapseAdminFlatFields(
   }
 }
 
-export function buildAdminConflictSignature(conflicts: AdminLevelConflict[]): string {
+export function buildAdminConflictSignature(conflicts: AreaConflict[]): string {
   return conflicts
     .map(
       (c) =>
@@ -169,19 +169,19 @@ export function buildAdminConflictQueryKey(signature: string): string {
   return `adminConflict|${signature}`;
 }
 
-export function detectAdminLevelConflicts(
-  adminLevelMap: Partial<Record<AdminFieldKey, FieldLevelEntry[]>>,
+export function detectAreaConflicts(
+  areaEvidence: Partial<Record<AreaFieldKey, FieldLevelEntry[]>>,
   options: {
     municipalities: GemeindeRecord[];
     postcodeMap?: PlzMap;
     country?: string | null;
   },
-): AdminLevelConflict[] {
-  const conflicts: AdminLevelConflict[] = [];
+): AreaConflict[] {
+  const conflicts: AreaConflict[] = [];
   const useAtGazetteer = (options.country ?? 'AT').toUpperCase() === 'AT';
 
   for (const field of ADMIN_FIELDS) {
-    const entries = adminLevelMap[field];
+    const entries = areaEvidence[field];
     if (!entries || entries.length < 2) {
       continue;
     }
@@ -190,8 +190,8 @@ export function detectAdminLevelConflicts(
     }
   }
 
-  const cityEntries = adminLevelMap.city ?? [];
-  const stateEntries = adminLevelMap.state ?? [];
+  const cityEntries = areaEvidence.city ?? [];
+  const stateEntries = areaEvidence.state ?? [];
   if (useAtGazetteer && cityEntries.length && stateEntries.length) {
     const incompatible: FieldLevelEntry[] = [];
     for (const cityEntry of cityEntries) {
@@ -222,7 +222,7 @@ export function detectAdminLevelConflicts(
   // Pass 3: postcode-city cross-check (AT only).
   // If a postcode expands to cities via PLZ map, and the assigned city is NOT
   // among them, that's a contradiction (e.g. postcode 1200 = Wien, but city = St. Pölten).
-  const postcodeEntries = adminLevelMap.postcode ?? [];
+  const postcodeEntries = areaEvidence.postcode ?? [];
   if (useAtGazetteer && cityEntries.length && postcodeEntries.length && options.postcodeMap) {
     const incompatiblePc: FieldLevelEntry[] = [];
     for (const pcEntry of postcodeEntries) {

@@ -116,7 +116,7 @@ Each `disambiguationKind` maps to a **contradiction class** in the [contradictio
 | `house_step` | A2 | Step 1B after city confirmed | House number list + “No number needed” |
 | `source` | C1 | Text coords vs EXIF metadata > `sourceAgreementRadiusMeters` | `upload.resolver.question.source` + **four** placement options (folder address / photo / both / set later) |
 | `layer_package` | C2 | Competing folder vs filename street packages | `upload.resolver.question.layerPackage` — package labels per layer |
-| `admin_level_conflict` | C3/C4 | Admin fields disagree across folder levels or AT gazetteer; cascading after folder-to-folder sibling detection | `upload.resolver.question.adminLevelConflict` — per-field `Level N: {value}` options |
+| `admin_level_conflict` | C3/C4 | Area fields (`country`/`state`/`postcode`/`city`) disagree across folder levels or AT gazetteer; cascading after folder-to-folder sibling detection | `upload.resolver.question.adminLevelConflict` — per-field `Level N: {value}` options |
 | `containment_check` | V1 | Post-resolution: resolved street not found in resolved city+postcode via Photon probe | Yes/No + text input — see [contradiction model § G3](../../service/media-upload-service/contradiction-resolution-model.md#post-resolution-validation-gate-gap-g3) |
 
 **Deferred (not in `disambiguationKind` union):** C5 `context_distance` tray — distance filter only; Prompt B confirm UI never built. See [contradiction model deferred backlog](../../service/media-upload-service/contradiction-resolution-model.md#deferred-backlog-not-in-active-acceptance-criteria).

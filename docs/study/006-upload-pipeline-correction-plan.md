@@ -29,7 +29,7 @@ Recorded verbatim in effect, with what each one changed in this document.
 
 | | Owner's answer | Effect |
 | --- | --- | --- |
-| **D-01** | Street names **do** occur in file names (`Mühlenstraße`) and must land on the Search Object. | Clarifies rather than rejects: "admin field" means only `country`, `state`, `city`, `postcode` (`AdminFieldKey`, `upload-address-level-map.types.ts:6`) `[A]` — street-level fields were never in scope. Recommendation tightened to **A′** below, and the requirement is now pinned by two harness scenarios (S16, S17). It also surfaced [F-11](./005-upload-pipeline-trace-findings.md#f-11), which is the real obstacle to that requirement. |
+| **D-01** | Street names **do** occur in file names (`Mühlenstraße`) and must land on the Search Object. | Clarifies rather than rejects: "admin field" means only `country`, `state`, `city`, `postcode` (`AreaFieldKey`, `upload-area-evidence.types.ts:6`) `[A]` — street-level fields were never in scope. Recommendation tightened to **A′** below, and the requirement is now pinned by two harness scenarios (S16, S17). It also surfaced [F-11](./005-upload-pipeline-trace-findings.md#f-11), which is the real obstacle to that requirement. |
 | **D-02** | Accepted as recommended. | Exact-match-first, bounded fuzzy fallback, **plus** the missing statutory cities in the data. Phase 1.3/1.4 unchanged. |
 | **D-03** | Rejected: an organisation may work in Germany *and* Austria, so a home country is the wrong primitive. A country restriction may exist as an **extra option**, but not as the mechanism. | Recommendation replaced — see **D-03 (re-derived)** below. The replacement needs no org setting at all, and the mechanism it restores is already in the tree. |
 | **D-05** | Accepted: the spec wins, and generally — **spec first, then code**. | Phase ordering unchanged; the "spec first" rule is now explicit in every phase that touches behaviour. |
@@ -71,8 +71,8 @@ postcode 1274.
 > still available if a filename city later proves harmful.
 
 Scope, stated explicitly because the first draft of this section was read as wider than it is:
-"admin field" is `country`, `state`, `city`, `postcode` and nothing else — `AdminFieldKey`,
-`upload-address-level-map.types.ts:6`. `[A]` `street`, `houseNumber`, `staircase` and `door` are
+"admin field" is `country`, `state`, `city`, `postcode` and nothing else — `AreaFieldKey`,
+`upload-area-evidence.types.ts:6`. `[A]` `street`, `houseNumber`, `staircase` and `door` are
 street-level fields, live in the layer packages, and are **not touched by any option here**. `[A]`
 
 What A′ decides, case by case: `[C]` (reasoning from the `[A]` evidence in F-01 and F-11)
@@ -239,7 +239,7 @@ suite actually ran.
 | Step | Change | Verified by |
 | --- | --- | --- |
 | 1.1 | Amend `upload-search-object.md` per **D-01**: admin fields come from folder levels only. Update the § Admin level map collapse rule and the pass-2 table in the same change. | Spec lint green; the changed rule is quoted in the PR. |
-| 1.2 | Implement 1.1 in `path-token-classifier.ts` / `upload-address-level-map.helpers.ts`. | A red-first test: `AT/Wien/1090/Währinger Straße 12/IMG_1274.jpg` keeps postcode 1090, and `IMG_1274`/`IMG_1275` in one folder share a `groupingKey`. |
+| 1.2 | Implement 1.1 in `path-token-classifier.ts` / `upload-area-evidence.helpers.ts`. | A red-first test: `AT/Wien/1090/Währinger Straße 12/IMG_1274.jpg` keeps postcode 1090, and `IMG_1274`/`IMG_1275` in one folder share a `groupingKey`. |
 | 1.3 | Amend the spec per **D-02**: exact-match-first, then bounded fuzzy. | Spec lint green. |
 | 1.4 | Implement the normalized exact map in `classifyWithFuse`, and add the 23 statutory cities to `at-gemeinden-bev.json` via `scripts/build-at-gemeinden-bev.mjs` (never by hand). | Red-first: `Wien` classifies as `Wien`; `Schottwien` still classifies as `Schottwien`; a deliberate typo still matches. |
 | 1.6 | **[F-11](./005-upload-pipeline-trace-findings.md#f-11)** — a folder segment that yields only low-confidence street fragments must not form a competing street package. This is what makes the owner's `Mühlenstraße` requirement actually hold. | Red-first: S16 `Baustelle Nord/Mühlenstraße 12.jpg` yields `groupingKey` `\|\|\|\|muhlenstraße\|12` through the **folder** path and opens no tray. |
@@ -280,7 +280,7 @@ Object. Two deviations from the recommendation above, both deliberate:
 - **Ambiguity keeps the places.** Step 2 said "write `city`, leave `country` null, record the
   candidate countries". There is no field for candidate countries, and there is already machinery
   for two values of one admin field: every exact hit is written, so a contested name lands as two
-  `adminLevelMap` entries and `adminLevelConflicts` opens the tray. Identical values collapse to
+  `areaEvidence` entries and `areaConflicts` opens the tray. Identical values collapse to
   one city with no country — which is also correct, and asks nothing it cannot answer.
 - **`narrowed` is not a provenance value yet.** Only `parsed` and `derived` exist. The narrowing
   filter adds its own when it lands; an unused enum member would have been a claim the code does

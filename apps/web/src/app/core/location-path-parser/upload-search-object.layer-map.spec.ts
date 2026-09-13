@@ -7,7 +7,7 @@ import {
   FILENAME_LAYER_KEY,
   isWeakFilenameStreetLevel,
   mergeLayersWithoutConflict,
-  resolveAdministrativeContext,
+  resolveAreaContext,
   resolveLayersForJob,
   resolveSOWithChosenLayer,
 } from './upload-search-object.layer-map';
@@ -94,7 +94,7 @@ describe('upload-search-object.layer-map', () => {
 
   it('EX-04: admin city unchanged when filename package wins', () => {
     const relativePath = 'Wien/Kirchengasse 11/IMG_Gumpendorfstraße_7.jpg';
-    const admin = resolveAdministrativeContext(
+    const admin = resolveAreaContext(
       relativePath,
       'IMG_Gumpendorfstraße_7.jpg',
       geoFull,
@@ -174,14 +174,14 @@ describe('upload-search-object.layer-map', () => {
     expect(layers.find((e) => e.layerKey === FILENAME_LAYER_KEY)).toBeUndefined();
   });
 
-  it('resolveAdministrativeContext surfaces adminLevelConflicts for Wien/Innsbruck', () => {
-    const admin = resolveAdministrativeContext(
+  it('resolveAreaContext surfaces areaConflicts for Wien/Innsbruck', () => {
+    const admin = resolveAreaContext(
       'AT/Wien/Innsbruck/photo.jpg',
       'photo.jpg',
       geoFull,
     );
-    expect(admin.adminLevelConflicts?.length).toBeGreaterThan(0);
-    expect(admin.adminLevelMap?.city?.some((e) => e.value === 'Innsbruck')).toBe(true);
+    expect(admin.areaConflicts?.length).toBeGreaterThan(0);
+    expect(admin.areaEvidence?.city?.some((e) => e.value === 'Innsbruck')).toBe(true);
   });
 
   it('resolveLayersForJob attaches admin conflicts to flat search object', () => {
@@ -191,7 +191,7 @@ describe('upload-search-object.layer-map', () => {
       geoFull,
       'Wien/Innsbruck',
     );
-    expect(result.searchObject.adminLevelConflicts?.length).toBeGreaterThan(0);
+    expect(result.searchObject.areaConflicts?.length).toBeGreaterThan(0);
   });
 });
 

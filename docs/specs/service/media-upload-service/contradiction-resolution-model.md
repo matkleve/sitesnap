@@ -3,7 +3,7 @@
 > **Status:** Active — conceptual parent for all resolver tray scenarios.  
 > **Parent:** [address-resolution-model.md](./address-resolution-model.md)  
 > **UI:** [upload-resolver-tray.md](../../component/upload/upload-resolver-tray.md)  
-> **Code (admin):** `upload-location-admin-level-choice.util.ts`, `upload-address-level-map.helpers.ts`  
+> **Code (admin):** `upload-location-area-choice.util.ts`, `upload-area-evidence.helpers.ts`  
 > **Code (source):** `upload-location-source-conflict.service.ts`
 
 ## Philosophy
@@ -35,7 +35,7 @@ When all constraints can be satisfied with a single assignment, the system resol
 
 | Source | What it provides | Reliability | Pipeline step |
 | --- | --- | --- | --- |
-| **Folder path** | Admin fields at various folder depth levels (`level 0` = filename parent, `level N` = ancestor) | High for structure, but folder names may be informal or wrong | Step 1 (parse) |
+| **Folder path** | Area fields at various folder depth levels (`level 0` = filename parent, `level N` = ancestor) | High for structure, but folder names may be informal or wrong | Step 1 (parse) |
 | **Filename** | Street, houseNumber, staircase, door (layer packages) | Medium — parser may misclassify segments | Step 1 (parse) |
 | **EXIF GPS** | `lat`, `lng` — precise spatial coordinates from camera | High spatial precision, but may be from a different location (moved file, wrong camera clock) | Step 2 |
 | **Photon forward geocode** | Full structured address + coordinates for a text query | Depends on query completeness; may return N ambiguous hits | Step 5 |
@@ -54,8 +54,8 @@ Every tray scenario maps to exactly one contradiction class. The class determine
 | --- | --- | --- | --- | --- | --- | --- |
 | **C1** | Text pin vs EXIF GPS | Folder/filename geocode coords vs EXIF coords | `> sourceAgreementRadiusMeters` (150 m) | `source` | "Photo GPS is far from the folder address. Which location?" | **Done** |
 | **C2** | Folder vs filename layers | Folder path layers vs filename-parsed layers | `detectPackageConflicts` | `layer_package` | "Which address information should we use?" | **Done** |
-| **C3** | Folder-level admin hierarchy | Different admin values at different folder depth levels for same field | `detectAdminLevelConflicts` | `admin_level_conflict` | "Level N says X, Level M says Y. Which is correct?" | **Done** |
-| **C4** | Folder-to-folder sibling | Sibling folders disagree on an admin field shared by a common child (e.g. `Wien/` and `St. Pölten/` both contain `1200/Straße`) | Gazetteer containment check after C3 resolution | `admin_level_conflict` (cascading) | "Postcode 1200 is in Wien. Is that correct for these files?" | **Gap G1** |
+| **C3** | Folder-level admin hierarchy | Different admin values at different folder depth levels for same field | `detectAreaConflicts` | `admin_level_conflict` | "Level N says X, Level M says Y. Which is correct?" | **Done** |
+| **C4** | Folder-to-folder sibling | Sibling folders disagree on an area field shared by a common child (e.g. `Wien/` and `St. Pölten/` both contain `1200/Straße`) | Gazetteer containment check after C3 resolution | `admin_level_conflict` (cascading) | "Postcode 1200 is in Wien. Is that correct for these files?" | **Gap G1** |
 | **C5** | Placement vs project anchor | Resolved coords far from org project GPS reference | `contextDistanceMaxMeters` (org km cap) | *(deferred — no `disambiguationKind`)* | "Is this photo in the right project area?" | **Distance filter only** — tray deferred indefinitely; see [Deferred backlog](#deferred-backlog-not-in-active-acceptance-criteria) |
 
 ### Class A — Ambiguity (one source, multiple valid interpretations)
@@ -86,7 +86,7 @@ Every tray scenario maps to exactly one contradiction class. The class determine
                 ▼
  ┌──────────────────────────────────────────────────────────┐
  │              DETECT CONFLICTS (Step 1 cont.)            │
- │  detectAdminLevelConflicts (same field, multiple vals)   │
+ │  detectAreaConflicts (same field, multiple vals)   │
  │  detectPackageConflicts (folder vs filename layers)      │
  │  gazetteer containment (city ∈ state? postcode → city?)  │
  └──────┬─────────────────────────────┬─────────────────────┘
@@ -101,7 +101,7 @@ Every tray scenario maps to exactly one contradiction class. The class determine
                        ┌──────────────────────────────┐
                        │     PROPAGATE + RECHECK      │
                        │  applySelectionsToSO         │
-                       │  detectAdminLevelConflicts    │
+                       │  detectAreaConflicts    │
                        │  expandPostcodeOnSO           │
                        │  rebuildGroupingKey            │
                        └──────┬───────────────┬────────┘
@@ -153,7 +153,7 @@ This gate prevents the system from silently pushing a user's city choice through
 
 | Gap | Title | Description | Related | Priority |
 | --- | --- | --- | --- | --- |
-| **G2** | Decision scope by tier, not by groupingKey | Admin-level tray registration merges jobs by `adminConflictQueryKey` (`buildAdminConflictSignature`) in `classifyBatch`, not per-street `groupingKey`. Resolution apply still scopes to `group.jobIds` until post-choice regroup. | Propagation scope rules | **Partial** — merge at tray open; full tier fan-out on apply still open |
+| **G2** | Decision scope by tier, not by groupingKey | Admin-level tray registration merges jobs by `areaConflictQueryKey` (`buildAdminConflictSignature`) in `classifyBatch`, not per-street `groupingKey`. Resolution apply still scopes to `group.jobIds` until post-choice regroup. | Propagation scope rules | **Partial** — merge at tray open; full tier fan-out on apply still open |
 | **G3** | Post-resolution validation gate | After admin conflict resolution, Photon 0-hit on resolved `(street, city)` opens `containment_check` tray (`patchContainmentCheckOutcome`) instead of silent `partial`. | V1 | **Done** |
 | **G4** | Deferred resolution lifecycle | Skip must set an explicit `deferred` status that persists through upload and is actionable in Media Detail | Deferred contract | Medium |
 | **G5** | Cross-batch dedup for admin conflicts | Same `(field, conflicting-value-set)` across batches must reuse/merge, not open duplicate trays | Already documented in `address-resolution-model.md` | Medium |
@@ -183,7 +183,7 @@ All four systems implement the same principle: **the system must not silently pe
 
 ## Acceptance criteria
 
-- [x] G2 (partial): `classifyBatch` merges admin conflicts into one `adminConflictQueryKey` group per `(batchId, field, conflicting-value-set)` — `upload-address-resolution.orchestrator.ts` `adminConflictAccum`; vitest `upload-address-resolution.orchestrator.spec.ts`
+- [x] G2 (partial): `classifyBatch` merges admin conflicts into one `areaConflictQueryKey` group per `(batchId, field, conflicting-value-set)` — `upload-address-resolution.orchestrator.ts` `adminConflictAccum`; vitest `upload-address-resolution.orchestrator.spec.ts`
 - [x] G3: Photon 0-hit after admin resolution opens `containment_check` tray — `patchContainmentCheckOutcome`, `registerContainmentCheckGroup`; vitest `upload-location-tray-flow.service.spec.ts` (`G3:` cases)
 - [ ] **G4 (product open)** — Skip → `deferred` status persists through upload and is visible/actionable in Media Detail. **Flagged for product owner:** current code sets `resolutionStatus: 'failed'` + `issueKind: 'address_deferred'` on defer, not a durable `deferred` lifecycle through Media Detail.
 - [ ] G5: Cross-batch admin conflict dedup (shared with `address-resolution-model.md` AC)

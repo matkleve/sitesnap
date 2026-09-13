@@ -208,7 +208,7 @@ Union `'pending' | 'resolved' | 'failed' | 'not_required'` (`core/upload/upload-
 
 ### 5.4 `UploadGroupResolutionStatus` — a third FSM the plan does not name
 
-Union of **7** (`core/upload/address-resolution/upload-address-resolution.types.ts:55-62`): `resolved | partial | needsGeocode | needsLayerResolution | needsAdminLevelResolution | needsTray | ambiguous`. Written from `core/upload/address-resolution/upload-address-resolution.orchestrator.ts` (17 sites, `:233-592`), `core/upload/location/upload-location-geocode-group.service.ts:113,269,285`, `core/upload/location/upload-location-geocode-outcome.util.ts:39,59,75,94`, `core/upload/location/upload-location-tray-flow.service.ts:372,386`. All 7 reachable. **No spec file defines this union's transitions** — the closest is `…/upload-address-resolution.phases.md` (936 bytes). Recorded as an undocumented FSM; carried to Phase 5.
+Union of **7** (`core/upload/address-resolution/upload-address-resolution.types.ts:55-62`): `resolved | partial | needsGeocode | needsLayerResolution | needsAreaResolution | needsTray | ambiguous`. Written from `core/upload/address-resolution/upload-address-resolution.orchestrator.ts` (17 sites, `:233-592`), `core/upload/location/upload-location-geocode-group.service.ts:113,269,285`, `core/upload/location/upload-location-geocode-outcome.util.ts:39,59,75,94`, `core/upload/location/upload-location-tray-flow.service.ts:372,386`. All 7 reachable. **No spec file defines this union's transitions** — the closest is `…/upload-address-resolution.phases.md` (936 bytes). Recorded as an undocumented FSM; carried to Phase 5.
 
 ### 5.5 Tray orchestrator states
 

@@ -27,7 +27,7 @@ export interface DisambiguationRegistrationInput {
   houseNumberCandidates?: UploadAddressCandidate[];
   discriminatingField?: UploadDisambiguationGroup['discriminatingField'];
   collapseStage?: UploadDisambiguationGroup['collapseStage'];
-  adminLevelConflicts?: UploadDisambiguationGroup['adminLevelConflicts'];
+  areaConflicts?: UploadDisambiguationGroup['areaConflicts'];
 }
 
 export function mergeDisambiguationGroupPatch(
@@ -53,7 +53,7 @@ export function mergeDisambiguationGroupPatch(
     projectCentroid: input.projectCentroid ?? group.projectCentroid,
     citySuggestions: input.citySuggestions ?? group.citySuggestions,
     houseNumberCandidates: input.houseNumberCandidates ?? group.houseNumberCandidates,
-    adminLevelConflicts: input.adminLevelConflicts ?? group.adminLevelConflicts,
+    areaConflicts: input.areaConflicts ?? group.areaConflicts,
   };
 }
 

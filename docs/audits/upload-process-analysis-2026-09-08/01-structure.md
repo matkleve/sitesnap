@@ -206,7 +206,7 @@ No `@Component` exists under `core/`, so there is no UI-in-core violation of the
 
 Root `AGENTS.md` § Code Conventions: "Keep one central `types.ts` per module; do not split into nested sub-service type files." The subsystem has **six**:
 
-`core/upload/upload-manager.types.ts` (396 LOC) · `core/upload/upload.types.ts` · `core/upload/address-resolution/upload-address-resolution.types.ts` · `core/upload/address-resolution/upload-address-level-map.types.ts` · `core/upload-resolver-tray-orchestrator/upload-resolver-tray-orchestrator.types.ts` · `features/upload/upload-panel/upload-panel.types.ts`
+`core/upload/upload-manager.types.ts` (396 LOC) · `core/upload/upload.types.ts` · `core/upload/address-resolution/upload-address-resolution.types.ts` · `core/upload/address-resolution/upload-area-evidence.types.ts` · `core/upload-resolver-tray-orchestrator/upload-resolver-tray-orchestrator.types.ts` · `features/upload/upload-panel/upload-panel.types.ts`
 
 Two of these (`upload-manager.types.ts`, `upload.types.ts`) sit in the same module folder and both are nested-into by the address-resolution pair. `upload-panel.types.ts` is a feature-local type file and is outside the service-module rule. **Net: a 4-way split inside one service module where the rule allows one.** Severity `medium`.
 

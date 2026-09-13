@@ -24,7 +24,7 @@ import {
   searchObjectHasLocality,
   type ProjectGeocodeCentroid,
 } from '../../location-path-parser/upload-search-object.completeness.helpers';
-import { normalizeAdminValue } from '../../location-path-parser/upload-address-level-map.helpers';
+import { normalizeAdminValue } from '../../location-path-parser/upload-area-evidence.helpers';
 import type {
   UploadGroupResolutionState,
   UploadLocationRowHit,

@@ -6,7 +6,7 @@
  * need these types but should not import the manager itself).
  */
 
-import type { AdminLevelConflict } from './address-resolution/upload-address-level-map.types';
+import type { AreaConflict } from './address-resolution/upload-area-evidence.types';
 import type { ExifCoords, ParsedExif } from './upload.service';
 
 // ── Phase & Mode ───────────────────────────────────────────────────────────────
@@ -97,7 +97,7 @@ export interface UploadDisambiguationGroup {
   /** Branch C 5a: which field differs between Photon candidates. */
   discriminatingField?: UploadDiscriminatingField;
   /** Admin level-map conflicts for admin_level_conflict tray. */
-  adminLevelConflicts?: AdminLevelConflict[];
+  areaConflicts?: AreaConflict[];
 }
 
 export type UploadJobMode = 'new' | 'replace' | 'attach';

@@ -24,17 +24,17 @@ import {
 import {
   buildAdminConflictQueryKey,
   buildAdminConflictSignature,
-} from '../../location-path-parser/upload-address-level-map.helpers';
+} from '../../location-path-parser/upload-area-evidence.helpers';
 import {
   applyAdminLevelSelectionsToSearchObject,
   buildAdminConflictCandidates,
   parseAdminLevelCandidateId,
-} from './upload-location-admin-level-choice.util';
+} from './upload-location-area-choice.util';
 import {
   bucketLayerPackageJobsByGroupingKey,
   resolveLayerPackageJobs,
 } from './upload-location-layer-package-choice.util';
-import type { AdminFieldKey } from '../address-resolution/upload-address-level-map.types';
+import type { AreaFieldKey } from '../address-resolution/upload-area-evidence.types';
 import { CONTAINMENT_CHECK_ENTER_DIFFERENT_CANDIDATE_ID } from './upload-location-geocode-outcome.util';
 import type {
   DisambiguationResolvedEvent,
@@ -85,7 +85,7 @@ export class UploadLocationTrayFlowService {
    * @see docs/specs/service/media-upload-service/upload-search-object.layer-map.md#tray-registration
    */
   registerLayerPackageGroupsAfterClassify(batchId: string): void {
-    this.registerAdminLevelConflictGroupsAfterClassify(batchId);
+    this.registerAreaConflictGroupsAfterClassify(batchId);
     const states = this.orchestrator
       .listGroupStates(batchId)
       .filter((s) => s.status === 'needsLayerResolution');
@@ -94,18 +94,18 @@ export class UploadLocationTrayFlowService {
     }
   }
 
-  registerAdminLevelConflictGroupsAfterClassify(batchId: string): void {
+  registerAreaConflictGroupsAfterClassify(batchId: string): void {
     const states = this.orchestrator
       .listGroupStates(batchId)
-      .filter((s) => s.status === 'needsAdminLevelResolution');
+      .filter((s) => s.status === 'needsAreaResolution');
     for (const state of states) {
-      this.registerAdminLevelConflictGroup(batchId, state);
+      this.registerAreaConflictGroup(batchId, state);
     }
   }
 
-  registerAdminLevelConflictGroup(batchId: string, state: UploadGroupResolutionState): void {
-    const queryKey = state.adminConflictQueryKey ?? state.groupingKey;
-    const conflicts = state.adminLevelConflicts ?? state.searchObject.adminLevelConflicts ?? [];
+  registerAreaConflictGroup(batchId: string, state: UploadGroupResolutionState): void {
+    const queryKey = state.areaConflictQueryKey ?? state.groupingKey;
+    const conflicts = state.areaConflicts ?? state.searchObject.areaConflicts ?? [];
     const candidates = buildAdminConflictCandidates(conflicts).map((c) => ({
       id: c.id,
       addressLabel: c.addressLabel,
@@ -120,7 +120,7 @@ export class UploadLocationTrayFlowService {
       jobIds: state.jobIds,
       candidates,
       disambiguationKind: 'admin_level_conflict',
-      adminLevelConflicts: conflicts,
+      areaConflicts: conflicts,
     });
   }
 
@@ -405,13 +405,13 @@ export class UploadLocationTrayFlowService {
     };
   }
 
-  async applyAdminLevelConflictChoice(
+  async applyAreaConflictChoice(
     group: UploadDisambiguationGroup,
     candidateId: string,
     manualValue?: string,
   ): Promise<void> {
     const parsed = parseAdminLevelCandidateId(candidateId);
-    const field = parsed?.field ?? (candidateId.split('|')[1] as AdminFieldKey | undefined);
+    const field = parsed?.field ?? (candidateId.split('|')[1] as AreaFieldKey | undefined);
     const value = parsed?.value ?? manualValue?.trim();
     if (!field || !value) {
       return;
@@ -420,7 +420,7 @@ export class UploadLocationTrayFlowService {
     const geo = await this.loadGeoData();
     const geoFull = { ...geo, postcodeMap: geo.postcodeMap };
     const oldKey = group.queryKey;
-    const selections: Partial<Record<AdminFieldKey, string>> = { [field]: value };
+    const selections: Partial<Record<AreaFieldKey, string>> = { [field]: value };
 
     const resolvedJobs: Array<{
       jobId: string;
@@ -460,37 +460,37 @@ export class UploadLocationTrayFlowService {
     }
 
     const stillConflicted = resolvedJobs.some(
-      (row) => (row.searchObject.adminLevelConflicts?.length ?? 0) > 0,
+      (row) => (row.searchObject.areaConflicts?.length ?? 0) > 0,
     );
 
     if (stillConflicted) {
       const sample = resolvedJobs[0];
       if (sample) {
-        const nextConflicts = sample.searchObject.adminLevelConflicts ?? [];
+        const nextConflicts = sample.searchObject.areaConflicts ?? [];
         const nextKey = buildAdminConflictQueryKey(buildAdminConflictSignature(nextConflicts));
         this.orchestrator.patchGroupState(group.batchId, {
-          status: 'needsAdminLevelResolution',
+          status: 'needsAreaResolution',
           groupingKey: nextKey,
           jobIds: [...group.jobIds],
           searchObject: sample.searchObject,
           folderDisplayPath: sample.folderDisplayPath,
           titleAddressLabel: sample.titleAddressLabel,
-          adminConflictQueryKey: nextKey,
-          adminLevelConflicts: nextConflicts,
+          areaConflictQueryKey: nextKey,
+          areaConflicts: nextConflicts,
         });
         for (const row of resolvedJobs) {
           this.jobState.updateJob(row.jobId, { groupingKey: nextKey });
         }
         this.disambiguationStore.removeGroupById(group.id);
-        this.registerAdminLevelConflictGroup(group.batchId, {
-          status: 'needsAdminLevelResolution',
+        this.registerAreaConflictGroup(group.batchId, {
+          status: 'needsAreaResolution',
           groupingKey: nextKey,
           jobIds: [...group.jobIds],
           searchObject: sample.searchObject,
           folderDisplayPath: sample.folderDisplayPath,
           titleAddressLabel: sample.titleAddressLabel,
-          adminConflictQueryKey: nextKey,
-          adminLevelConflicts: nextConflicts,
+          areaConflictQueryKey: nextKey,
+          areaConflicts: nextConflicts,
         });
       }
       this.disambiguationStore.syncBatchDisambiguationAggregates(group.batchId);

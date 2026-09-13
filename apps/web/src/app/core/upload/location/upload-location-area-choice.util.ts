@@ -1,6 +1,6 @@
 /**
  * Apply admin_level_conflict tray choices to Search Objects.
- * @see docs/specs/service/media-upload-service/upload-search-object.md#admin-level-map
+ * @see docs/specs/service/media-upload-service/upload-search-object.md#area-evidence
  */
 
 import {
@@ -9,11 +9,11 @@ import {
 } from '../../location-path-parser/upload-search-object.builder';
 import type { PlzMap } from '../../location-path-parser/local-geo-data.adapter';
 import type {
-  AdminFieldKey,
-  AdminLevelConflict,
+  AreaFieldKey,
+  AreaConflict,
   FieldLevelEntry,
-} from '../address-resolution/upload-address-level-map.types';
-import { detectAdminLevelConflicts } from '../../location-path-parser/upload-address-level-map.helpers';
+} from '../address-resolution/upload-area-evidence.types';
+import { detectAreaConflicts } from '../../location-path-parser/upload-area-evidence.helpers';
 import type { UploadSearchObject } from '../address-resolution/upload-address-resolution.types';
 
 const ADMIN_CANDIDATE_PREFIX = 'admin-level|';
@@ -23,13 +23,13 @@ export function adminLevelCandidateId(entry: FieldLevelEntry): string {
   return `${ADMIN_CANDIDATE_PREFIX}${entry.field}|level:${entry.level}|${encodeURIComponent(entry.value)}`;
 }
 
-export function adminLevelManualCandidateId(field: AdminFieldKey): string {
+export function adminLevelManualCandidateId(field: AreaFieldKey): string {
   return `${ADMIN_MANUAL_PREFIX}${field}`;
 }
 
 export function parseAdminLevelCandidateId(
   candidateId: string,
-): { field: AdminFieldKey; value: string } | null {
+): { field: AreaFieldKey; value: string } | null {
   if (candidateId.startsWith(ADMIN_MANUAL_PREFIX)) {
     return null;
   }
@@ -41,7 +41,7 @@ export function parseAdminLevelCandidateId(
   if (sep < 0) {
     return null;
   }
-  const field = body.slice(0, sep) as AdminFieldKey;
+  const field = body.slice(0, sep) as AreaFieldKey;
   const rest = body.slice(sep + 1);
   const valueSep = rest.indexOf('|');
   if (valueSep < 0) {
@@ -53,7 +53,7 @@ export function parseAdminLevelCandidateId(
 
 export function applyAdminLevelSelectionsToSearchObject(
   so: UploadSearchObject,
-  selections: Partial<Record<AdminFieldKey, string>>,
+  selections: Partial<Record<AreaFieldKey, string>>,
   geo: { municipalities: { n: string; b: string }[]; postcodeMap: PlzMap },
 ): UploadSearchObject {
   const next: UploadSearchObject = {
@@ -62,38 +62,38 @@ export function applyAdminLevelSelectionsToSearchObject(
     state: selections.state ?? so.state,
     postcode: selections.postcode ?? so.postcode,
     city: selections.city ?? so.city,
-    adminLevelMap: { ...so.adminLevelMap },
-    adminLevelConflicts: [],
+    areaEvidence: { ...so.areaEvidence },
+    areaConflicts: [],
   };
 
-  for (const [field, value] of Object.entries(selections) as [AdminFieldKey, string][]) {
+  for (const [field, value] of Object.entries(selections) as [AreaFieldKey, string][]) {
     if (!value?.trim()) {
       continue;
     }
     next[field] = value.trim();
-    next.adminLevelMap = {
-      ...next.adminLevelMap,
+    next.areaEvidence = {
+      ...next.areaEvidence,
       [field]: [{ level: 0, value: value.trim(), source: 'filename', field }],
     };
   }
 
-  const rechecked = detectAdminLevelConflicts(next.adminLevelMap ?? {}, {
+  const rechecked = detectAreaConflicts(next.areaEvidence ?? {}, {
     municipalities: geo.municipalities,
     postcodeMap: geo.postcodeMap,
     country: next.country,
   });
-  next.adminLevelConflicts = rechecked;
+  next.areaConflicts = rechecked;
 
   const expanded = expandPostcodeOnSearchObject(next, geo.postcodeMap);
   return {
     ...expanded,
     groupingKey: buildGroupingKey(expanded),
-    adminLevelConflicts: rechecked,
+    areaConflicts: rechecked,
   };
 }
 
 export function buildAdminConflictCandidates(
-  conflicts: AdminLevelConflict[],
+  conflicts: AreaConflict[],
 ): { id: string; addressLabel: string }[] {
   const candidates: { id: string; addressLabel: string }[] = [];
   const seen = new Set<string>();

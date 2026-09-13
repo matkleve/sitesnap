@@ -100,8 +100,8 @@ Dominant clusters (non-upload): `map-shell.*.spec.ts` (≈ 60 errors, all `uploa
 | T6 | `apps/web/src/app/features/upload/upload-panel/upload-panel-destructive-confirm.spec.ts:9` | TS2345: `HTMLDivElement` passed where `ElementRef<HTMLElement>` is required |
 | T7 | `apps/web/src/app/features/upload/upload-panel/upload-panel-input-handlers.spec.ts:66` | TS2352: hand-rolled `FileList` lacks `[Symbol.iterator]` |
 | T8 | `apps/web/src/app/features/upload/upload-panel/upload-panel.map-pick.spec.ts:42` | TS2345: `ImageUploadedEvent` literal missing `jobId`, `batchId` |
-| T9 | `apps/web/src/app/core/location-path-parser/upload-address-level-map.helpers.spec.ts:127` | TS2345: `FieldLevelEntry[]` shape mismatch |
-| T10 | `apps/web/src/app/core/location-path-parser/upload-address-level-map.helpers.spec.ts:130` | TS2345: same |
+| T9 | `apps/web/src/app/core/location-path-parser/upload-area-evidence.helpers.spec.ts:127` | TS2345: `FieldLevelEntry[]` shape mismatch |
+| T10 | `apps/web/src/app/core/location-path-parser/upload-area-evidence.helpers.spec.ts:130` | TS2345: same |
 | T11 | `apps/web/src/app/core/location-path-parser/upload-search-object.completeness.helpers.spec.ts:60` | TS2353: `'district'` does not exist in `Partial<UploadSearchObject>` |
 
 T1, T2, T8, T9, T10 and T11 are **stale-test-after-production-change** signatures: the spec still references a union member, a field or an event shape that production types no longer carry. That is the exact failure class root `AGENTS.md` § Change-Completeness Rule names as "the single most expensive recurring failure in this codebase". Follow-up in Phase 9.

@@ -76,14 +76,14 @@ export function renderSearchObject(scenario: UploadTraceScenario, so: UploadSear
   if (so.sourceDeviations.length) {
     lines.push(`    sourceDeviations: ${so.sourceDeviations.map((d) => `${d.field} folder=${d.folderValue} filename=${d.filenameValue}`).join('; ')}`);
   }
-  if (so.adminLevelConflicts?.length) {
-    lines.push(`    adminLevelConflicts: ${so.adminLevelConflicts.map((c) => c.field).join(', ')}`);
+  if (so.areaConflicts?.length) {
+    lines.push(`    areaConflicts: ${so.areaConflicts.map((c) => c.field).join(', ')}`);
   }
-  if (so.adminLevelMap) {
-    const levels = Object.entries(so.adminLevelMap)
+  if (so.areaEvidence) {
+    const levels = Object.entries(so.areaEvidence)
       .map(([field, entries]) => `${field}@[${(entries ?? []).map((e) => `L${e.level}:${e.value}`).join(' ')}]`)
       .join(' ');
-    lines.push(`    adminLevelMap: ${levels || '(empty)'}`);
+    lines.push(`    areaEvidence: ${levels || '(empty)'}`);
   }
   void scenario;
   return lines.join('\n');

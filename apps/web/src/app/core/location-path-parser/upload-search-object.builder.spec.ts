@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildGroupingKey,
   buildSearchObjectFromRelativePath,
+  expandPostcodeOnSearchObject,
   isSearchObjectComplete,
 } from './upload-search-object.builder';
 
@@ -89,10 +90,10 @@ describe('buildSearchObjectFromRelativePath — admin level map', () => {
       'photo.jpg',
       geoWithInnsbruck,
     );
-    expect(so.adminLevelMap?.city?.some((e) => e.value === 'Wien')).toBe(true);
-    expect(so.adminLevelMap?.postcode?.some((e) => e.value === '1090')).toBe(true);
-    const cityLevel = so.adminLevelMap?.city?.find((e) => e.value === 'Wien')?.level;
-    const postcodeLevel = so.adminLevelMap?.postcode?.find((e) => e.value === '1090')?.level;
+    expect(so.areaEvidence?.city?.some((e) => e.value === 'Wien')).toBe(true);
+    expect(so.areaEvidence?.postcode?.some((e) => e.value === '1090')).toBe(true);
+    const cityLevel = so.areaEvidence?.city?.find((e) => e.value === 'Wien')?.level;
+    const postcodeLevel = so.areaEvidence?.postcode?.find((e) => e.value === '1090')?.level;
     expect(cityLevel).toBeGreaterThan(postcodeLevel!);
   });
 
@@ -102,7 +103,7 @@ describe('buildSearchObjectFromRelativePath — admin level map', () => {
       'photo.jpg',
       geoWithInnsbruck,
     );
-    expect(so.adminLevelConflicts ?? []).toHaveLength(0);
+    expect(so.areaConflicts ?? []).toHaveLength(0);
   });
 
   it('detects gazetteer conflict for Wien folder + Innsbruck subfolder', () => {
@@ -111,8 +112,8 @@ describe('buildSearchObjectFromRelativePath — admin level map', () => {
       'photo.jpg',
       geoWithInnsbruck,
     );
-    expect(so.adminLevelConflicts?.length).toBeGreaterThan(0);
-    const values = so.adminLevelConflicts!.flatMap((c) => c.entries.map((e) => e.value));
+    expect(so.areaConflicts?.length).toBeGreaterThan(0);
+    const values = so.areaConflicts!.flatMap((c) => c.entries.map((e) => e.value));
     expect(values.some((v) => v.toLowerCase().includes('innsbruck'))).toBe(true);
   });
 
@@ -132,7 +133,7 @@ describe('buildSearchObjectFromRelativePath — admin level map', () => {
       'photo.jpg',
       geoWithInnsbruck,
     );
-    expect(so.adminLevelConflicts?.some((c) => c.field === 'city')).toBe(true);
+    expect(so.areaConflicts?.some((c) => c.field === 'city')).toBe(true);
   });
 
   it('records filename-derived admin tokens at level 0', () => {
@@ -141,18 +142,18 @@ describe('buildSearchObjectFromRelativePath — admin level map', () => {
       'Graz.jpg',
       geoWithInnsbruck,
     );
-    const filenameCity = so.adminLevelMap?.city?.find((e) => e.source === 'filename');
+    const filenameCity = so.areaEvidence?.city?.find((e) => e.source === 'filename');
     expect(filenameCity?.level).toBe(0);
     expect(filenameCity?.value).toBe('Graz');
   });
 
-  it('includes country in adminLevelMap from AT segment', () => {
+  it('includes country in areaEvidence from AT segment', () => {
     const so = buildSearchObjectFromRelativePath(
       'AT/Wien/photo.jpg',
       'photo.jpg',
       geoWithInnsbruck,
     );
-    expect(so.adminLevelMap?.country?.some((e) => e.value === 'AT')).toBe(true);
+    expect(so.areaEvidence?.country?.some((e) => e.value === 'AT')).toBe(true);
   });
 });
 
@@ -165,8 +166,8 @@ describe('buildSearchObjectFromRelativePath — filename admin gate', () => {
     );
 
     expect(so.postcode).toBe('1090');
-    expect(so.adminLevelMap?.postcode?.some((entry) => entry.value === '1274')).toBe(false);
-    expect(so.adminLevelConflicts ?? []).toEqual([]);
+    expect(so.areaEvidence?.postcode?.some((entry) => entry.value === '1274')).toBe(false);
+    expect(so.areaConflicts ?? []).toEqual([]);
   });
 
   it('keeps two camera files in one folder in the same group', () => {
@@ -372,11 +373,11 @@ describe('buildSearchObjectFromRelativePath — derived country', () => {
       moedlingGeo,
     );
 
-    const cityLevels = (so.adminLevelMap?.city ?? []).map((e) => `${e.level}:${e.value}`).sort();
+    const cityLevels = (so.areaEvidence?.city ?? []).map((e) => `${e.level}:${e.value}`).sort();
     expect(cityLevels).toEqual(['0:Wien', '2:Mödling']);
     expect(so.postcode).toBe('1160');
     expect(so.country).toBe('AT');
-    expect(so.adminLevelConflicts?.some((c) => c.field === 'city')).toBe(true);
+    expect(so.areaConflicts?.some((c) => c.field === 'city')).toBe(true);
   });
 });
 
@@ -426,5 +427,50 @@ describe('buildSearchObjectFromRelativePath — street evidence', () => {
 
     expect(so.street).toBeNull();
     expect(so.houseNumber).toBeNull();
+  });
+});
+
+// ── Every value says where it came from ───────────────────────────────────────
+// @see docs/specs/service/media-upload-service/upload-search-object.evidence-model.md
+describe('buildSearchObjectFromRelativePath — value origin', () => {
+  const geoAt = {
+    states: [{ n: 'Niederösterreich', a: [] }],
+    municipalities: [{ n: 'Mödling', b: 'Niederösterreich', a: [] }],
+    postcodeMap: { '4020': ['Linz'] },
+  };
+
+  it('marks a value read from the path as path evidence', () => {
+    const so = buildSearchObjectFromRelativePath('AT/Wien/photo.jpg', 'photo.jpg', geo);
+
+    expect(so.areaEvidence?.city?.[0].origin).toBe('path');
+    expect(so.areaEvidence?.city?.[0].rule).toBeUndefined();
+  });
+
+  it('names the rule that derived a country from a place', () => {
+    const so = buildSearchObjectFromRelativePath(
+      'Mödling/Wilhelminenstraße 141/IMG_1.jpg',
+      'IMG_1.jpg',
+      geoAt,
+    );
+
+    const country = so.areaEvidence?.country?.[0];
+    expect(country?.origin).toBe('derived');
+    expect(country?.rule).toBe('place→country');
+    expect(country?.derivedFrom).toBe('Mödling');
+  });
+
+  it('names the rule that derived a city from a postcode', () => {
+    const built = buildSearchObjectFromRelativePath(
+      'AT/4020/Landstraße 7/foto.jpg',
+      'foto.jpg',
+      geoAt,
+    );
+    const so = expandPostcodeOnSearchObject(built, geoAt.postcodeMap);
+
+    expect(so.city).toBe('Linz');
+    const city = so.areaEvidence?.city?.find((entry) => entry.origin === 'derived');
+    expect(city?.rule).toBe('postcode→city');
+    expect(city?.derivedFrom).toBe('4020');
+    expect(so.sources.find((entry) => entry.field === 'city')?.rule).toBe('postcode→city');
   });
 });

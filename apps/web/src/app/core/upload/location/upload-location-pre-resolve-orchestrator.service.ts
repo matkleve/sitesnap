@@ -72,8 +72,8 @@ export class UploadLocationPreResolveOrchestratorService {
       ...summarizeGroupState(groupState),
     });
 
-    if (groupState.status === 'needsAdminLevelResolution') {
-      return this.holdAdminLevelConflictPreResolve(job.batchId, groupState);
+    if (groupState.status === 'needsAreaResolution') {
+      return this.holdAreaConflictPreResolve(job.batchId, groupState);
     }
 
     if (groupState.status === 'needsLayerResolution') {
@@ -88,14 +88,14 @@ export class UploadLocationPreResolveOrchestratorService {
     return this.continueAfterGeocodePreResolve(job, groupState);
   }
 
-  private holdAdminLevelConflictPreResolve(
+  private holdAreaConflictPreResolve(
     batchId: string,
     groupState: UploadGroupResolutionState,
   ): 'held' {
     uploadTraceDecision('ulr', 'held — admin_level_conflict tray before geocode', {
-      adminConflictQueryKey: groupState.adminConflictQueryKey,
+      areaConflictQueryKey: groupState.areaConflictQueryKey,
     });
-    this.trayFlow.registerAdminLevelConflictGroup(batchId, groupState);
+    this.trayFlow.registerAreaConflictGroup(batchId, groupState);
     uploadTraceExit('ulr', 'applyPreResolveFromOrchestrator', 'held (admin_level_conflict)');
     return 'held';
   }

@@ -5,10 +5,11 @@
 
 import type { AddressLayerEntry } from '../../location-path-parser/upload-search-object.layer-map';
 import type {
-  AdminLevelConflict,
+  AreaConflict,
   FieldLevelEntry,
-  AdminFieldKey,
-} from './upload-address-level-map.types';
+  AreaFieldKey,
+  ValueOrigin,
+} from './upload-area-evidence.types';
 import type {
   UploadAddressCandidate,
   UploadDiscriminatingField,
@@ -23,6 +24,10 @@ export interface UploadAddressSourceEntry {
   source: UploadAddressFieldSource;
   confidence: number;
   uncertain?: boolean;
+  /** `path` (default) or `derived`; see {@link ValueOrigin}. */
+  origin?: ValueOrigin;
+  /** Only when `origin` is `derived`: the rule that produced this value. */
+  rule?: string;
 }
 
 export interface UploadAddressSourceDeviation {
@@ -57,8 +62,8 @@ export interface UploadSearchObject {
   groupingKey: string;
   relativePath: string;
   fileName: string;
-  adminLevelMap?: Partial<Record<AdminFieldKey, FieldLevelEntry[]>>;
-  adminLevelConflicts?: AdminLevelConflict[];
+  areaEvidence?: Partial<Record<AreaFieldKey, FieldLevelEntry[]>>;
+  areaConflicts?: AreaConflict[];
 }
 
 export type UploadGroupResolutionStatus =
@@ -66,7 +71,7 @@ export type UploadGroupResolutionStatus =
   | 'partial'
   | 'needsGeocode'
   | 'needsLayerResolution'
-  | 'needsAdminLevelResolution'
+  | 'needsAreaResolution'
   | 'needsTray'
   | 'ambiguous';
 
@@ -111,8 +116,8 @@ export interface UploadGroupResolutionState {
   /** Tray merge key for layer_package groups. */
   layerConflictQueryKey?: string;
   /** Tray merge key for admin_level_conflict groups. */
-  adminConflictQueryKey?: string;
-  adminLevelConflicts?: AdminLevelConflict[];
+  areaConflictQueryKey?: string;
+  areaConflicts?: AreaConflict[];
   /** Set when this group was created by integrateResolvedAdminGroups.
    * Used to trigger a containment_check tray instead of silent partial on Photon 0-hit. */
   resolvedFromAdminConflict?: boolean;

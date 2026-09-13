@@ -9,7 +9,7 @@
  */
 
 import type { UploadSearchObject } from '../address-resolution/upload-address-resolution.types';
-import type { AdminFieldKey } from '../address-resolution/upload-address-level-map.types';
+import type { AreaFieldKey } from '../address-resolution/upload-area-evidence.types';
 import type { UploadJob } from '../upload-manager.types';
 import type { UploadTraceScenario } from './upload-trace-fixtures';
 
@@ -41,16 +41,16 @@ export interface FindingInput {
 
 /**
  * A file-name value outranked a folder value for the same admin field (level 0 wins) **and nobody
- * was asked**. A field listed in `adminLevelConflicts` is excluded: there the contradiction is
+ * was asked**. A field listed in `areaConflicts` is excluded: there the contradiction is
  * recorded and a tray resolves it before geocode, which is the level map working as specified.
  * Only a silent override is a finding.
  */
 function findFilenameOverrides(inputs: readonly FindingInput[]): TraceFinding | null {
   const hits: string[] = [];
   for (const { scenario, searchObject } of inputs) {
-    const asked = new Set((searchObject.adminLevelConflicts ?? []).map((conflict) => conflict.field));
-    for (const [field, entries] of Object.entries(searchObject.adminLevelMap ?? {})) {
-      if (asked.has(field as AdminFieldKey)) {
+    const asked = new Set((searchObject.areaConflicts ?? []).map((conflict) => conflict.field));
+    for (const [field, entries] of Object.entries(searchObject.areaEvidence ?? {})) {
+      if (asked.has(field as AreaFieldKey)) {
         continue;
       }
       const list = entries ?? [];

@@ -11,7 +11,7 @@ import {
   adminLevelCandidateId,
   adminLevelManualCandidateId,
   buildAdminConflictCandidates,
-} from './upload-location-admin-level-choice.util';
+} from './upload-location-area-choice.util';
 import { UploadLocationDisambiguationStoreService } from './upload-location-disambiguation-store.service';
 import { UploadLocationResolutionService } from './upload-location-resolution.service';
 import { UploadLocationTrayFlowService } from './upload-location-tray-flow.service';
@@ -115,38 +115,38 @@ describe('UploadLocationTrayFlowService — admin_level_conflict', () => {
     disambiguationStore.removeGroupsForBatch('batch-tray');
   });
 
-  it('registerAdminLevelConflictGroup registers admin_level_conflict with conflict payload', async () => {
+  it('registerAreaConflictGroup registers admin_level_conflict with conflict payload', async () => {
     jobState.addJobs([buildJob()]);
     await orchestrator.classifyBatch('batch-tray');
 
     const adminState = orchestrator
       .listGroupStates('batch-tray')
-      .find((s) => s.status === 'needsAdminLevelResolution')!;
-    trayFlow.registerAdminLevelConflictGroup('batch-tray', adminState);
+      .find((s) => s.status === 'needsAreaResolution')!;
+    trayFlow.registerAreaConflictGroup('batch-tray', adminState);
 
     expect(resolutionMock.registerDisambiguationGroup).toHaveBeenCalledWith(
       expect.objectContaining({
         batchId: 'batch-tray',
         disambiguationKind: 'admin_level_conflict',
         jobIds: adminState.jobIds,
-        adminLevelConflicts: expect.arrayContaining([
+        areaConflicts: expect.arrayContaining([
           expect.objectContaining({ field: 'city' }),
         ]),
       }),
     );
     const input = resolutionMock.registerDisambiguationGroup.mock.calls[0]![0];
     expect(input.candidates.length).toBeGreaterThanOrEqual(2);
-    expect(input.queryKey).toBe(adminState.adminConflictQueryKey);
+    expect(input.queryKey).toBe(adminState.areaConflictQueryKey);
   });
 
-  it('applyAdminLevelConflictChoice clears admin conflict and continues pre-resolve', async () => {
+  it('applyAreaConflictChoice clears admin conflict and continues pre-resolve', async () => {
     jobState.addJobs([buildJob()]);
     await orchestrator.classifyBatch('batch-tray');
 
     const adminState = orchestrator
       .listGroupStates('batch-tray')
-      .find((s) => s.status === 'needsAdminLevelResolution')!;
-    const conflicts = adminState.adminLevelConflicts ?? [];
+      .find((s) => s.status === 'needsAreaResolution')!;
+    const conflicts = adminState.areaConflicts ?? [];
     const candidates = buildAdminConflictCandidates(conflicts).map((c) => ({
       id: c.id,
       addressLabel: c.addressLabel,
@@ -160,7 +160,7 @@ describe('UploadLocationTrayFlowService — admin_level_conflict', () => {
 
     const group = disambiguationStore.createGroup({
       batchId: 'batch-tray',
-      queryKey: adminState.adminConflictQueryKey ?? adminState.groupingKey,
+      queryKey: adminState.areaConflictQueryKey ?? adminState.groupingKey,
       folderDisplayPath: adminState.folderDisplayPath,
       titleAddress: adminState.titleAddressLabel,
       jobIds: [...adminState.jobIds],
@@ -169,22 +169,22 @@ describe('UploadLocationTrayFlowService — admin_level_conflict', () => {
     });
     disambiguationStore.patchGroup({
       ...group,
-      adminLevelConflicts: conflicts,
+      areaConflicts: conflicts,
     });
 
-    await trayFlow.applyAdminLevelConflictChoice(
+    await trayFlow.applyAreaConflictChoice(
       disambiguationStore.groups().find((g) => g.id === group.id)!,
       wienCandidateId,
     );
 
     const after = orchestrator.listGroupStates('batch-tray');
-    expect(after.some((s) => s.status === 'needsAdminLevelResolution')).toBe(false);
+    expect(after.some((s) => s.status === 'needsAreaResolution')).toBe(false);
     expect(after.some((s) => s.status === 'needsGeocode' || s.status === 'partial')).toBe(true);
     expect(resolutionMock.notifyDisambiguationResolved).toHaveBeenCalled();
     expect(resolutionMock.applyPreResolveFromOrchestrator).toHaveBeenCalledWith('job-1');
   });
 
-  it('applyAdminLevelConflictChoice accepts manual city entry on Wien/Innsbruck street path', async () => {
+  it('applyAreaConflictChoice accepts manual city entry on Wien/Innsbruck street path', async () => {
     jobState.addJobs([
       buildJob({
         relativePath: 'AT/Wien/Innsbruck/Hauptstraße 5/photo.jpg',
@@ -194,8 +194,8 @@ describe('UploadLocationTrayFlowService — admin_level_conflict', () => {
 
     const adminState = orchestrator
       .listGroupStates('batch-tray')
-      .find((s) => s.status === 'needsAdminLevelResolution')!;
-    const conflicts = adminState.adminLevelConflicts ?? [];
+      .find((s) => s.status === 'needsAreaResolution')!;
+    const conflicts = adminState.areaConflicts ?? [];
     const candidates = buildAdminConflictCandidates(conflicts).map((c) => ({
       id: c.id,
       addressLabel: c.addressLabel,
@@ -204,7 +204,7 @@ describe('UploadLocationTrayFlowService — admin_level_conflict', () => {
     }));
     const group = disambiguationStore.createGroup({
       batchId: 'batch-tray',
-      queryKey: adminState.adminConflictQueryKey ?? adminState.groupingKey,
+      queryKey: adminState.areaConflictQueryKey ?? adminState.groupingKey,
       folderDisplayPath: adminState.folderDisplayPath,
       titleAddress: adminState.titleAddressLabel,
       jobIds: [...adminState.jobIds],
@@ -213,17 +213,17 @@ describe('UploadLocationTrayFlowService — admin_level_conflict', () => {
     });
     disambiguationStore.patchGroup({
       ...group,
-      adminLevelConflicts: conflicts,
+      areaConflicts: conflicts,
     });
 
-    await trayFlow.applyAdminLevelConflictChoice(
+    await trayFlow.applyAreaConflictChoice(
       disambiguationStore.groups().find((g) => g.id === group.id)!,
       adminLevelManualCandidateId('city'),
       'Wien',
     );
 
     const after = orchestrator.listGroupStates('batch-tray');
-    expect(after.some((s) => s.status === 'needsAdminLevelResolution')).toBe(false);
+    expect(after.some((s) => s.status === 'needsAreaResolution')).toBe(false);
     expect(resolutionMock.applyPreResolveFromOrchestrator).toHaveBeenCalledWith('job-1');
   });
 
@@ -238,8 +238,8 @@ describe('UploadLocationTrayFlowService — admin_level_conflict', () => {
 
     const adminState = orchestrator
       .listGroupStates('batch-tray')
-      .find((s) => s.status === 'needsAdminLevelResolution')!;
-    const conflicts = adminState.adminLevelConflicts ?? [];
+      .find((s) => s.status === 'needsAreaResolution')!;
+    const conflicts = adminState.areaConflicts ?? [];
     const candidates = buildAdminConflictCandidates(conflicts).map((c) => ({
       id: c.id,
       addressLabel: c.addressLabel,
@@ -248,7 +248,7 @@ describe('UploadLocationTrayFlowService — admin_level_conflict', () => {
     }));
     const group = disambiguationStore.createGroup({
       batchId: 'batch-tray',
-      queryKey: adminState.adminConflictQueryKey ?? adminState.groupingKey,
+      queryKey: adminState.areaConflictQueryKey ?? adminState.groupingKey,
       folderDisplayPath: adminState.folderDisplayPath,
       titleAddress: adminState.titleAddressLabel,
       jobIds: [...adminState.jobIds],
@@ -257,24 +257,24 @@ describe('UploadLocationTrayFlowService — admin_level_conflict', () => {
     });
     disambiguationStore.patchGroup({
       ...group,
-      adminLevelConflicts: conflicts,
+      areaConflicts: conflicts,
     });
 
     const cityEntry = conflicts[0]?.entries.find(
       (e) => e.field === 'city' && e.value === 'Wien',
     );
     if (cityEntry) {
-      await trayFlow.applyAdminLevelConflictChoice(
+      await trayFlow.applyAreaConflictChoice(
         disambiguationStore.groups().find((g) => g.id === group.id)!,
         adminLevelCandidateId(cityEntry),
       );
     }
 
     const afterStates = orchestrator.listGroupStates('batch-tray');
-    const cascaded = afterStates.find((s) => s.status === 'needsAdminLevelResolution');
+    const cascaded = afterStates.find((s) => s.status === 'needsAreaResolution');
     if (cascaded) {
-      expect(cascaded.adminConflictQueryKey).toContain('adminConflict|');
-      expect(cascaded.adminConflictQueryKey).not.toMatch(/^adminConflict\|[a-z_]+(,[a-z_]+)*$/);
+      expect(cascaded.areaConflictQueryKey).toContain('adminConflict|');
+      expect(cascaded.areaConflictQueryKey).not.toMatch(/^adminConflict\|[a-z_]+(,[a-z_]+)*$/);
     }
   });
 

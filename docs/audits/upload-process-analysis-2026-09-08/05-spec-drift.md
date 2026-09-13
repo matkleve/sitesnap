@@ -132,7 +132,7 @@ Only two File Map rows in this file still resolve: `core/upload/upload-manager.s
 
 ### 4.2 One central `types.ts` per module — **violated**
 
-"Keep one central `types.ts` per module; do not split into nested sub-service type files." `core/upload` has **four**: `upload.types.ts`, `upload-manager.types.ts` (396 LOC), `address-resolution/upload-address-resolution.types.ts`, `address-resolution/upload-address-level-map.types.ts`. The last two are exactly the "nested sub-service type files" the rule forbids. Compounded by `UploadTrayStep` being declared identically in two of them (C5) and by three overlapping "branch" unions (`04-state-machine.md` § 5.7). Verdict: **code wrong**, severity `medium`.
+"Keep one central `types.ts` per module; do not split into nested sub-service type files." `core/upload` has **four**: `upload.types.ts`, `upload-manager.types.ts` (396 LOC), `address-resolution/upload-address-resolution.types.ts`, `address-resolution/upload-area-evidence.types.ts`. The last two are exactly the "nested sub-service type files" the rule forbids. Compounded by `UploadTrayStep` being declared identically in two of them (C5) and by three overlapping "branch" unions (`04-state-machine.md` § 5.7). Verdict: **code wrong**, severity `medium`.
 
 ### 4.3 No global adapter folder — **satisfied**
 

@@ -9,13 +9,13 @@ import type {
   UploadSearchObject,
 } from '../upload/address-resolution/upload-address-resolution.types';
 import type {
-  AdminFieldKey,
+  AreaFieldKey,
   FieldLevelEntry,
-} from '../upload/address-resolution/upload-address-level-map.types';
+} from '../upload/address-resolution/upload-area-evidence.types';
 import {
-  collapseAdminFlatFields,
-  detectAdminLevelConflicts,
-} from './upload-address-level-map.helpers';
+  collapseAreaFlatFields,
+  detectAreaConflicts,
+} from './upload-area-evidence.helpers';
 import type { GemeindeRecord, PlzMap } from './local-geo-data.adapter';
 import {
   classifyTokensInSegment,
@@ -85,7 +85,7 @@ function fieldKeyForKind(kind: ClassifiedToken['kind']): keyof SoFields | null {
   }
 }
 
-const ADMIN_FIELD_KEYS: AdminFieldKey[] = ['country', 'state', 'city', 'postcode'];
+const AREA_FIELD_KEYS: AreaFieldKey[] = ['country', 'state', 'city', 'postcode'];
 
 /** Street-level kinds — the ones that make a filename an address rather than a camera label. */
 const STREET_LEVEL_KINDS = new Set<ClassifiedToken['kind']>([
@@ -97,37 +97,39 @@ const STREET_LEVEL_KINDS = new Set<ClassifiedToken['kind']>([
 /** The fallback classifier emits `street` at 0.5 for any leftover word, so 0.5 proves nothing. */
 const STREET_LEVEL_MIN_CONFIDENCE = 0.9;
 
-/** A purely numeric admin token — i.e. a postcode. Names (`Graz`, `AT`) are never gated. */
-const NUMERIC_ADMIN_TOKEN_RE = /^\d+$/;
+/** Named derivation rules. A value with no nameable rule is a guess, and guesses are not written. */
+const POSTCODE_TO_CITY_RULE = 'postcode→city';
+const PLACE_TO_COUNTRY_RULE = 'place→country';
+
+/** A purely numeric area token — i.e. a postcode. Names (`Graz`, `AT`) are never gated. */
+const NUMERIC_AREA_TOKEN_RE = /^\d+$/;
 
 /**
- * May a filename segment write a **numeric** admin field — in practice, a postcode?
+ * Is this a camera label's number pretending to be an area field — in practice, a postcode?
  *
- * Only when that same filename also yields a street-level token at real confidence. Without this,
- * `IMG_1274.jpg` under `AT/Wien/1090/…` classifies `1274` as a postcode (pass 2: the country is
- * known and the token matches AT's four-digit pattern) and then wins the flat collapse, because the
- * filename is level 0 — so the stored postcode is 1274, two photos of one building land in
- * different groups, and a tray opens for a path that was never ambiguous.
+ * A filename may write a **numeric** area field only when that same filename also yields a
+ * street-level token at real confidence. Without this, `IMG_1274.jpg` under `AT/Wien/1090/…`
+ * classifies `1274` as a postcode (pass 2: the country is known and the token matches AT's
+ * four-digit pattern) and then wins the flat collapse, because the filename is level 0 — so the
+ * stored postcode is 1274, two photos of one building land in different groups, and a tray opens for
+ * a path that was never ambiguous. Such a token contributes nothing: not the flat value, not the
+ * source entry, not the level-0 evidence entry that would otherwise win the collapse.
  *
- * Named admin tokens are deliberately **not** gated: a camera writes `IMG_1274.jpg`, never
+ * Named area tokens are deliberately **not** gated: a camera writes `IMG_1274.jpg`, never
  * `Graz.jpg`, so `Graz.jpg` under `AT/Wien/` still contributes its city.
  *
- * @see docs/specs/service/media-upload-service/upload-search-object.md § Admin level map
+ * @see docs/specs/service/media-upload-service/upload-search-object.md § Area evidence
  * @see docs/study/005-upload-pipeline-trace-findings.md F-01
  */
-/**
- * A camera label's number contributes nothing — not the flat value, not the source entry, not the
- * level-0 map entry that would otherwise win the collapse.
- */
-function isGatedFilenameAdminToken(
+function isGatedFilenameAreaToken(
   key: string,
   token: ClassifiedToken,
-  allowNumericAdminFields: boolean,
+  allowNumericAreaFields: boolean,
 ): boolean {
-  if (allowNumericAdminFields || !ADMIN_FIELD_KEYS.includes(key as AdminFieldKey)) {
+  if (allowNumericAreaFields || !AREA_FIELD_KEYS.includes(key as AreaFieldKey)) {
     return false;
   }
-  return NUMERIC_ADMIN_TOKEN_RE.test(token.value);
+  return NUMERIC_AREA_TOKEN_RE.test(token.value);
 }
 
 /**
@@ -145,7 +147,7 @@ function filenameMayWriteAddressFields(classified: ClassifiedToken[]): boolean {
   );
 }
 
-function filenameMayWriteNumericAdminFields(
+function filenameMayWriteNumericAreaFields(
   classified: ClassifiedToken[],
   units: AtSegmentUnitParse,
 ): boolean {
@@ -167,8 +169,8 @@ function applyTokenToFields(
   filenameOverride: boolean,
   deviations: UploadAddressSourceDeviation[],
   level: number,
-  adminLevelMap: Partial<Record<AdminFieldKey, FieldLevelEntry[]>>,
-  allowNumericAdminFields: boolean,
+  areaEvidence: Partial<Record<AreaFieldKey, FieldLevelEntry[]>>,
+  allowNumericAreaFields: boolean,
   allowAddressFields: boolean,
   previousFolderValue?: string,
 ): void {
@@ -181,7 +183,7 @@ function applyTokenToFields(
   // still show it — but it never becomes the flat street, and so never concatenates onto a real one.
   // @see docs/specs/service/media-upload-service/upload-search-object.evidence-model.md
   const weakStreet = key === 'street' && token.confidence < STREET_LEVEL_MIN_CONFIDENCE;
-  if (!mayTokenWriteField(key, token, weakStreet, allowAddressFields, allowNumericAdminFields)) {
+  if (!mayTokenWriteField(key, token, weakStreet, allowAddressFields, allowNumericAreaFields)) {
     return;
   }
 
@@ -203,13 +205,14 @@ function applyTokenToFields(
     source,
     confidence: token.confidence,
     uncertain: isUncertainConfidence(token.confidence),
+    ...(token.derived ? { origin: 'derived' as const, rule: PLACE_TO_COUNTRY_RULE } : {}),
   });
 
   if (isUncertainConfidence(token.confidence)) {
     uncertainFields.add(key);
   }
 
-  recordAdminLevelEntry(adminLevelMap, key, token.value, level, source);
+  recordAreaEvidence(areaEvidence, key, token, level, source);
 }
 
 /** Street fragments of one real street join; every other field is replaced. */
@@ -221,20 +224,29 @@ function writeFieldValue(fields: SoFields, key: keyof SoFields, value: string): 
   fields[key] = value;
 }
 
-function recordAdminLevelEntry(
-  adminLevelMap: Partial<Record<AdminFieldKey, FieldLevelEntry[]>>,
+/** One area value as one folder level asserted it, marked with where the value came from. */
+function recordAreaEvidence(
+  areaEvidence: Partial<Record<AreaFieldKey, FieldLevelEntry[]>>,
   key: keyof SoFields,
-  value: string,
+  token: ClassifiedToken,
   level: number,
   source: 'folder' | 'filename',
 ): void {
-  if (!ADMIN_FIELD_KEYS.includes(key as AdminFieldKey) || !value) {
+  if (!AREA_FIELD_KEYS.includes(key as AreaFieldKey) || !token.value) {
     return;
   }
-  const adminKey = key as AdminFieldKey;
-  const bucket = adminLevelMap[adminKey] ?? [];
-  bucket.push({ level, value, source, field: adminKey });
-  adminLevelMap[adminKey] = bucket;
+  const areaKey = key as AreaFieldKey;
+  const bucket = areaEvidence[areaKey] ?? [];
+  bucket.push({
+    level,
+    value: token.value,
+    source,
+    field: areaKey,
+    ...(token.derived
+      ? { origin: 'derived' as const, rule: PLACE_TO_COUNTRY_RULE, derivedFrom: token.raw }
+      : { origin: 'path' as const }),
+  });
+  areaEvidence[areaKey] = bucket;
 }
 
 /** The three gates a classified token passes before it may write anything. */
@@ -243,7 +255,7 @@ function mayTokenWriteField(
   token: ClassifiedToken,
   weakStreet: boolean,
   allowAddressFields: boolean,
-  allowNumericAdminFields: boolean,
+  allowNumericAreaFields: boolean,
 ): boolean {
   if (token.confidence < STREET_LEVEL_MIN_CONFIDENCE && !weakStreet) {
     return false;
@@ -251,7 +263,7 @@ function mayTokenWriteField(
   if (!allowAddressFields && STREET_LEVEL_KINDS.has(token.kind)) {
     return false;
   }
-  return !isGatedFilenameAdminToken(key, token, allowNumericAdminFields);
+  return !isGatedFilenameAreaToken(key, token, allowNumericAreaFields);
 }
 
 function applyPresetUnits(
@@ -300,15 +312,15 @@ function applySegment(
   deviations: UploadAddressSourceDeviation[],
   filenameOverride: boolean,
   level: number,
-  adminLevelMap: Partial<Record<AdminFieldKey, FieldLevelEntry[]>>,
+  areaEvidence: Partial<Record<AreaFieldKey, FieldLevelEntry[]>>,
 ): void {
   const countryCode = normalizeCountryCode(context.country);
   const atUnits = parseAtSegmentUnits(segment, countryCode);
   applyPresetUnits(fields, atUnits, source, sources);
   const tokens = tokenizeSegment(atUnits.workingSegment);
   const classified = classifyTokensInSegment(tokens, geo, context, atUnits.workingSegment);
-  const allowNumericAdminFields =
-    source === 'folder' || filenameMayWriteNumericAdminFields(classified, atUnits);
+  const allowNumericAreaFields =
+    source === 'folder' || filenameMayWriteNumericAreaFields(classified, atUnits);
   const allowAddressFields = source === 'folder' || filenameMayWriteAddressFields(classified);
   const folderSnapshot = filenameOverride ? { ...fields } : undefined;
 
@@ -325,8 +337,8 @@ function applySegment(
       filenameOverride,
       deviations,
       level,
-      adminLevelMap,
-      allowNumericAdminFields,
+      areaEvidence,
+      allowNumericAreaFields,
       allowAddressFields,
       prev ?? undefined,
     );
@@ -401,6 +413,8 @@ export function expandPostcodeOnSearchObject(
     return so;
   }
   if (cities.length === 1) {
+    const postcodeLevel =
+      so.areaEvidence?.postcode?.find((entry) => entry.value === so.postcode)?.level ?? 0;
     return {
       ...so,
       city: cities[0],
@@ -412,8 +426,25 @@ export function expandPostcodeOnSearchObject(
           value: cities[0],
           source: 'folder',
           confidence: 1,
+          origin: 'derived',
+          rule: POSTCODE_TO_CITY_RULE,
         },
       ],
+      areaEvidence: {
+        ...so.areaEvidence,
+        city: [
+          ...(so.areaEvidence?.city ?? []),
+          {
+            level: postcodeLevel,
+            value: cities[0],
+            source: 'folder' as const,
+            field: 'city' as const,
+            origin: 'derived' as const,
+            rule: POSTCODE_TO_CITY_RULE,
+            derivedFrom: so.postcode,
+          },
+        ],
+      },
       groupingKey: buildGroupingKey({ ...so, city: cities[0] }),
     };
   }
@@ -462,7 +493,7 @@ export function buildSearchObjectFromRelativePath(
   const sources: UploadAddressSourceEntry[] = [];
   const deviations: UploadAddressSourceDeviation[] = [];
   const uncertainFields = new Set<string>();
-  const adminLevelMap: Partial<Record<AdminFieldKey, FieldLevelEntry[]>> = {};
+  const areaEvidence: Partial<Record<AreaFieldKey, FieldLevelEntry[]>> = {};
   const context: TokenClassificationContext = { country: null };
 
   for (let segIdx = 0; segIdx < folderSegments.length; segIdx++) {
@@ -478,7 +509,7 @@ export function buildSearchObjectFromRelativePath(
       deviations,
       false,
       level,
-      adminLevelMap,
+      areaEvidence,
     );
   }
 
@@ -494,17 +525,17 @@ export function buildSearchObjectFromRelativePath(
       deviations,
       true,
       0,
-      adminLevelMap,
+      areaEvidence,
     );
   }
 
-  const adminLevelConflicts = detectAdminLevelConflicts(adminLevelMap, {
+  const areaConflicts = detectAreaConflicts(areaEvidence, {
     municipalities: geo.municipalities,
     postcodeMap: geo.postcodeMap,
     country: fields.country ?? context.country,
   });
 
-  collapseAdminFlatFields(fields, adminLevelMap);
+  collapseAreaFlatFields(fields, areaEvidence);
   dropAddressWithoutStreet(fields);
 
   const groupingKey = buildGroupingKey(fields);
@@ -519,7 +550,7 @@ export function buildSearchObjectFromRelativePath(
     groupingKey,
     relativePath: normalizedPath,
     fileName,
-    adminLevelMap,
-    adminLevelConflicts,
+    areaEvidence,
+    areaConflicts,
   };
 }

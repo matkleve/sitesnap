@@ -94,7 +94,7 @@ the jobs are queued and before the queue drains. Per job:
    first (project prefix, `Tür`/`Top`, `Stiege`, country alias, then state/city via a Fuse match
    against the AT gazetteer **only when `country === 'AT'`**, remainder → street fragments), then
    numeric tokens (postcode if the country is known and the pattern matches, else house number).
-3. Every admin write is recorded in `adminLevelMap` with its folder level: **0 = file name**,
+3. Every admin write is recorded in `areaEvidence` with its folder level: **0 = file name**,
    1 = direct parent, higher = ancestors. The flat field keeps the **lowest** level index.
 4. `groupingKey` = `country|state|postcode|city|street|houseNumber`, normalized — **units excluded**,
    so one building is geocoded once no matter how many `Stiege`/`Top` folders sit under it.
@@ -103,7 +103,7 @@ The report prints each Search Object with **per-field provenance** — value, so
 `filename`) and confidence — which is the only way to see why a field holds what it holds.
 
 The job then gets `groupingKey`, `folderDisplayPath` and `titleAddress` written onto it. Three
-outcomes short-circuit before grouping: `adminLevelConflicts` (→ admin tray), a layer package
+outcomes short-circuit before grouping: `areaConflicts` (→ admin tray), a layer package
 conflict (→ layer tray), and a "meaningless" Search Object (skipped entirely — the job will route
 on EXIF or land in Issues).
 

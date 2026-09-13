@@ -25,14 +25,14 @@ Rationale: path folders do not provide independent GPS per Tür/Stiege; Photon r
 | Kind | `jobIds` merge key |
 | --- | --- |
 | `layer_package` | `layerConflictQueryKey` — all jobs in batch with same signature |
-| `admin_level_conflict` | `adminConflictQueryKey` — `{field}\|{sortedValues}` signature per conflict set |
+| `admin_level_conflict` | `areaConflictQueryKey` — `{field}\|{sortedValues}` signature per conflict set |
 | Geocode / source | `grouping_key` (or `source\|{groupingKey}` for source) |
 
 `registerDisambiguationGroup` merges `jobIds` on repeated registration with the same `queryKey`.
 
 | Stage | Owner | Effect |
 | --- | --- | --- |
-| Batch intake | `UploadAddressResolutionOrchestrator.classifyBatch` | Layer packages → flat SO; cache `needsAdminLevelResolution` / `needsLayerResolution` / `needsGeocode` / `resolved` / `ambiguous` / `partial` |
+| Batch intake | `UploadAddressResolutionOrchestrator.classifyBatch` | Layer packages → flat SO; cache `needsAreaResolution` / `needsLayerResolution` / `needsGeocode` / `resolved` / `ambiguous` / `partial` |
 | Per job | `runPreUploadLocationResolve` → `applyPreResolveFromOrchestrator` or `resolveJobTitleAddress` | Geocode + `classifySearchHits`; ambiguous → `registerDisambiguationGroup` |
 | UI | `app-upload-resolver-tray` | Reads `disambiguationGroups`, `activeGroup`, `UploadManagerService.jobs`; writes via `selectAddressCandidate`, `deferGroup`, `isolateJobFromGroup` |
 

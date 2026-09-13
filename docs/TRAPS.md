@@ -46,6 +46,7 @@ Entries are numbered, never renumbered, and never deleted. Order is by cost, not
 | [TRAP-016](#trap-016--only-half-the-search-object-is-level-mapped) | Only four of the Search Object's fields are level-mapped; street-level ones are concatenated | `open` |
 | [TRAP-017](#trap-017--a-country-can-appear-in-the-search-object-that-never-appears-in-the-path) | A country can appear in the Search Object that never appears in the path | `open` |
 | [TRAP-018](#trap-018--a-group-level-loop-returns-one-jobs-verdict) | A group-level loop returns one job's verdict | `open` |
+| [TRAP-019](#trap-019--the-flat-street-was-a-concatenation-of-leftovers) | The flat `street` was a concatenation of leftovers | `open` |
 
 ---
 
@@ -269,13 +270,13 @@ Better: end the migration with a `DO` block that raises when any touched functio
 
 ## TRAP-013 — The file name outranks the folder for admin fields
 
-**Surface** — `upload-search-object.md` § Admin level map: "Flat fields **MUST** collapse to the entry with the **lowest** level index (most specific folder)", with "`0` = filename; `1` = direct parent folder". Implemented at `apps/web/src/app/core/location-path-parser/upload-address-level-map.helpers.ts:139-156`.
+**Surface** — `upload-search-object.md` § Admin level map: "Flat fields **MUST** collapse to the entry with the **lowest** level index (most specific folder)", with "`0` = filename; `1` = direct parent folder". Implemented at `apps/web/src/app/core/location-path-parser/upload-area-evidence.helpers.ts:139-156`.
 
 **Assumption** — "most specific" means the deepest folder, and the file name only contributes when the folders say nothing.
 
 **Truth** — the file name is level **0**, which is lower than every folder, so it wins outright. Combined with pass 2's rule that a token matching the country's postcode pattern *is* a postcode (`path-token-classifier.ts:182-183`), `AT/Wien/1090/Währinger Straße 12/IMG_1274.jpg` stores postcode **1274** and `IMG_1275.jpg` in the same folder stores **1275** — so two photos of one building get different `groupingKey`s and are geocoded separately. The street side has a guard for exactly this shape (`isWeakFilenameStreetLevel`, `upload-search-object.layer-map.ts:89-98`, special-casing `^img_\d+$`); the numeric side has none, which is what makes the surface convincing — a reader who finds the street guard concludes camera names are handled.
 
-**Detect** — run one camera-named file through the harness and read the `adminLevelMap` line: `npm run trace:upload -- --count=15` prints `postcode@[L2:1090 L0:1274]` per file. More generally: when a precedence rule is expressed as an index, check what sits at the extreme value before trusting the adjective next to it.
+**Detect** — run one camera-named file through the harness and read the `areaEvidence` line: `npm run trace:upload -- --count=15` prints `postcode@[L2:1090 L0:1274]` per file. More generally: when a precedence rule is expressed as an index, check what sits at the extreme value before trusting the adjective next to it.
 
 **Source** — [`STUDY-005`](./study/005-upload-pipeline-trace-findings.md) F-01; [`2026-09-12`](./ai-diary/2026-09-12.md). Decision pending as [`STUDY-006`](./study/006-upload-pipeline-correction-plan.md) D-01.
 
@@ -317,17 +318,17 @@ Better: end the migration with a `DO` block that raises when any touched functio
 
 ## TRAP-016 — Only half the Search Object is level-mapped
 
-**Surface** — `UploadSearchObject` carries `adminLevelMap: Partial<Record<AdminFieldKey, FieldLevelEntry[]>>`, where each entry is `{ level, value, source, field }` and level 0 is the file name. The spec's § Admin level map describes per-field, multi-value, level-tagged provenance with conflict detection and a tray.
+**Surface** — `UploadSearchObject` carries `areaEvidence: Partial<Record<AreaFieldKey, FieldLevelEntry[]>>`, where each entry is `{ level, value, source, field, origin }` and level 0 is the file name. The spec's § Admin level map describes per-field, multi-value, level-tagged provenance with conflict detection and a tray.
 
 **Assumption** — every address field works that way: `street` and `city` alike are maps from folder level to value, several values are kept, and a contradiction between levels becomes a question. It is the natural reading, and the owner of this repository read it that way.
 
-**Truth** — it applies to **four** fields only: `country`, `state`, `city`, `postcode` (`AdminFieldKey`, `upload-address-level-map.types.ts:6`). Street-level fields are deliberately excluded — the spec says so in one easily-missed row ("Street fields | Layer packages remain normative … **not** in `adminLevelMap`") — and live in a different shape: `AddressLayerEntry[]`, one whole street-level *package* per folder prefix plus one for the file name. Two consequences follow, and neither is visible from the admin-map API: within a package the fragments are **concatenated**, so `Mödling/Wilhelminenstraße 141` yields the street `Mödling Wilhelminenstraße` rather than two candidates; and `sources[]`, which does list every write, carries **no level**, so it is an audit log and not a map. Competing street readings are therefore per-path-prefix, never per-field-per-level.
+**Truth** — it applies to **four** fields only: `country`, `state`, `city`, `postcode` (`AreaFieldKey`, `upload-area-evidence.types.ts:6`). Street-level fields are deliberately excluded — the spec says so in one easily-missed row ("Street fields | Layer packages remain normative … **not** in `areaEvidence`") — and live in a different shape: `AddressLayerEntry[]`, one whole street-level *package* per folder prefix plus one for the file name. Two consequences follow, and neither is visible from the admin-map API: within a package the fragments are **concatenated**, so `Mödling/Wilhelminenstraße 141` yields the street `Mödling Wilhelminenstraße` rather than two candidates; and `sources[]`, which does list every write, carries **no level**, so it is an audit log and not a map. Competing street readings are therefore per-path-prefix, never per-field-per-level.
 
-**Detect** — ask which of the two structures a field lives in before reasoning about its provenance: `AdminFieldKey` answers it in one line. When you want "what did level 2 say about `street`", there is no such query — reach for `AddressLayerEntry.layerKey`, which encodes the prefix. The asymmetry is also what makes filename words pollute `street` by concatenation ([F-04](./study/005-upload-pipeline-trace-findings.md#f-04)) while filename *numbers* are now gated ([F-01](./study/005-upload-pipeline-trace-findings.md#f-01)).
+**Detect** — ask which of the two structures a field lives in before reasoning about its provenance: `AreaFieldKey` answers it in one line. When you want "what did level 2 say about `street`", there is no such query — reach for `AddressLayerEntry.layerKey`, which encodes the prefix. The asymmetry is also what makes filename words pollute `street` by concatenation ([F-04](./study/005-upload-pipeline-trace-findings.md#f-04)) while filename *numbers* are now gated ([F-01](./study/005-upload-pipeline-trace-findings.md#f-01)).
 
-**Source** — [`STUDY-005`](./study/005-upload-pipeline-trace-findings.md) F-15 and its worked path (scenario S18); [`2026-09-12`](./ai-diary/2026-09-12.md). Types at `apps/web/src/app/core/upload/address-resolution/upload-address-level-map.types.ts:6`; packages at `apps/web/src/app/core/location-path-parser/upload-search-object.layer-map.ts`.
+**Source** — [`STUDY-005`](./study/005-upload-pipeline-trace-findings.md) F-15 and its worked path (scenario S18); [`2026-09-12`](./ai-diary/2026-09-12.md). Types at `apps/web/src/app/core/upload/address-resolution/upload-area-evidence.types.ts:6`; packages at `apps/web/src/app/core/location-path-parser/upload-search-object.layer-map.ts`.
 
-**Status** — `open`.
+**Status** — `partly addressed` 2026-09-13. The names now say which half is which (**area** vs **address**), the [evidence model](./specs/service/media-upload-service/upload-search-object.evidence-model.md) states the asymmetry out loud, and weak fragments no longer concatenate into the flat `street` — but street-level values still live in packages rather than a per-level map, so "what did level 2 say about `street`" is still not a query you can make.
 
 ---
 
@@ -358,6 +359,22 @@ Better: end the migration with a `DO` block that raises when any touched functio
 **Detect** — in any helper that takes a group and returns a per-job verdict, ask which job the value is about. If the loop can `return` from inside, it is answering for whichever member it happened to reach. The shape to keep: record the asking job's own result, run the loop to the end. A parked job whose `disambiguationGroupId` is unset is the symptom to grep for — it is waiting for an answer nobody can give it.
 
 **Source** — [`STUDY-005`](./study/005-upload-pipeline-trace-findings.md) F-16 (and F-14, which it was hiding behind); [`2026-09-12`](./ai-diary/2026-09-12.md). Code at `apps/web/src/app/core/upload/location/upload-location-pre-resolve-orchestrator.service.ts`.
+
+**Status** — `open`.
+
+---
+
+## TRAP-019 — The flat `street` was a concatenation of leftovers
+
+**Surface** — `UploadSearchObject.street` is a single string, and the spec calls it "Street name (joined fragments)". Reading a value like `Mühlenstraße` out of it suggests the classifier identified a street.
+
+**Assumption** — the field holds a street the parser recognised, so an unexpected value means the parser got that street wrong.
+
+**Truth** — until 2026-09-13 every token no rule could place became a `street` candidate at confidence 0.5, and the builder **appended** each one to whatever was already there, across all folder levels. `Baustelle Nord/Mühlenstraße 12.jpg` produced `street = "Baustelle Nord Mühlenstraße"`; `Rohdaten/Kamera A/IMG_9001.jpg` produced `"Rohdaten Kamera IMG"`. The field was not a street, it was the residue of the whole path — which is why it looked arbitrary and why `Baustelle Süd/Woche 12` could report house number 12. Weak candidates are now kept in `sources` only and never reach the flat field, but the joining behaviour is still there for the fragments of one real street (`Kremser` + `Straße`), so the shape can return if the strength gate is ever loosened.
+
+**Detect** — when a `street` value reads like two things, check `sources` for several `street` entries at 0.5: that is the signature. A street the classifier really recognised has confidence ≥ 0.9, from a suffix, a keyword, the `str.` abbreviation, or a house number beside it.
+
+**Source** — [`STUDY-005`](./study/005-upload-pipeline-trace-findings.md) F-04 and F-11; [`2026-09-12`](./ai-diary/2026-09-12.md). Rules in [`upload-search-object.evidence-model.md`](./specs/service/media-upload-service/upload-search-object.evidence-model.md); code at `apps/web/src/app/core/location-path-parser/upload-search-object.builder.ts` (`writeFieldValue`).
 
 **Status** — `open`.
 

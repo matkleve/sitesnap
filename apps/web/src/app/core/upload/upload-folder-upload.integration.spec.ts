@@ -24,7 +24,7 @@ import { UploadAddressResolutionOrchestrator } from './address-resolution/upload
 import { UploadLocationResolutionService } from './location/upload-location-resolution.service';
 import {
   adminLevelManualCandidateId,
-} from './location/upload-location-admin-level-choice.util';
+} from './location/upload-location-area-choice.util';
 import { UploadLocationPreResolveOrchestratorService } from './location/upload-location-pre-resolve-orchestrator.service';
 import { UploadLocationTrayFlowService } from './location/upload-location-tray-flow.service';
 import type { ScannedFileEntry } from '../folder-scan/folder-scan.service';
@@ -380,7 +380,7 @@ describe('UploadManagerService — folder upload integration (SO → dedup → D
     const group = locationResolution
       .disambiguationGroups()
       .find((g) => g.disambiguationKind === 'admin_level_conflict')!;
-    expect(group.adminLevelConflicts?.length).toBeGreaterThan(0);
+    expect(group.areaConflicts?.length).toBeGreaterThan(0);
     expect(group.candidates.length).toBeGreaterThanOrEqual(2);
     expect(group.candidates.some((c) => c.addressLabel.toLowerCase().includes('innsbruck'))).toBe(
       true,
@@ -435,7 +435,7 @@ describe('UploadManagerService — folder upload integration (SO → dedup → D
     const group = locationResolution
       .disambiguationGroups()
       .find((g) => g.disambiguationKind === 'admin_level_conflict')!;
-    await trayFlow.applyAdminLevelConflictChoice(
+    await trayFlow.applyAreaConflictChoice(
       group,
       adminLevelManualCandidateId('city'),
       'Wien',
@@ -445,7 +445,7 @@ describe('UploadManagerService — folder upload integration (SO → dedup → D
     await vi.waitFor(
       () => {
         const states = orchestrator.listGroupStates(batchId);
-        expect(states.some((s) => s.status === 'needsAdminLevelResolution')).toBe(false);
+        expect(states.some((s) => s.status === 'needsAreaResolution')).toBe(false);
         const job = service.jobs()[0];
         expect(job?.phase).not.toBe('awaiting_disambiguation');
       },
@@ -463,7 +463,7 @@ describe('UploadManagerService — folder upload integration (SO → dedup → D
     expect(preResolveResult).not.toBe('held');
 
     const states = orchestrator.listGroupStates(batchId);
-    expect(states.some((s) => s.status === 'needsAdminLevelResolution')).toBe(false);
+    expect(states.some((s) => s.status === 'needsAreaResolution')).toBe(false);
     expect(
       states.some((s) =>
         ['needsGeocode', 'needsTray', 'resolved', 'partial'].includes(s.status),

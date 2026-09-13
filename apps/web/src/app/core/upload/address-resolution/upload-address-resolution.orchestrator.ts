@@ -23,7 +23,7 @@ import type {
 import {
   buildAdminConflictQueryKey,
   buildAdminConflictSignature,
-} from '../../location-path-parser/upload-address-level-map.helpers';
+} from '../../location-path-parser/upload-area-evidence.helpers';
 import {
   summarizeGroupState,
   summarizeSearchObject,
@@ -112,7 +112,7 @@ export class UploadAddressResolutionOrchestrator {
       {
         jobIds: string[];
         searchObject: UploadSearchObject;
-        adminLevelConflicts: NonNullable<UploadSearchObject['adminLevelConflicts']>;
+        areaConflicts: NonNullable<UploadSearchObject['areaConflicts']>;
         folderDisplayPath: string;
         titleAddressLabel: string;
       }
@@ -138,8 +138,8 @@ export class UploadAddressResolutionOrchestrator {
         packageConflict: !!layerResult.packageConflict,
       });
 
-      if (so.adminLevelConflicts?.length) {
-        const signature = buildAdminConflictSignature(so.adminLevelConflicts);
+      if (so.areaConflicts?.length) {
+        const signature = buildAdminConflictSignature(so.areaConflicts);
         const key = buildAdminConflictQueryKey(signature);
         const existing = adminConflictAccum.get(key);
         if (existing) {
@@ -150,7 +150,7 @@ export class UploadAddressResolutionOrchestrator {
           adminConflictAccum.set(key, {
             jobIds: [job.id],
             searchObject: so,
-            adminLevelConflicts: so.adminLevelConflicts,
+            areaConflicts: so.areaConflicts,
             folderDisplayPath,
             titleAddressLabel,
           });
@@ -228,20 +228,20 @@ export class UploadAddressResolutionOrchestrator {
 
     const cache = new Map<string, UploadGroupResolutionState>();
 
-    for (const [adminConflictQueryKey, accum] of adminConflictAccum) {
+    for (const [areaConflictQueryKey, accum] of adminConflictAccum) {
       const adminState: UploadGroupResolutionState = {
-        status: 'needsAdminLevelResolution',
-        groupingKey: adminConflictQueryKey,
+        status: 'needsAreaResolution',
+        groupingKey: areaConflictQueryKey,
         jobIds: accum.jobIds,
         searchObject: accum.searchObject,
         folderDisplayPath: accum.folderDisplayPath,
         titleAddressLabel: accum.titleAddressLabel,
-        adminConflictQueryKey,
-        adminLevelConflicts: accum.adminLevelConflicts,
+        areaConflictQueryKey,
+        areaConflicts: accum.areaConflicts,
       };
-      cache.set(adminConflictQueryKey, adminState);
-      uploadTraceDecision('orchestrator', 'needsAdminLevelResolution — admin field conflict', {
-        adminConflictQueryKey,
+      cache.set(areaConflictQueryKey, adminState);
+      uploadTraceDecision('orchestrator', 'needsAreaResolution — admin field conflict', {
+        areaConflictQueryKey,
         jobIds: accum.jobIds,
       });
     }

@@ -93,7 +93,7 @@ const CHECKS = [
     args: ["scripts/check-spec-code-paths.mjs"],
     soft: true,
     debt:
-      "204 broken code paths (2026-09-10; 263 → 262 when the component registry became generated, → 204 after clearing component/filters, service/filename-parser and service/media-download-service). Clean so far: the upload folders (media-upload-service, component/upload, ui/upload), filters, filename-parser, media-download-service. Largest remaining: ui/workspace 29, component/media 21, component/workspace 19, page 18, component/project 18, component/ui-primitives 16. Roughly 58% are moved files needing a repoint and 42% describe code that no longer exists. Tracked in issue #189.",
+      "146 broken code paths in 320 spec files (re-measured 2026-09-13, and identical with all local changes stashed). The note said 204 from 2026-09-10; the count fell as specs were repointed and nobody re-measured, so this is a correction to a stale note rather than new debt. History: 263 → 262 when the component registry became generated, → 204 after clearing component/filters, service/filename-parser and service/media-download-service. Clean: the upload folders (media-upload-service, component/upload, ui/upload), filters, filename-parser, media-download-service. Roughly 58% are moved files needing a repoint and 42% describe code that no longer exists. Tracked in issue #189.",
   },
   {
     name: "component-registry",

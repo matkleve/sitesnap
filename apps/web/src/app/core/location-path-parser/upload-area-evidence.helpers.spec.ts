@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   buildAdminConflictQueryKey,
   buildAdminConflictSignature,
-  collapseAdminFlatFields,
-  detectAdminLevelConflicts,
+  collapseAreaFlatFields,
+  detectAreaConflicts,
   normalizeAdminValue,
-} from './upload-address-level-map.helpers';
+} from './upload-area-evidence.helpers';
 
 const municipalities = [
   { n: 'Wien', b: 'Wien', a: [] },
@@ -18,9 +18,9 @@ const postcodeMap = {
   '1200': ['Wien'],
 };
 
-describe('detectAdminLevelConflicts', () => {
+describe('detectAreaConflicts', () => {
   it('does not conflict when postcode expands to same city', () => {
-    const conflicts = detectAdminLevelConflicts(
+    const conflicts = detectAreaConflicts(
       {
         city: [{ level: 2, value: 'Wien', source: 'folder', field: 'city' }],
         postcode: [{ level: 1, value: '1090', source: 'folder', field: 'postcode' }],
@@ -31,7 +31,7 @@ describe('detectAdminLevelConflicts', () => {
   });
 
   it('conflicts when city is not in declared state (Wien + Innsbruck)', () => {
-    const conflicts = detectAdminLevelConflicts(
+    const conflicts = detectAreaConflicts(
       {
         state: [{ level: 2, value: 'Wien', source: 'folder', field: 'state' }],
         city: [{ level: 1, value: 'Innsbruck', source: 'folder', field: 'city' }],
@@ -45,7 +45,7 @@ describe('detectAdminLevelConflicts', () => {
   });
 
   it('allows Salzburg state and city with same name', () => {
-    const conflicts = detectAdminLevelConflicts(
+    const conflicts = detectAreaConflicts(
       {
         state: [{ level: 2, value: 'Salzburg', source: 'folder', field: 'state' }],
         city: [{ level: 1, value: 'Salzburg', source: 'folder', field: 'city' }],
@@ -56,7 +56,7 @@ describe('detectAdminLevelConflicts', () => {
   });
 
   it('conflicts when same field has different values at different levels', () => {
-    const conflicts = detectAdminLevelConflicts(
+    const conflicts = detectAreaConflicts(
       {
         city: [
           { level: 2, value: 'Wien', source: 'folder', field: 'city' },
@@ -71,7 +71,7 @@ describe('detectAdminLevelConflicts', () => {
   });
 
   it('skips gazetteer check outside AT (value compare only)', () => {
-    const conflicts = detectAdminLevelConflicts(
+    const conflicts = detectAreaConflicts(
       {
         state: [{ level: 2, value: 'Bayern', source: 'folder', field: 'state' }],
         city: [{ level: 1, value: 'München', source: 'folder', field: 'city' }],
@@ -82,7 +82,7 @@ describe('detectAdminLevelConflicts', () => {
   });
 });
 
-describe('collapseAdminFlatFields', () => {
+describe('collapseAreaFlatFields', () => {
   it('picks the lowest level entry per admin field', () => {
     const fields = {
       country: null as string | null,
@@ -90,7 +90,7 @@ describe('collapseAdminFlatFields', () => {
       postcode: null as string | null,
       city: null as string | null,
     };
-    collapseAdminFlatFields(fields, {
+    collapseAreaFlatFields(fields, {
       city: [
         { level: 2, value: 'Wien', source: 'folder', field: 'city' },
         { level: 1, value: '1090', source: 'folder', field: 'city' },
@@ -102,7 +102,7 @@ describe('collapseAdminFlatFields', () => {
 
 describe('buildAdminConflictSignature', () => {
   it('builds a stable dedup signature and query key', () => {
-    const conflicts = detectAdminLevelConflicts(
+    const conflicts = detectAreaConflicts(
       {
         state: [{ level: 2, value: 'Wien', source: 'folder', field: 'state' }],
         city: [{ level: 1, value: 'Innsbruck', source: 'folder', field: 'city' }],
@@ -124,10 +124,10 @@ describe('buildAdminConflictSignature', () => {
       state: [{ level: 2, value: 'Wien', source: 'folder' as const, field: 'state' as const }],
     };
     const sigA = buildAdminConflictSignature(
-      detectAdminLevelConflicts(mapA, { municipalities, postcodeMap, country: 'AT' }),
+      detectAreaConflicts(mapA, { municipalities, postcodeMap, country: 'AT' }),
     );
     const sigB = buildAdminConflictSignature(
-      detectAdminLevelConflicts(mapB, { municipalities, postcodeMap, country: 'AT' }),
+      detectAreaConflicts(mapB, { municipalities, postcodeMap, country: 'AT' }),
     );
     expect(sigA).toBe(sigB);
   });
@@ -140,9 +140,9 @@ describe('normalizeAdminValue', () => {
   });
 });
 
-describe('detectAdminLevelConflicts — postcode-city cross-validation', () => {
+describe('detectAreaConflicts — postcode-city cross-validation', () => {
   it('conflicts when postcode 1200 maps to Wien but city is St. Pölten', () => {
-    const conflicts = detectAdminLevelConflicts(
+    const conflicts = detectAreaConflicts(
       {
         city: [{ level: 2, value: 'St. Pölten', source: 'folder', field: 'city' }],
         postcode: [{ level: 1, value: '1200', source: 'folder', field: 'postcode' }],
@@ -157,7 +157,7 @@ describe('detectAdminLevelConflicts — postcode-city cross-validation', () => {
   });
 
   it('does not conflict when postcode 1200 and city Wien agree', () => {
-    const conflicts = detectAdminLevelConflicts(
+    const conflicts = detectAreaConflicts(
       {
         city: [{ level: 2, value: 'Wien', source: 'folder', field: 'city' }],
         postcode: [{ level: 1, value: '1200', source: 'folder', field: 'postcode' }],
@@ -168,7 +168,7 @@ describe('detectAdminLevelConflicts — postcode-city cross-validation', () => {
   });
 
   it('skips postcode-city check when postcode is unknown in PLZ map', () => {
-    const conflicts = detectAdminLevelConflicts(
+    const conflicts = detectAreaConflicts(
       {
         city: [{ level: 2, value: 'St. Pölten', source: 'folder', field: 'city' }],
         postcode: [{ level: 1, value: '9999', source: 'folder', field: 'postcode' }],
@@ -179,7 +179,7 @@ describe('detectAdminLevelConflicts — postcode-city cross-validation', () => {
   });
 
   it('skips postcode-city check for non-AT country', () => {
-    const conflicts = detectAdminLevelConflicts(
+    const conflicts = detectAreaConflicts(
       {
         city: [{ level: 2, value: 'Hamburg', source: 'folder', field: 'city' }],
         postcode: [{ level: 1, value: '1200', source: 'folder', field: 'postcode' }],
@@ -190,7 +190,7 @@ describe('detectAdminLevelConflicts — postcode-city cross-validation', () => {
   });
 
   it('skips postcode-city check when no postcodeMap provided', () => {
-    const conflicts = detectAdminLevelConflicts(
+    const conflicts = detectAreaConflicts(
       {
         city: [{ level: 2, value: 'St. Pölten', source: 'folder', field: 'city' }],
         postcode: [{ level: 1, value: '1200', source: 'folder', field: 'postcode' }],
@@ -201,7 +201,7 @@ describe('detectAdminLevelConflicts — postcode-city cross-validation', () => {
   });
 
   it('postcode-city conflict merges with existing per-field city conflict', () => {
-    const conflicts = detectAdminLevelConflicts(
+    const conflicts = detectAreaConflicts(
       {
         city: [
           { level: 3, value: 'Graz', source: 'folder', field: 'city' },
@@ -220,7 +220,7 @@ describe('detectAdminLevelConflicts — postcode-city cross-validation', () => {
   });
 
   it('postcode-city conflict includes synthetic entry from PLZ expansion', () => {
-    const conflicts = detectAdminLevelConflicts(
+    const conflicts = detectAreaConflicts(
       {
         city: [{ level: 2, value: 'Linz', source: 'folder', field: 'city' }],
         postcode: [{ level: 1, value: '1090', source: 'folder', field: 'postcode' }],
@@ -234,7 +234,7 @@ describe('detectAdminLevelConflicts — postcode-city cross-validation', () => {
   });
 
   it('does not conflict when only postcode present (no city entries)', () => {
-    const conflicts = detectAdminLevelConflicts(
+    const conflicts = detectAreaConflicts(
       {
         postcode: [{ level: 1, value: '1200', source: 'folder', field: 'postcode' }],
       },
@@ -244,7 +244,7 @@ describe('detectAdminLevelConflicts — postcode-city cross-validation', () => {
   });
 
   it('does not conflict when only city present (no postcode entries)', () => {
-    const conflicts = detectAdminLevelConflicts(
+    const conflicts = detectAreaConflicts(
       {
         city: [{ level: 1, value: 'Wien', source: 'folder', field: 'city' }],
       },
@@ -254,7 +254,7 @@ describe('detectAdminLevelConflicts — postcode-city cross-validation', () => {
   });
 
   it('postcode-city check with case-insensitive city name match', () => {
-    const conflicts = detectAdminLevelConflicts(
+    const conflicts = detectAreaConflicts(
       {
         city: [{ level: 2, value: 'wien', source: 'folder', field: 'city' }],
         postcode: [{ level: 1, value: '1200', source: 'folder', field: 'postcode' }],
@@ -265,7 +265,7 @@ describe('detectAdminLevelConflicts — postcode-city cross-validation', () => {
   });
 
   it('postcode-city check with diacritics in city name', () => {
-    const conflicts = detectAdminLevelConflicts(
+    const conflicts = detectAreaConflicts(
       {
         city: [{ level: 2, value: 'WIEN', source: 'folder', field: 'city' }],
         postcode: [{ level: 1, value: '1090', source: 'folder', field: 'postcode' }],
@@ -276,9 +276,9 @@ describe('detectAdminLevelConflicts — postcode-city cross-validation', () => {
   });
 });
 
-describe('detectAdminLevelConflicts — edge cases', () => {
+describe('detectAreaConflicts — edge cases', () => {
   it('conflicts on same field for DE even without gazetteer', () => {
-    const conflicts = detectAdminLevelConflicts(
+    const conflicts = detectAreaConflicts(
       {
         city: [
           { level: 2, value: 'Berlin', source: 'folder', field: 'city' },
@@ -292,7 +292,7 @@ describe('detectAdminLevelConflicts — edge cases', () => {
   });
 
   it('accepts Wien city inside Wien state via gazetteer', () => {
-    const conflicts = detectAdminLevelConflicts(
+    const conflicts = detectAreaConflicts(
       {
         state: [{ level: 2, value: 'Wien', source: 'folder', field: 'state' }],
         city: [{ level: 1, value: 'Wien', source: 'folder', field: 'city' }],
@@ -303,7 +303,7 @@ describe('detectAdminLevelConflicts — edge cases', () => {
   });
 
   it('deduplicates repeated level entries in conflict output', () => {
-    const conflicts = detectAdminLevelConflicts(
+    const conflicts = detectAreaConflicts(
       {
         city: [
           { level: 2, value: 'Wien', source: 'folder', field: 'city' },

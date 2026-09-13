@@ -6,7 +6,7 @@ import {
   applyAdminLevelSelectionsToSearchObject,
   buildAdminConflictCandidates,
   parseAdminLevelCandidateId,
-} from './upload-location-admin-level-choice.util';
+} from './upload-location-area-choice.util';
 import type { UploadSearchObject } from '../address-resolution/upload-address-resolution.types';
 
 const municipalities = [
@@ -34,11 +34,11 @@ function baseSearchObject(overrides: Partial<UploadSearchObject> = {}): UploadSe
     groupingKey: 'at|wien||innsbruck||',
     relativePath: 'Wien/Innsbruck/photo.jpg',
     fileName: 'photo.jpg',
-    adminLevelMap: {
+    areaEvidence: {
       state: [{ level: 2, value: 'Wien', source: 'folder', field: 'state' }],
       city: [{ level: 1, value: 'Innsbruck', source: 'folder', field: 'city' }],
     },
-    adminLevelConflicts: [
+    areaConflicts: [
       {
         field: 'city',
         entries: [
@@ -51,7 +51,7 @@ function baseSearchObject(overrides: Partial<UploadSearchObject> = {}): UploadSe
   };
 }
 
-describe('upload-location-admin-level-choice.util', () => {
+describe('upload-location-area-choice.util', () => {
   it('round-trips admin level candidate ids', () => {
     const entry = { level: 2, value: 'Wien', source: 'folder' as const, field: 'state' as const };
     const id = adminLevelCandidateId(entry);
@@ -59,7 +59,7 @@ describe('upload-location-admin-level-choice.util', () => {
   });
 
   it('builds tray candidates from conflicts without duplicates', () => {
-    const conflicts = baseSearchObject().adminLevelConflicts!;
+    const conflicts = baseSearchObject().areaConflicts!;
     const candidates = buildAdminConflictCandidates(conflicts);
     const ids = candidates.map((c) => c.id);
     expect(new Set(ids).size).toBe(ids.length);
@@ -74,7 +74,7 @@ describe('upload-location-admin-level-choice.util', () => {
       { municipalities, postcodeMap },
     );
     expect(resolved.city).toBe('Wien');
-    expect(resolved.adminLevelConflicts).toHaveLength(0);
+    expect(resolved.areaConflicts).toHaveLength(0);
     expect(resolved.groupingKey).toContain('wien');
   });
 
@@ -109,8 +109,8 @@ describe('upload-location-admin-level-choice.util', () => {
       { city: 'Wien' },
       { municipalities, postcodeMap },
     );
-    expect(resolved.adminLevelMap?.city).toHaveLength(1);
-    expect(resolved.adminLevelMap?.city?.[0].value).toBe('Wien');
+    expect(resolved.areaEvidence?.city).toHaveLength(1);
+    expect(resolved.areaEvidence?.city?.[0].value).toBe('Wien');
   });
 
   it('keeps conflict when resolved city still mismatches state', () => {
@@ -119,7 +119,7 @@ describe('upload-location-admin-level-choice.util', () => {
       { city: 'Innsbruck' },
       { municipalities, postcodeMap },
     );
-    expect(resolved.adminLevelConflicts?.length).toBeGreaterThan(0);
+    expect(resolved.areaConflicts?.length).toBeGreaterThan(0);
   });
 
   it('resolves when user picks matching state for Innsbruck city', () => {
@@ -129,7 +129,7 @@ describe('upload-location-admin-level-choice.util', () => {
       { municipalities, postcodeMap },
     );
     expect(resolved.state).toBe('Tirol');
-    expect(resolved.adminLevelConflicts).toHaveLength(0);
+    expect(resolved.areaConflicts).toHaveLength(0);
   });
 
   it('resolves street path Wien/Innsbruck when user picks Tirol state', () => {
@@ -149,20 +149,20 @@ describe('upload-location-admin-level-choice.util', () => {
       'photo.jpg',
       geo,
     );
-    expect(so.adminLevelConflicts?.length).toBeGreaterThan(0);
+    expect(so.areaConflicts?.length).toBeGreaterThan(0);
 
     const resolvedWithTirol = applyAdminLevelSelectionsToSearchObject(
       so,
       { state: 'Tirol' },
       { municipalities: geo.municipalities, postcodeMap: geo.postcodeMap },
     );
-    expect(resolvedWithTirol.adminLevelConflicts?.length).toBeGreaterThan(0);
+    expect(resolvedWithTirol.areaConflicts?.length).toBeGreaterThan(0);
 
     const resolvedWithWienCity = applyAdminLevelSelectionsToSearchObject(
       so,
       { city: 'Wien' },
       { municipalities: geo.municipalities, postcodeMap: geo.postcodeMap },
     );
-    expect(resolvedWithWienCity.adminLevelConflicts).toHaveLength(0);
+    expect(resolvedWithWienCity.areaConflicts).toHaveLength(0);
   });
 });

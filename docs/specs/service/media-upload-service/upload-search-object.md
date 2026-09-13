@@ -38,12 +38,12 @@ All **field names are English** (internal model). **Values** use locale-appropri
 | `groupingKey` | string | Batch geocode dedup key (building-level; see [Keys philosophy](#keys-philosophy)) |
 | `relativePath` | string | Immutable job path |
 | `fileName` | string | Leaf file name |
-| `adminLevelMap` | `Partial<Record<AdminFieldKey, FieldLevelEntry[]>>` | Admin fields per folder level (see [Admin level map](#admin-level-map)) |
-| `adminLevelConflicts` | `AdminLevelConflict[]` | Admin fields with level or gazetteer mismatch |
+| `areaEvidence` | `Partial<Record<AreaFieldKey, FieldLevelEntry[]>>` | Area values per folder level, each marked `path` or `derived` (see [Area evidence](#area-evidence)) |
+| `areaConflicts` | `AreaConflict[]` | Area fields with a level or gazetteer mismatch |
 
-## Admin level map
+## Area evidence
 
-Admin fields (`country`, `state`, `city`, `postcode`) **MUST** record every write with folder level in `adminLevelMap`.
+**Area** fields (`country`, `state`, `city`, `postcode`) — the places that *contain* an address — **MUST** record every write with its folder level and its [origin](./upload-search-object.evidence-model.md) in `areaEvidence`.
 
 | Rule | Requirement |
 | --- | --- |
@@ -51,11 +51,11 @@ Admin fields (`country`, `state`, `city`, `postcode`) **MUST** record every writ
 | Filename gate | A **numeric** level-`0` entry (i.e. a postcode) is written **only if** the same filename yields a street-level token at confidence ≥ 0.9. `IMG_1274.jpg` contributes no `postcode`; `1090 Mühlenstraße 12.jpg` does. Named tokens are never gated — a camera writes `IMG_1274.jpg`, never `Graz.jpg`. |
 | Flat fields | **MUST** collapse to the entry with the **lowest** level index (most specific folder) for `groupingKey` |
 | Conflict detect order | PLZ→city lookup (no SO mutation) → AT `GemeindeRecord.b` city∈state → Salzburg (`state` name === `city` name) → same-field value compare |
-| Cross-field | When `city` and `state` are semantically incompatible (e.g. `Wien` + `Innsbruck`), **MUST** populate `adminLevelConflicts` |
-| Tray | Non-empty `adminLevelConflicts` → `needsAdminLevelResolution` before geocode |
-| Street fields | Layer packages remain normative for `street` / `houseNumber` / units — **not** in `adminLevelMap |
+| Cross-field | When `city` and `state` are semantically incompatible (e.g. `Wien` + `Innsbruck`), **MUST** populate `areaConflicts` |
+| Tray | Non-empty `areaConflicts` → `needsAreaResolution` before geocode |
+| Address fields | Layer packages remain normative for `street` / `houseNumber` / units — **not** in `areaEvidence` |
 
-Types: `apps/web/src/app/core/upload/address-resolution/upload-address-level-map.types.ts`.
+Types: `apps/web/src/app/core/upload/address-resolution/upload-area-evidence.types.ts`.
 
 ## Keys philosophy
 
@@ -94,7 +94,7 @@ Per path segment, split tokens with `/[\s\-\_\.\,]+/`, then **two passes**:
 
 **Pass 2 — numeric tokens last** (`^\d+[a-zA-Z]?$`):
 
-1. **Postcode** — only if `country` is set (from pass 1 or an earlier path segment), the token matches that country's pattern, and — in a filename segment — the [filename gate](#admin-level-map) is open  
+1. **Postcode** — only if `country` is set (from pass 1 or an earlier path segment), the token matches that country's pattern, and — in a filename segment — the [filename gate](#area-evidence) is open  
 2. **House number** — if country known: `^\d{1,4}[a-zA-Z]?$`; if country unknown: only `^\d{1,3}[a-zA-Z]?$` (so `1090` is not mistaken for a house number)  
 
 Earlier folder segments run before later ones, so `AT/.../1090` sets `country` before pass 2 on `1090`.
@@ -128,7 +128,7 @@ Other countries: path parsing and geocoding use country code; gazetteer Fuse is 
 | **C** | `street`, no locality, no centroid | `street` + `country=AT` (Photon first) | **5b** numbered discriminating field; **5c** house; 0 hits → 1A text only |
 
 See [address-resolution-model.md § Branch C](./address-resolution-model.md#branch-c--street-only-countryat).
-| **Below street** | admin fields only | none (admin centroid stored) | none |
+| **Below street** | area fields only | none (area centroid stored) | none |
 
 Legacy helper `isSearchObjectComplete()` remains true only for Branch A.
 

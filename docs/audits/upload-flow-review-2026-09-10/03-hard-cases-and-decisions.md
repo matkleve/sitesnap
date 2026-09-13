@@ -236,7 +236,7 @@ Consequences that follow from the model rather than from taste:
 | Gap | Spec says | Reality |
 | --- | --- | --- |
 | G1 sibling-folder conflict | not implemented | not implemented — confirmed |
-| G2 fan-out by tier, not by `groupingKey` | not implemented | **implemented** — `adminConflictQueryKey` accumulator, `core/upload/address-resolution/upload-address-resolution.orchestrator.ts:231-244` |
+| G2 fan-out by tier, not by `groupingKey` | not implemented | **implemented** — `areaConflictQueryKey` accumulator, `core/upload/address-resolution/upload-address-resolution.orchestrator.ts:231-244` |
 | G3 post-resolution validation probe | not implemented | **implemented** — `registerContainmentCheckGroup`, called from `core/upload/location/upload-location-pre-resolve-orchestrator.service.ts:149`, with tests labelled `G3:` |
 | G4 `deferred` lifecycle | not implemented | not implemented — confirmed (see C4) |
 | G5 cross-batch dedup | not implemented | not implemented — confirmed (see F3) |

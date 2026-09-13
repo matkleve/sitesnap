@@ -264,7 +264,7 @@ export function mergeLayersWithoutConflict(layers: AddressLayerEntry[]): StreetL
  * Administrative fields from full path — independent of package tray choice.
  * @see docs/specs/service/media-upload-service/upload-search-object.layer-map.md#administrative-vs-street-level
  */
-export function resolveAdministrativeContext(
+export function resolveAreaContext(
   relativePath: string,
   fileName: string,
   geo: {
@@ -280,8 +280,8 @@ export function resolveAdministrativeContext(
   | 'city'
   | 'postcodeCandidates'
   | 'sources'
-  | 'adminLevelMap'
-  | 'adminLevelConflicts'
+  | 'areaEvidence'
+  | 'areaConflicts'
 > {
   const so = buildSearchObjectFromRelativePath(relativePath, fileName, {
     states: geo.states,
@@ -296,8 +296,8 @@ export function resolveAdministrativeContext(
     city: expanded.city,
     postcodeCandidates: expanded.postcodeCandidates,
     sources: expanded.sources,
-    adminLevelMap: so.adminLevelMap,
-    adminLevelConflicts: so.adminLevelConflicts,
+    areaEvidence: so.areaEvidence,
+    areaConflicts: so.areaConflicts,
   };
 }
 
@@ -339,7 +339,7 @@ function assembleFlatSearchObject(
   },
   streetLevel: StreetLevelParsed,
 ): UploadSearchObject {
-  const admin = resolveAdministrativeContext(relativePath, fileName, geo);
+  const admin = resolveAreaContext(relativePath, fileName, geo);
   const fields = dropAddressWithoutStreet({
     country: admin.country,
     state: admin.state,
@@ -360,8 +360,8 @@ function assembleFlatSearchObject(
     groupingKey: buildGroupingKey(fields),
     relativePath: relativePath.replace(/\\/g, '/'),
     fileName,
-    adminLevelMap: admin.adminLevelMap,
-    adminLevelConflicts: admin.adminLevelConflicts,
+    areaEvidence: admin.areaEvidence,
+    areaConflicts: admin.areaConflicts,
   };
 }
 

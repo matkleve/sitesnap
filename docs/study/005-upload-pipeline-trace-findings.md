@@ -68,8 +68,8 @@ therefore get different `groupingKey`s and are geocoded separately. `[A]` — ha
     postcode     = 1090                     ← folder (conf 1)
     postcode     = 1274                     ← filename (conf 1)
     groupingKey: at|wien|1274|schottwien|wahringer straße|12
-    adminLevelMap: … postcode@[L2:1090 L0:1274]
-    adminLevelConflicts: postcode, city
+    areaEvidence: … postcode@[L2:1090 L0:1274]
+    areaConflicts: postcode, city
 ```
 
 **Why.** Two rules compose into this, and both are as specified:
@@ -78,14 +78,14 @@ therefore get different `groupingKey`s and are geocoded separately. `[A]` — ha
    as a postcode once the country is known. `[A]` AT's pattern is four digits, and `IMG_1274`
    tokenizes to `IMG` + `1274`. The spec mandates exactly this — `upload-search-object.md`
    § Token classification order, pass 2 point 1. `[A]`
-2. `upload-address-level-map.helpers.ts:139-156` (`collapseAdminFlatFields`) keeps the entry with
+2. `upload-area-evidence.helpers.ts:139-156` (`collapseAreaFlatFields`) keeps the entry with
    the **lowest** level index, and level 0 **is the file name**. `[A]` Also mandated —
    `upload-search-object.md` § Admin level map, "Flat fields MUST collapse to the entry with the
    lowest level index". `[A]`
 
 **Consequence.** Three, compounding: the stored postcode is wrong; one building fragments into one
 group per file, so batch geocoding stops working; and `city`/`postcode` then disagree across levels,
-which raises `adminLevelConflicts` and opens an `admin_level_conflict` tray — a question about a
+which raises `areaConflicts` and opens an `admin_level_conflict` tray — a question about a
 path that was never ambiguous. `[A]`
 
 **Scale.** With camera file naming, **zero** of 2 000 generated paths reached `branch_a`; with
@@ -140,7 +140,7 @@ plain write, not even an uncertain one (`upload-search-object.md` § Confidence 
 "Write field"). `[A]`
 
 **Consequence.** Vienna is Austria's largest city and the wrong city is written with full
-confidence. It then disagrees with `state = Wien`, which raises an `adminLevelConflicts` entry and
+confidence. It then disagrees with `state = Wien`, which raises an `areaConflicts` entry and
 opens a tray. `[A]` Six of the 15 curated scenarios hit it. `[A]`
 
 **Fixed 2026-09-13** (Phase 1.3–1.4, D-02). `classifyWithFuse` now consults an **exact** normalized
@@ -442,8 +442,8 @@ the interesting case, and the one a resolver tray exists for.
 ```
 flat:            country=null state=null postcode=null city=null street=null houseNumber=141
 groupingKey:     |||||141
-adminLevelMap:   {}
-adminLevelConflicts: []
+areaEvidence:   {}
+areaConflicts: []
 postcodeCandidates:  []
 ```
 
@@ -462,7 +462,7 @@ Everything is lost except the house number. Three independent rules compose to t
 
 **Consequence.** A file whose name contains a postal address good enough to geocode verbatim
 produces an empty Search Object, one tray question, and no city, street or postcode. `[A]` The
-`adminLevelMap` machinery built exactly for "two cities at different levels" never engages, because
+`areaEvidence` machinery built exactly for "two cities at different levels" never engages, because
 nothing was ever classified as a city. `[A]`
 
 **Why it is filed as Spec.** Every one of the three rules is as written in
@@ -470,7 +470,7 @@ nothing was ever classified as a city. `[A]`
 composition was never stated, so the spec cannot be read to predict this outcome. Fixing it is
 [STUDY-006](./006-upload-pipeline-correction-plan.md) D-03 (country derived from a city match rather
 than required as input) plus Phase 2.2; after D-03, `Mödling` and `Wien` both classify, the
-`adminLevelMap` gets its two entries, and the contradiction becomes the tray question it should
+`areaEvidence` gets its two entries, and the contradiction becomes the tray question it should
 always have been. `[C]`
 
 **Fix, 2026-09-13** (D-03, Phase 2.1 — see [F-03](#f-03)). The same path now produces `[A]`:
@@ -478,13 +478,13 @@ always have been. `[C]`
 ```
 flat:            country=AT state=Wien postcode=1160 city=Wien houseNumber=141
 groupingKey:     adminConflict|city|modling,wien
-adminLevelMap:   city@[L2:Mödling L0:Wien] country@[L2:AT] state@[L0:Wien] postcode@[L0:1160]
-adminLevelConflicts: city
+areaEvidence:   city@[L2:Mödling L0:Wien] country@[L2:AT] state@[L0:Wien] postcode@[L0:1160]
+areaConflicts: city
 ```
 
 `Mödling` derives `AT` at level 2; with a country in hand the file name's `1160` is a postcode and
 its `Wien` a city, so the level map holds **both** cities with their levels, the city conflict fires,
-and the group goes to `needsAdminLevelResolution` before any geocode — the tray question the owner
+and the group goes to `needsAreaResolution` before any geocode — the tray question the owner
 expected. The flat `city` is `Wien` because flat fields collapse to the lowest level; that value is
 not trusted while the conflict stands. What is still open is the `street`: `Wilhelminenstr` (file
 name, confidence 0.5) and `Wilhelminenstraße` (folder, confidence 1) remain two competing layer
@@ -492,7 +492,7 @@ packages, which is [F-04](#f-04) / [F-11](#f-11) and Phase 2.2, not this finding
 
 **Model note, since it is easy to misread.** Only the four admin fields
 (`country`, `state`, `city`, `postcode`) are stored as a per-field map of level-tagged values —
-`adminLevelMap[field] = { level, value, source }[]`, where level 0 is the file name. `[A]` Street-level
+`areaEvidence[field] = { level, value, source }[]`, where level 0 is the file name. `[A]` Street-level
 fields are **not** in that map: they live in `AddressLayerEntry[]`, one whole package per folder
 prefix plus one for the file name, and within a package the fragments are **concatenated**
 (`Mödling Wilhelminenstraße`) rather than kept as alternatives. `[A]` `sources[]` logs every write with

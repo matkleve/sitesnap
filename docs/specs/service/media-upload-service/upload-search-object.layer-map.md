@@ -48,7 +48,7 @@ Only emit an entry when `parsed` has at least one non-null street-level field.
 
 | Domain | Fields | Resolution |
 | --- | --- | --- |
-| **Administrative** | `country`, `state`, `city`, `postcode` | `resolveAdministrativeContext(relativePath, fileName, geo)` — full path parse + `expandPostcodeOnSearchObject`; **never** changed by package tray |
+| **Administrative** | `country`, `state`, `city`, `postcode` | `resolveAreaContext(relativePath, fileName, geo)` — full path parse + `expandPostcodeOnSearchObject`; **never** changed by package tray |
 | **Street-level** | `street`, `houseNumber`, `staircase`, `door` | Package merge or tray (below) |
 
 **Invariant:** Street-level package choice does not mutate administrative context.
@@ -75,8 +75,8 @@ Two entries **conflict** iff both contribute at least one street-level value and
 
 | Path | Street-level | Administrative |
 | --- | --- | --- |
-| After tray (**Option A**) | Only `parsed` from `chosenLayerKey`; absent keys → `null` | `resolveAdministrativeContext` |
-| Auto-merge (no tray) | `mergeLayersWithoutConflict` | `resolveAdministrativeContext` |
+| After tray (**Option A**) | Only `parsed` from `chosenLayerKey`; absent keys → `null` | `resolveAreaContext` |
+| Auto-merge (no tray) | `mergeLayersWithoutConflict` | `resolveAreaContext` |
 
 Emit `groupingKey` via existing `buildGroupingKey` on merged flat fields.
 
@@ -106,7 +106,7 @@ Emit `groupingKey` via existing `buildGroupingKey` on merged flat fields.
 | `buildAddressLayers` | `upload-search-object.layer-map.ts` |
 | `detectPackageConflicts` | same |
 | `mergeLayersWithoutConflict` | same |
-| `resolveAdministrativeContext` | same |
+| `resolveAreaContext` | same |
 | `resolveSOWithChosenLayer` | same |
 | `buildFlatSearchObjectFromLayers` | same |
 | `buildLayerConflictQueryKey` | same |
@@ -117,6 +117,6 @@ Emit `groupingKey` via existing `buildGroupingKey` on merged flat fields.
 
 - [x] Package conflict tray appears before any `runGeocodeForGroup` for that job group — `needsLayerResolution` groups are held via `holdLayerPackagePreResolve` (`upload-location-pre-resolve-orchestrator.service.ts`) before `ensureGeocodedGroup` ever runs.
 - [x] Choosing a package sets flat SO street-level fields from that package only (Option A) — `resolveSOWithChosenLayer`; covered by EX-03.
-- [x] Administrative `city` unchanged when filename package selected (EX-04) — `resolveAdministrativeContext` always derives from `relativePath`, independent of `chosenLayerKey`; covered by EX-04.
+- [x] Administrative `city` unchanged when filename package selected (EX-04) — `resolveAreaContext` always derives from `relativePath`, independent of `chosenLayerKey`; covered by EX-04.
 - [x] Enrich door when street/house agree (EX-02) — `mergeLayersWithoutConflict`; covered by EX-02.
 - [x] Vitest covers EX-01…EX-08 in examples doc — EX-05 added in `upload-search-object.layer-map.spec.ts` ("EX-05: locality-only intermediate segment is excluded from conflict").
