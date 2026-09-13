@@ -167,7 +167,12 @@ describe('UploadAddressResolutionOrchestrator — admin level conflicts', () => 
   });
 
   it('integrateResolvedAdminGroups reclassifies into needsGeocode', async () => {
-    jobState.addJobs([buildJob()]);
+    // A real street in the path, because reaching `needsGeocode` needs a geocodable address and
+    // `photo.jpg` is no longer read as a street name.
+    // @see docs/specs/service/media-upload-service/upload-search-object.evidence-model.md
+    jobState.addJobs([
+      buildJob({ relativePath: 'AT/Wien/Innsbruck/Maria-Theresien-Straße 18/photo.jpg' }),
+    ]);
     await orchestrator.classifyBatch('batch-admin');
 
     const adminState = orchestrator

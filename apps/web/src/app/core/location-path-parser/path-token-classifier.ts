@@ -8,7 +8,7 @@ import Fuse from 'fuse.js';
 import type { BundeslandRecord, GemeindeRecord } from './local-geo-data.adapter';
 import { COUNTRY_NAMES } from './city-registry.const';
 import { isPostcodeToken, normalizeCountryCode } from './postcode-patterns';
-import { findCitiesBySegment, normalizeSegment } from './location-path-parser.util';
+import { findCitiesBySegment, isNoiseSegment, normalizeSegment } from './location-path-parser.util';
 import type { CountryProvenance } from '../upload/address-resolution/upload-address-resolution.types';
 
 export type ClassifiedTokenKind =
@@ -44,7 +44,40 @@ const PROJEKT_RE = /^projekt[:\s]/i;
 
 const UNCERTAIN_LOW = 0.9;
 
-const STREET_SUFFIX_RE = /(?:straße|gasse|weg|platz|ring|allee|gürtel|zeile|steig)$/i;
+/**
+ * Any leftover word becomes a street candidate at this score, which proves nothing on its own.
+ * Below `UNCERTAIN_LOW`, so it never reaches the flat `street` or an address package.
+ * @see docs/specs/service/media-upload-service/upload-search-object.evidence-model.md
+ */
+const WEAK_STREET_CONFIDENCE = 0.5;
+
+/** A street read only from standing next to a house number: real, but inferred from adjacency. */
+const ADJACENT_STREET_CONFIDENCE = 0.95;
+
+/**
+ * Words a camera or a file manager puts in front of a counter. `IMG_1` has a number beside a word
+ * and is still not an address, so these are never promoted by adjacency.
+ */
+const CAMERA_LABELS = new Set([
+  'img',
+  'image',
+  'dsc',
+  'dscn',
+  'foto',
+  'fotos',
+  'photo',
+  'file',
+  'bild',
+  'scan',
+  'pic',
+  'pict',
+  'kopie',
+  'copy',
+  'export',
+]);
+
+/** `str`/`str.` is the everyday abbreviation of `straße` and appears in real folder names. */
+const STREET_SUFFIX_RE = /(?:straße|strasse|str\.?|gasse|weg|platz|ring|allee|gürtel|zeile|steig)$/i;
 
 const STREET_KEYWORDS = new Set([
   'straße',
@@ -305,7 +338,7 @@ function classifyNonNumericToken(
         raw: token,
         kind: 'street',
         value: token,
-        confidence: 0.5,
+        confidence: WEAK_STREET_CONFIDENCE,
       },
     ];
   }
@@ -353,6 +386,8 @@ export function classifyTokensInSegment(
     municipalities: GemeindeRecord[];
   },
   context: TokenClassificationContext,
+  /** The segment these tokens came from — needed to reject a noise segment as a street. */
+  segmentText = '',
 ): ClassifiedToken[] {
   const classified: ClassifiedToken[] = [];
 
@@ -393,7 +428,31 @@ export function classifyTokensInSegment(
     }
   }
 
+  promoteStreetBesideHouseNumber(classified, segmentText);
+
   return classified;
+}
+
+/**
+ * `Am Graben 12` is an address even though no token carries a street suffix: the house number beside
+ * it is the evidence. One weak candidate plus one house number in a segment that is not noise
+ * therefore becomes a real street. `Woche 12` does not, because `Woche` is a noise segment.
+ * @see docs/specs/service/media-upload-service/upload-search-object.evidence-model.md
+ */
+function promoteStreetBesideHouseNumber(classified: ClassifiedToken[], segmentText: string): void {
+  if (!classified.some((token) => token.kind === 'houseNumber')) {
+    return;
+  }
+  const weak = classified.filter(
+    (token) => token.kind === 'street' && token.confidence < UNCERTAIN_LOW,
+  );
+  if (weak.length !== 1 || isNoiseSegment(segmentText)) {
+    return;
+  }
+  if (CAMERA_LABELS.has(normalizeSegment(weak[0].value))) {
+    return;
+  }
+  weak[0].confidence = ADJACENT_STREET_CONFIDENCE;
 }
 
 export function isAcceptedConfidence(confidence: number): boolean {

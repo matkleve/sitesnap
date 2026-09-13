@@ -194,3 +194,50 @@ describe('upload-search-object.layer-map', () => {
     expect(result.searchObject.adminLevelConflicts?.length).toBeGreaterThan(0);
   });
 });
+
+// ── Only a real street forms a package; one street spelled two ways is not a question ─────────
+// @see docs/specs/service/media-upload-service/upload-search-object.evidence-model.md
+describe('buildAddressLayers — weak segments never compete', () => {
+  const geoAt = {
+    states: [{ n: 'Niederösterreich', a: [] }],
+    municipalities: [{ n: 'Mödling', b: 'Niederösterreich', a: [] }],
+    postcodeMap: { '1160': ['Wien'] },
+  };
+
+  it('a meaningless folder does not compete with a real street in the file name', () => {
+    const layers = buildAddressLayers(
+      'Baustelle Nord/Mühlenstraße 12.jpg',
+      'Mühlenstraße 12.jpg',
+      geoAt,
+    );
+
+    expect(layers.map((entry) => entry.source)).toEqual(['filename']);
+    expect(detectPackageConflicts(layers, 'Baustelle Nord')).toBeNull();
+  });
+
+  it('folds the str. abbreviation, so one address is not two packages', () => {
+    const layers = buildAddressLayers(
+      'Mödling/Wilhelminenstraße 141/Wilhelminenstr 141, 1160 Wien.jpg',
+      'Wilhelminenstr 141, 1160 Wien.jpg',
+      geoAt,
+    );
+
+    expect(detectPackageConflicts(layers, 'Mödling/Wilhelminenstraße 141')).toBeNull();
+  });
+
+  it('keeps a genuine disagreement about the house number', () => {
+    const layers = buildAddressLayers(
+      'Graz/Annenstraße 10/Annenstraße 12 Detail.jpg',
+      'Annenstraße 12 Detail.jpg',
+      geoAt,
+    );
+
+    expect(detectPackageConflicts(layers, 'Graz/Annenstraße 10')).not.toBeNull();
+  });
+
+  it('does not form a package from a house number with no street', () => {
+    const layers = buildAddressLayers('Baustelle Süd/Woche 12/IMG_8001.jpg', 'IMG_8001.jpg', geoAt);
+
+    expect(layers).toEqual([]);
+  });
+});

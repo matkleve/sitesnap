@@ -7,11 +7,12 @@ import type { GemeindeRecord, PlzMap } from './local-geo-data.adapter';
 import type { BundeslandRecord } from './local-geo-data.adapter';
 import {
   buildGroupingKey,
+  dropAddressWithoutStreet,
   buildSearchObjectFromRelativePath,
   expandPostcodeOnSearchObject,
 } from './upload-search-object.builder';
 import { collapseAtSlashPathSegments } from './upload-search-object.unit-parsing.at';
-import { splitPathSegments, stripFileExtension } from './location-path-parser.util';
+import { foldStreetSpelling, splitPathSegments, stripFileExtension } from './location-path-parser.util';
 import type { UploadSearchObject } from '../upload/address-resolution/upload-address-resolution.types';
 
 /** Same normalization as grouping keys — kept local to avoid parser → upload cycle. */
@@ -70,16 +71,21 @@ export function normalizeLayerKeySegment(segment: string): string {
     .normalize('NFC');
 }
 
-/** Normalize a street-level field value for compare. */
+/** Normalize a street-level field value for compare, folding street-name spellings. */
 export function normalizeStreetLevelValue(value: string | null | undefined): string {
   if (value == null) {
     return '';
   }
-  return normalizeKeyPart(value);
+  return foldStreetSpelling(normalizeKeyPart(value));
 }
 
+/**
+ * A package is an address, and an address needs a street: a lone house number or unit describes a
+ * position on a street nobody named.
+ * @see docs/specs/service/media-upload-service/upload-search-object.evidence-model.md
+ */
 function hasAnyStreetLevel(parsed: StreetLevelParsed): boolean {
-  return STREET_LEVEL_KEYS.some((k) => !!parsed[k]?.trim());
+  return !!parsed.street?.trim();
 }
 
 /**
@@ -334,7 +340,7 @@ function assembleFlatSearchObject(
   streetLevel: StreetLevelParsed,
 ): UploadSearchObject {
   const admin = resolveAdministrativeContext(relativePath, fileName, geo);
-  const fields = {
+  const fields = dropAddressWithoutStreet({
     country: admin.country,
     state: admin.state,
     postcode: admin.postcode,
@@ -344,7 +350,7 @@ function assembleFlatSearchObject(
     staircase: streetLevel.staircase ?? null,
     door: streetLevel.door ?? null,
     project: null as string | null,
-  };
+  });
   return {
     ...fields,
     sources: admin.sources,

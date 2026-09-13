@@ -10,6 +10,7 @@ All **field names are English** (internal model). **Values** use locale-appropri
 | --- | --- |
 | Fields, tokens, keys | **This file** |
 | Layer packages (folder vs filename) | [upload-search-object.layer-map.md](./upload-search-object.layer-map.md) |
+| Evidence, derivation, flat view | [upload-search-object.evidence-model.md](./upload-search-object.evidence-model.md) |
 | Country derived from the place | [upload-search-object.country-derivation.md](./upload-search-object.country-derivation.md) |
 | AT unit / slash / Tür / Top | [upload-search-object.unit-parsing.at.md](./upload-search-object.unit-parsing.at.md) |
 | Worked layer examples | [upload-search-object.layer-map.examples.md](./upload-search-object.layer-map.examples.md) |
@@ -141,9 +142,7 @@ Implementation: [`upload-search-object.completeness.helpers.ts`](../../../../app
 | 0.90–0.97 | Write + `uncertainFields` |
 | < 0.90 | Omit field |
 
-Fuse: `score = 1 - fuseResult.score` (0 = perfect match).
-
-An exact name/alias match scores `1` without consulting Fuse. The length bound in pass 1 step 5
-exists because a token that is **absent** from the gazetteer otherwise substitutes a longer entry
-containing it at a passing score — `Wien` → `Schottwien` at 0.992. A gazetteer gap must fail
-visibly, not resolve to a neighbour.
+Fuse: `score = 1 - fuseResult.score` (0 = perfect match). An exact name/alias match scores `1`
+without consulting Fuse. The length bound in pass 1 step 5 exists because a token **absent** from the
+gazetteer otherwise substitutes a longer entry containing it at a passing score — `Wien` →
+`Schottwien` at 0.992. A gazetteer gap must fail visibly, not resolve to a neighbour.

@@ -34,6 +34,8 @@ assertion — usually an FSM transition the map does not list, which the Vitest 
 the test has already passed. The report above it is still valid. As of 2026-09-13 the curated run has
 none: run A settles with every job in a terminal or waiting phase.
 
+As of 2026-09-13 the curated run asks **4** questions for 18 files and completes 13.
+
 **Run B's skip count** is 1 when that test runs alone and 2 in a full run. The second skip is
 [F-17](../study/005-upload-pipeline-trace-findings.md#f-17) — a content-hash reservation held by a job
 run A parked in a tray — not a second duplicate in the corpus.
@@ -304,6 +306,10 @@ each measured on the same 500 paths:
 | filename gate (F-01) | 391 | 269 (69 %) | 129 | 53 | 261 |
 | exact before fuzzy (F-02) | 391 | 269 (69 %) | 166 | 0 | 277 |
 | country derived from the place (F-03) | 442 | 237 (54 %) | 214 | 0 | 229 |
+| evidence model (F-04, F-11) | 410 | 191 (47 %) | 230 | 0 | 128 |
+
+The last row also reports `incomplete=75`: groups whose path contains no address at all. They used to
+open a `layer_package` tray asking which meaningless string was the street.
 
 The remaining tray load is folder shape (`layer_conflict`, F-04/F-11), not file naming. Re-run
 `--scale=2000` for figures comparable to the table above.

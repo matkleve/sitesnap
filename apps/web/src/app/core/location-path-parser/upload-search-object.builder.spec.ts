@@ -379,3 +379,52 @@ describe('buildSearchObjectFromRelativePath — derived country', () => {
     expect(so.adminLevelConflicts?.some((c) => c.field === 'city')).toBe(true);
   });
 });
+
+// ── Strong vs weak street evidence, and the all-or-nothing address side ───────
+// @see docs/specs/service/media-upload-service/upload-search-object.evidence-model.md
+describe('buildSearchObjectFromRelativePath — street evidence', () => {
+  it('does not read a house number out of a period folder', () => {
+    const so = buildSearchObjectFromRelativePath(
+      'Baustelle Süd/Woche 12/IMG_8001.jpg',
+      'IMG_8001.jpg',
+      geo,
+    );
+
+    expect(so.street).toBeNull();
+    expect(so.houseNumber).toBeNull();
+    expect(so.groupingKey).toBe('|||||');
+  });
+
+  it('keeps a real street from the file name under a meaningless folder', () => {
+    const so = buildSearchObjectFromRelativePath(
+      'Baustelle Nord/Mühlenstraße 12.jpg',
+      'Mühlenstraße 12.jpg',
+      geo,
+    );
+
+    expect(so.street).toBe('Mühlenstraße');
+    expect(so.houseNumber).toBe('12');
+  });
+
+  it('accepts an abbreviated street name standing beside its house number', () => {
+    const so = buildSearchObjectFromRelativePath(
+      'Wilhelminenstr 141/IMG_1.jpg',
+      'IMG_1.jpg',
+      geo,
+    );
+
+    expect(so.street).toBe('Wilhelminenstr');
+    expect(so.houseNumber).toBe('141');
+  });
+
+  it('drops a lone number when nothing in the path is a street', () => {
+    const so = buildSearchObjectFromRelativePath(
+      'Rohdaten/Kamera A/IMG_9001.jpg',
+      'IMG_9001.jpg',
+      geo,
+    );
+
+    expect(so.street).toBeNull();
+    expect(so.houseNumber).toBeNull();
+  });
+});

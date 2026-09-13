@@ -130,6 +130,21 @@ function isGatedFilenameAdminToken(
   return NUMERIC_ADMIN_TOKEN_RE.test(token.value);
 }
 
+/**
+ * May a filename segment write address fields at all?
+ *
+ * Only when it carries a street of its own. `Wilhelminenstr 141/IMG_1.jpg` otherwise lets the camera
+ * counter `1` override the folder's house number 141, which is [F-01](../../../../docs/study/005-upload-pipeline-trace-findings.md)
+ * on the address side. Explicit unit keywords (`Stiege`, `Tür`, `Top`) come from the unit parser and
+ * are not affected.
+ * @see docs/specs/service/media-upload-service/upload-search-object.evidence-model.md
+ */
+function filenameMayWriteAddressFields(classified: ClassifiedToken[]): boolean {
+  return classified.some(
+    (token) => token.kind === 'street' && token.confidence >= STREET_LEVEL_MIN_CONFIDENCE,
+  );
+}
+
 function filenameMayWriteNumericAdminFields(
   classified: ClassifiedToken[],
   units: AtSegmentUnitParse,
@@ -154,6 +169,7 @@ function applyTokenToFields(
   level: number,
   adminLevelMap: Partial<Record<AdminFieldKey, FieldLevelEntry[]>>,
   allowNumericAdminFields: boolean,
+  allowAddressFields: boolean,
   previousFolderValue?: string,
 ): void {
   const key = fieldKeyForKind(token.kind);
@@ -161,11 +177,11 @@ function applyTokenToFields(
     return;
   }
 
-  if (token.confidence < 0.9 && token.kind !== 'street') {
-    return;
-  }
-
-  if (isGatedFilenameAdminToken(key, token, allowNumericAdminFields)) {
+  // A leftover word scores 0.5 as a street candidate. It stays in `sources` as evidence — a tray may
+  // still show it — but it never becomes the flat street, and so never concatenates onto a real one.
+  // @see docs/specs/service/media-upload-service/upload-search-object.evidence-model.md
+  const weakStreet = key === 'street' && token.confidence < STREET_LEVEL_MIN_CONFIDENCE;
+  if (!mayTokenWriteField(key, token, weakStreet, allowAddressFields, allowNumericAdminFields)) {
     return;
   }
 
@@ -177,10 +193,8 @@ function applyTokenToFields(
     });
   }
 
-  if (key === 'street' && fields.street) {
-    fields.street = `${fields.street} ${token.value}`.trim();
-  } else {
-    fields[key] = token.value;
+  if (!weakStreet) {
+    writeFieldValue(fields, key, token.value);
   }
 
   sources.push({
@@ -195,12 +209,49 @@ function applyTokenToFields(
     uncertainFields.add(key);
   }
 
-  if (ADMIN_FIELD_KEYS.includes(key as AdminFieldKey) && token.value) {
-    const adminKey = key as AdminFieldKey;
-    const bucket = adminLevelMap[adminKey] ?? [];
-    bucket.push({ level, value: token.value, source, field: adminKey });
-    adminLevelMap[adminKey] = bucket;
+  recordAdminLevelEntry(adminLevelMap, key, token.value, level, source);
+}
+
+/** Street fragments of one real street join; every other field is replaced. */
+function writeFieldValue(fields: SoFields, key: keyof SoFields, value: string): void {
+  if (key === 'street' && fields.street) {
+    fields.street = `${fields.street} ${value}`.trim();
+    return;
   }
+  fields[key] = value;
+}
+
+function recordAdminLevelEntry(
+  adminLevelMap: Partial<Record<AdminFieldKey, FieldLevelEntry[]>>,
+  key: keyof SoFields,
+  value: string,
+  level: number,
+  source: 'folder' | 'filename',
+): void {
+  if (!ADMIN_FIELD_KEYS.includes(key as AdminFieldKey) || !value) {
+    return;
+  }
+  const adminKey = key as AdminFieldKey;
+  const bucket = adminLevelMap[adminKey] ?? [];
+  bucket.push({ level, value, source, field: adminKey });
+  adminLevelMap[adminKey] = bucket;
+}
+
+/** The three gates a classified token passes before it may write anything. */
+function mayTokenWriteField(
+  key: keyof SoFields,
+  token: ClassifiedToken,
+  weakStreet: boolean,
+  allowAddressFields: boolean,
+  allowNumericAdminFields: boolean,
+): boolean {
+  if (token.confidence < STREET_LEVEL_MIN_CONFIDENCE && !weakStreet) {
+    return false;
+  }
+  if (!allowAddressFields && STREET_LEVEL_KINDS.has(token.kind)) {
+    return false;
+  }
+  return !isGatedFilenameAdminToken(key, token, allowNumericAdminFields);
 }
 
 function applyPresetUnits(
@@ -255,9 +306,10 @@ function applySegment(
   const atUnits = parseAtSegmentUnits(segment, countryCode);
   applyPresetUnits(fields, atUnits, source, sources);
   const tokens = tokenizeSegment(atUnits.workingSegment);
-  const classified = classifyTokensInSegment(tokens, geo, context);
+  const classified = classifyTokensInSegment(tokens, geo, context, atUnits.workingSegment);
   const allowNumericAdminFields =
     source === 'folder' || filenameMayWriteNumericAdminFields(classified, atUnits);
+  const allowAddressFields = source === 'folder' || filenameMayWriteAddressFields(classified);
   const folderSnapshot = filenameOverride ? { ...fields } : undefined;
 
   for (const token of classified) {
@@ -275,6 +327,7 @@ function applySegment(
       level,
       adminLevelMap,
       allowNumericAdminFields,
+      allowAddressFields,
       prev ?? undefined,
     );
     if (token.kind === 'country') {
@@ -299,6 +352,24 @@ export function isSearchObjectMeaningless(so: UploadSearchObject): boolean {
   const streetSources = so.sources.filter((s) => s.field === 'street');
   const hasHighConfidenceStreet = streetSources.some((s) => s.confidence >= 0.9);
   return !hasHighConfidenceStreet;
+}
+
+/**
+ * `houseNumber`, `staircase` and `door` describe a position **on a street**. Without a street they are
+ * not an address — and a stray number that reaches the grouping key groups unrelated files, which is
+ * how `Baustelle Süd/Woche 12` ended up sharing a key with every other `12` in a batch.
+ * @see docs/specs/service/media-upload-service/upload-search-object.evidence-model.md
+ */
+export function dropAddressWithoutStreet<T extends Pick<SoFields, 'street' | 'houseNumber' | 'staircase' | 'door'>>(
+  fields: T,
+): T {
+  if (fields.street?.trim()) {
+    return fields;
+  }
+  fields.houseNumber = null;
+  fields.staircase = null;
+  fields.door = null;
+  return fields;
 }
 
 export function buildGroupingKey(fields: SoFields): string {
@@ -434,6 +505,7 @@ export function buildSearchObjectFromRelativePath(
   });
 
   collapseAdminFlatFields(fields, adminLevelMap);
+  dropAddressWithoutStreet(fields);
 
   const groupingKey = buildGroupingKey(fields);
 

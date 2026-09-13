@@ -40,14 +40,14 @@ spec-level — the spec says what the code does, so a fix needs a contract decis
 | [F-01](#f-01) | ~~A number in the file name is classified as a postcode and overrides the folder~~ **fixed** | High | **Spec** |
 | [F-02](#f-02) | ~~`Wien` resolves to the municipality `Schottwien`~~ **fixed** | High | Data + code |
 | [F-03](#f-03) | ~~City classification requires an explicit country segment in the path~~ **fixed** | High | **Spec** |
-| [F-04](#f-04) | Ordinary file names form competing street-level layer packages | Medium | Code |
+| [F-04](#f-04) | ~~Ordinary file names form competing street-level layer packages~~ **fixed** | Medium | Code |
 | [F-05](#f-05) | `locationRequirementMode: 'optional'` does not skip the address pipeline | Medium | **Spec** ↔ code |
 | [F-06](#f-06) | Classification costs ~9 ms/file and blocks the first upload | High | Code |
 | [F-07](#f-07) | The job store is `O(n)` per write, so a batch is `O(n²)` | High | Code |
 | [F-08](#f-08) | Tray volume scales linearly with the file count | High | **Spec** (product) |
 | [F-09](#f-09) | The `test` gate compiles nothing, so it runs no specs | Medium | Repo |
 | [F-10](#f-10) | Two gate debt notes state numbers that no longer match | Low | Repo |
-| [F-11](#f-11) | A meaningless folder segment outranks a valid address in the file name | High | Code |
+| [F-11](#f-11) | ~~A meaningless folder segment outranks a valid address in the file name~~ **fixed** | High | Code |
 | [F-12](#f-12) | The unit suite is order-dependent; the count depends on a build cache | Medium | Repo |
 | [F-13](#f-13) | `ng test` never loads `vitest.config.ts`, so its aliases are inert in CI | Medium | Repo |
 | [F-14](#f-14) | ~~An async tray gate is overwritten by the hashing step, stranding the job~~ **fixed** | High | Code |
@@ -226,6 +226,23 @@ candidate street.
 **Consequence.** Medium rather than High because the tray merges by conflict signature, so a
 thousand files named `foto.jpg` under one folder ask once — but a document named after its content,
 which is the normal case for a report, always asks. `[A]`
+
+**Fix, 2026-09-13** (the [evidence model](../specs/service/media-upload-service/upload-search-object.evidence-model.md)).
+A leftover word is **weak** evidence: it stays in `sources` so a tray can still show it, but it never
+becomes the flat `street` and never forms an address package. Street evidence counts as strong only
+with a street suffix or keyword, with the `str`/`str.` abbreviation, or from a house number standing
+beside it in a segment that is not noise — and never for a camera label (`IMG_1`). A package now
+requires a street, since a lone house number describes a position on a street nobody named. Street
+values are compared after folding `str.` ≡ `straße` and `ß` ≡ `ss`, so one street spelled two ways is
+not a question.
+
+Measured on the curated corpus: tray questions **12 → 4**, complete **5 → 13**, groups **11** instead
+of 15 — `AT/Wien/1090/Währinger Straße 12` is one group of four files again instead of three groups.
+`[A]` At 500 generated paths: `layer_conflict` **229 → 128**, `branch_a` **214 → 230**, trays
+**237 → 191**, and 75 groups that used to ask which junk string was the street now report no address
+at all, which is the honest answer. `[A]` The three remaining curated trays are all real questions:
+two city contradictions and one genuine house-number disagreement (`Annenstraße 10` folder vs
+`Annenstraße 12` file name).
 
 ---
 
@@ -595,6 +612,13 @@ object — holds for the *layer package* but **not for the flat Search Object**,
 segment parses as a street fragment. `Baustelle Nord`, `Rohdaten`, `Woche 12` and `Kamera A` all do.
 `[A]` Recovery exists (the tray offers the file-name package as an option) but costs a question per
 distinct folder/file-name pair. `[A]`
+
+**Fix, 2026-09-13** — the same change as [F-04](#f-04): `Baustelle Nord` is weak evidence and no
+longer forms a package, so the file name's real street wins without a question. The owner's path now
+resolves to `street=Mühlenstraße hn=12`, `groupingKey ||||muhlenstraße|12`, phase `complete`, and
+`Baustelle Nord/1090 Mühlenstraße 12.jpg` joins the same group. `[A]` The flat Search Object also
+stopped being a *concatenation* of leftovers in the process: it used to read
+`street = "Baustelle Nord Mühlenstraße"`, which is what made the field look arbitrary.
 
 **Relation to [F-04](#f-04).** Same mechanism, worse consequence, and the reason F-04's severity is
 understated: F-04 records the extra question, F-11 records that the correct answer is dropped from

@@ -10,6 +10,17 @@ export const NOISE_SEGMENTS = new Set([
   'images',
   'bilder',
   'camera',
+  'kamera',
+  // Period folders. A construction site files by week, and `Woche 12` is not an address.
+  'woche',
+  'kw',
+  'tag',
+  'monat',
+  'jahr',
+  'week',
+  'day',
+  'month',
+  'year',
 ]);
 
 export function normalizeSegment(value: string): string {
@@ -22,6 +33,22 @@ export function normalizeSegment(value: string): string {
     .trim();
 }
 
+/**
+ * One spelling for one street. `Wilhelminenstr 141` and `Wilhelminenstraße 141` are the same address,
+ * so comparing them must not produce a question; `ß` folds to `ss` for the same reason.
+ * @see docs/specs/service/media-upload-service/upload-search-object.evidence-model.md
+ */
+export function foldStreetSpelling(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/ß/g, 'ss')
+    .replace(/\s+/g, ' ')
+    .replace(/([a-z]*)str\.?(?=\s|$)/g, (_match, prefix: string) => `${prefix}strasse`);
+}
+
 export function splitPathSegments(fullPath: string): string[] {
   return fullPath
     .split(/[\\/]+/)
@@ -30,7 +57,13 @@ export function splitPathSegments(fullPath: string): string[] {
 }
 
 export function isNoiseSegment(segment: string): boolean {
-  return NOISE_SEGMENTS.has(normalizeSegment(segment));
+  const normalized = normalizeSegment(segment);
+  if (NOISE_SEGMENTS.has(normalized)) {
+    return true;
+  }
+  // `Woche 12`, `KW 07`, `Kamera A`: a noise word plus a counter is still noise.
+  const [firstWord] = normalized.split(' ');
+  return /^[\w-]{1,3}$|^\d+$/.test(normalized.split(' ').slice(1).join('')) && NOISE_SEGMENTS.has(firstWord);
 }
 
 export function stripFileExtension(filename: string): string {
